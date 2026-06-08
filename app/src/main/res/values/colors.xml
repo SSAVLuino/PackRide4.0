@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material3 color scheme — deep orange primary for motorcycle theme -->
+    <color name="md_theme_primary">#BF360C</color>
+    <color name="md_theme_onPrimary">#FFFFFF</color>
+    <color name="md_theme_primaryContainer">#FFCCBC</color>
+    <color name="md_theme_onPrimaryContainer">#3E0800</color>
+    <color name="md_theme_secondary">#795548</color>
+    <color name="md_theme_onSecondary">#FFFFFF</color>
+    <color name="md_theme_secondaryContainer">#D7CCC8</color>
+    <color name="md_theme_onSecondaryContainer">#1C0E08</color>
+    <color name="md_theme_background">#FFFBFE</color>
+    <color name="md_theme_onBackground">#1C1B1F</color>
+    <color name="md_theme_surface">#FFFBFE</color>
+    <color name="md_theme_onSurface">#1C1B1F</color>
+    <color name="md_theme_error">#B3261E</color>
+    <color name="md_theme_onError">#FFFFFF</color>
+
+    <!-- Dark theme overrides (used automatically by DayNight) -->
+    <color name="md_theme_dark_primary">#FFAB91</color>
+    <color name="md_theme_dark_onPrimary">#5C1008</color>
+    <color name="md_theme_dark_background">#1C1B1F</color>
+    <color name="md_theme_dark_surface">#1C1B1F</color>
+</resources>

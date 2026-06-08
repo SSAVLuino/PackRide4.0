@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PackRide 4.0</string>
+    <string name="nav_home">Mappa</string>
+    <string name="nav_map_manager">Mappe offline</string>
+    <string name="nav_rides">Uscite</string>
+    <string name="nav_settings">Impostazioni</string>
+
+    <string name="home_title">PackRide 4.0</string>
+    <string name="map_manager_title">Gestione mappe offline</string>
+    <string name="auth_title">Accedi</string>
+    <string name="rides_title">Le mie uscite</string>
+    <string name="settings_title">Impostazioni</string>
+    <string name="routing_title">Navigazione</string>
+
+    <!-- Navigation service notification -->
+    <string name="nav_service_channel_id">navigation_channel</string>
+    <string name="nav_service_channel_name">Navigazione GPS</string>
+    <string name="nav_service_notification_title">PackRide — Navigazione attiva</string>
+    <string name="nav_service_notification_text">GPS in registrazione</string>
+
+    <!-- Permissions -->
+    <string name="permission_location_rationale">PackRide ha bisogno della posizione GPS per la navigazione e la condivisione in tempo reale con il gruppo.</string>
+    <string name="permission_notification_rationale">Le notifiche sono necessarie per mantenere attivo il servizio di navigazione in background.</string>
+</resources>

@@ -1,0 +1,45 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.dex
+bin/
+gen/
+out/
+release/
+*.class
+*.jar
+*.war
+*.ear
+
+# Gradle
+.gradle/
+build/
+gradle-app.setting
+!gradle-wrapper.jar
+.gradletasknamecache
+
+# Kotlin
+*.kotlin_module
+
+# MBTiles and large data files
+*.mbtiles
+*.osm.pbf
+app/src/main/assets/maps/
+
+# Secrets
+local.properties
+keystore.properties
+*.keystore
+*.jks
