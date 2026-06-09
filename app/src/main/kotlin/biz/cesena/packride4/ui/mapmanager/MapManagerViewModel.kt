@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import biz.cesena.packride4.data.local.AppDatabase
 import biz.cesena.packride4.data.local.MapRegion
+import biz.cesena.packride4.utils.ConnectivityUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.ktor.client.*
@@ -26,7 +27,9 @@ data class MapRegionUi(
 )
 
 data class MapManagerUiState(
-    val regions: List<MapRegionUi> = emptyList()
+    val regions: List<MapRegionUi> = emptyList(),
+    val showMobileDataWarning: String? = null,   // regionId pending confirmation
+    val errorMessage: String? = null
 )
 
 private const val GEOFABRIK = "https://download.geofabrik.de"
@@ -131,7 +134,31 @@ class MapManagerViewModel @Inject constructor(
         }
     }
 
+    fun confirmMobileDataDownload() {
+        val regionId = _uiState.value.showMobileDataWarning ?: return
+        _uiState.update { it.copy(showMobileDataWarning = null) }
+        startDownload(regionId)
+    }
+
+    fun dismissMobileDataWarning() {
+        _uiState.update { it.copy(showMobileDataWarning = null) }
+    }
+
     fun downloadRegion(regionId: String) {
+        when {
+            !ConnectivityUtils.isConnected(context) -> {
+                _uiState.update { it.copy(errorMessage = "Connessione assente — impossibile scaricare la mappa") }
+                return
+            }
+            !ConnectivityUtils.isWifi(context) -> {
+                _uiState.update { it.copy(showMobileDataWarning = regionId) }
+                return
+            }
+            else -> startDownload(regionId)
+        }
+    }
+
+    private fun startDownload(regionId: String) {
         viewModelScope.launch {
             setProgress(regionId, 0)
             try {

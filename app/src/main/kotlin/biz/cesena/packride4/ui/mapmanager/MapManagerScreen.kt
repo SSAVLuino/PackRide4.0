@@ -25,6 +25,23 @@ fun MapManagerScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    // Mobile data warning dialog
+    uiState.showMobileDataWarning?.let { regionId ->
+        val region = uiState.regions.find { it.id == regionId }
+        val sizeMb = region?.sizeMb ?: 0.0
+        AlertDialog(
+            onDismissRequest = viewModel::dismissMobileDataWarning,
+            title = { Text("Stai usando dati mobili") },
+            text = { Text("Il file è ~%.0f MB. Vuoi procedere con il download su rete mobile?".format(sizeMb)) },
+            confirmButton = {
+                TextButton(onClick = viewModel::confirmMobileDataDownload) { Text("Procedi") }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissMobileDataWarning) { Text("Annulla") }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("Mappe offline") })
@@ -35,6 +52,24 @@ fun MapManagerScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            // Error message banner
+            uiState.errorMessage?.let { msg ->
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Text(
+                        text = msg,
+                        modifier = Modifier.padding(12.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            }
+
             if (uiState.regions.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()

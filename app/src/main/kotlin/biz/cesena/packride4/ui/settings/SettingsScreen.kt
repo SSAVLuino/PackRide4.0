@@ -14,6 +14,7 @@ import biz.cesena.packride4.ui.settings.MapSourceMode
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    onNavigateToMapManager: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val prefs by viewModel.prefs.collectAsState()
@@ -223,6 +224,18 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // === Gestione mappe ===
+            Text("Gestione mappe", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+
+            Button(
+                onClick = onNavigateToMapManager,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Gestisci mappe offline")
             }
 
             Spacer(Modifier.height(24.dp))
