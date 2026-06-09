@@ -29,7 +29,7 @@ data class MapManagerUiState(
     val regions: List<MapRegionUi> = emptyList()
 )
 
-private const val CDN_BASE = "https://pub-d9bdcaa84c63461eba5788c909b63b18.r2.dev"
+private const val GEOFABRIK = "https://download.geofabrik.de"
 
 data class RegionCatalogEntry(
     val id: String,
@@ -46,8 +46,8 @@ private val AVAILABLE_REGIONS = listOf(
         id = "italia-nord-ovest",
         name = "Italia — Nord Ovest",
         country = "Italia",
-        downloadUrl = "$CDN_BASE/Italia/nord-ovest-shortbread-1.0.mbtiles",
-        fileName = "nord-ovest-shortbread-1.0.mbtiles",
+        downloadUrl = "$GEOFABRIK/europe/italy/nord-ovest-shortbread-1.0.mbtiles",
+        fileName = "italia-nord-ovest.mbtiles",
         estimatedSizeMb = 731.0,
         bbox = "6.6,43.8,9.2,46.5"
     ),
@@ -55,8 +55,8 @@ private val AVAILABLE_REGIONS = listOf(
         id = "italia-nord-est",
         name = "Italia — Nord Est",
         country = "Italia",
-        downloadUrl = "$CDN_BASE/Italia/nord-est-shortbread-1.0.mbtiles",
-        fileName = "nord-est-shortbread-1.0.mbtiles",
+        downloadUrl = "$GEOFABRIK/europe/italy/nord-est-shortbread-1.0.mbtiles",
+        fileName = "italia-nord-est.mbtiles",
         estimatedSizeMb = 600.0,
         bbox = "9.2,44.8,14.0,47.1"
     ),
@@ -64,8 +64,8 @@ private val AVAILABLE_REGIONS = listOf(
         id = "italia-centro",
         name = "Italia — Centro",
         country = "Italia",
-        downloadUrl = "$CDN_BASE/Italia/centro-shortbread-1.0.mbtiles",
-        fileName = "centro-shortbread-1.0.mbtiles",
+        downloadUrl = "$GEOFABRIK/europe/italy/centro-shortbread-1.0.mbtiles",
+        fileName = "italia-centro.mbtiles",
         estimatedSizeMb = 500.0,
         bbox = "9.7,41.2,14.8,44.5"
     ),
@@ -73,8 +73,8 @@ private val AVAILABLE_REGIONS = listOf(
         id = "italia-sud",
         name = "Italia — Sud",
         country = "Italia",
-        downloadUrl = "$CDN_BASE/Italia/sud-shortbread-1.0.mbtiles",
-        fileName = "sud-shortbread-1.0.mbtiles",
+        downloadUrl = "$GEOFABRIK/europe/italy/sud-shortbread-1.0.mbtiles",
+        fileName = "italia-sud.mbtiles",
         estimatedSizeMb = 450.0,
         bbox = "11.0,37.9,18.6,42.0"
     ),
@@ -82,8 +82,8 @@ private val AVAILABLE_REGIONS = listOf(
         id = "italia-isole",
         name = "Italia — Isole",
         country = "Italia",
-        downloadUrl = "$CDN_BASE/Italia/isole-shortbread-1.0.mbtiles",
-        fileName = "isole-shortbread-1.0.mbtiles",
+        downloadUrl = "$GEOFABRIK/europe/italy/isole-shortbread-1.0.mbtiles",
+        fileName = "italia-isole.mbtiles",
         estimatedSizeMb = 350.0,
         bbox = "8.1,36.6,15.7,38.3"
     ),
@@ -91,8 +91,8 @@ private val AVAILABLE_REGIONS = listOf(
         id = "svizzera",
         name = "Svizzera",
         country = "Svizzera",
-        downloadUrl = "$CDN_BASE/Switzerland/switzerland-shortbread-1.0.mbtiles",
-        fileName = "switzerland-shortbread-1.0.mbtiles",
+        downloadUrl = "$GEOFABRIK/europe/switzerland-shortbread-1.0.mbtiles",
+        fileName = "svizzera.mbtiles",
         estimatedSizeMb = 400.0,
         bbox = "5.9,45.8,10.5,47.8"
     ),
