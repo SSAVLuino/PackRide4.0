@@ -135,27 +135,23 @@ fun HomeScreen(
             }
         }
 
-        // Chip sorgente attiva (in alto a destra)
-        Surface(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(end = 12.dp, top = 12.dp),
-            color = if (uiState.mapStyleJson.contains("localhost"))
-                MaterialTheme.colorScheme.primaryContainer
-            else
-                MaterialTheme.colorScheme.surfaceVariant,
-            shape = MaterialTheme.shapes.small,
-            tonalElevation = 2.dp
-        ) {
-            Text(
-                text = if (uiState.mapStyleJson.contains("localhost")) "● OFFLINE" else "● ONLINE",
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                style = MaterialTheme.typography.labelSmall,
-                color = if (uiState.mapStyleJson.contains("localhost"))
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                else
-                    MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        // Chip "WEB" visibile solo quando si usano tile online
+        if (!uiState.mapStyleJson.contains("localhost")) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(end = 12.dp, top = 12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = MaterialTheme.shapes.small,
+                tonalElevation = 2.dp
+            ) {
+                Text(
+                    text = "WEB",
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
 
         // Permission rationale
