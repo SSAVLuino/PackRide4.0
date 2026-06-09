@@ -18,8 +18,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import biz.cesena.packride4.ui.theme.SidebarBackground
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -50,8 +50,6 @@ private data class SidebarItem(
 private val SIDEBAR_COLLAPSED_WIDTH = 64.dp
 private val SIDEBAR_EXPANDED_WIDTH = 220.dp
 
-// Sidebar background: dark surface with high alpha
-private val SidebarBackground = Color(0xEB1A1A1A)
 
 @Composable
 fun AppNavigation() {
