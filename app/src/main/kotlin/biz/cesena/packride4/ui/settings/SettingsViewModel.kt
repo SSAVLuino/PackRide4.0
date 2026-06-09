@@ -2,14 +2,16 @@ package biz.cesena.packride4.ui.settings
 
 import android.content.Context
 import androidx.datastore.preferences.core.*
-import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import biz.cesena.packride4.data.local.appDataStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+enum class MapSourceMode { ONLINE, OFFLINE, AUTO }
 
 data class AppPrefs(
     val voiceGuidanceEnabled: Boolean = true,
@@ -17,10 +19,9 @@ data class AppPrefs(
     val gpsIntervalSeconds: Int = 2,
     val autoExportGpx: Boolean = false,
     val offlineMinutes: Int = 15,
-    val pollIntervalSeconds: Int = 15
+    val pollIntervalSeconds: Int = 15,
+    val mapSourceMode: MapSourceMode = MapSourceMode.AUTO
 )
-
-private val Context.dataStore by preferencesDataStore("app_prefs")
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -34,9 +35,10 @@ class SettingsViewModel @Inject constructor(
         val AUTO_EXPORT_GPX = booleanPreferencesKey("auto_export_gpx")
         val OFFLINE_MINUTES = intPreferencesKey("offline_minutes")
         val POLL_INTERVAL = intPreferencesKey("poll_interval_seconds")
+        val MAP_SOURCE = stringPreferencesKey("map_source_mode")
     }
 
-    val prefs: StateFlow<AppPrefs> = context.dataStore.data
+    val prefs: StateFlow<AppPrefs> = context.appDataStore.data
         .map { p ->
             AppPrefs(
                 voiceGuidanceEnabled = p[Keys.VOICE_GUIDANCE] ?: true,
@@ -44,7 +46,10 @@ class SettingsViewModel @Inject constructor(
                 gpsIntervalSeconds = p[Keys.GPS_INTERVAL] ?: 2,
                 autoExportGpx = p[Keys.AUTO_EXPORT_GPX] ?: false,
                 offlineMinutes = p[Keys.OFFLINE_MINUTES] ?: 15,
-                pollIntervalSeconds = p[Keys.POLL_INTERVAL] ?: 15
+                pollIntervalSeconds = p[Keys.POLL_INTERVAL] ?: 15,
+                mapSourceMode = runCatching {
+                    MapSourceMode.valueOf(p[Keys.MAP_SOURCE] ?: "AUTO")
+                }.getOrDefault(MapSourceMode.AUTO)
             )
         }
         .stateIn(viewModelScope, SharingStarted.Eagerly, AppPrefs())
@@ -55,10 +60,9 @@ class SettingsViewModel @Inject constructor(
     fun setAutoExportGpx(v: Boolean) = set { it[Keys.AUTO_EXPORT_GPX] = v }
     fun setOfflineMinutes(v: Int) = set { it[Keys.OFFLINE_MINUTES] = v }
     fun setPollInterval(v: Int) = set { it[Keys.POLL_INTERVAL] = v }
+    fun setMapSourceMode(v: MapSourceMode) = set { it[Keys.MAP_SOURCE] = v.name }
 
     private fun set(block: (MutablePreferences) -> Unit) {
-        viewModelScope.launch {
-            context.dataStore.edit { block(it) }
-        }
+        viewModelScope.launch { context.appDataStore.edit { block(it) } }
     }
 }

@@ -9,6 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import biz.cesena.packride4.ui.settings.MapSourceMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,6 +30,47 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Spacer(Modifier.height(8.dp))
+
+            // === Mappa ===
+            Text("Mappa", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+
+            SettingRow(
+                label = "Sorgente mappa",
+                description = when (prefs.mapSourceMode) {
+                    MapSourceMode.AUTO    -> "Usa offline se disponibile, altrimenti online"
+                    MapSourceMode.OFFLINE -> "Solo mappe scaricate sul dispositivo"
+                    MapSourceMode.ONLINE  -> "Sempre mappa online (richiede connessione)"
+                }
+            ) {
+                var expanded by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+                    OutlinedTextField(
+                        value = when (prefs.mapSourceMode) {
+                            MapSourceMode.AUTO    -> "Auto"
+                            MapSourceMode.OFFLINE -> "Solo offline"
+                            MapSourceMode.ONLINE  -> "Solo online"
+                        },
+                        onValueChange = {},
+                        readOnly = true,
+                        modifier = Modifier.width(140.dp).menuAnchor(),
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) }
+                    )
+                    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        listOf(
+                            MapSourceMode.AUTO    to "Auto",
+                            MapSourceMode.OFFLINE to "Solo offline",
+                            MapSourceMode.ONLINE  to "Solo online"
+                        ).forEach { (mode, label) ->
+                            DropdownMenuItem(
+                                text = { Text(label) },
+                                onClick = { viewModel.setMapSourceMode(mode); expanded = false }
+                            )
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             // === Navigation ===
             Text("Navigazione", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)

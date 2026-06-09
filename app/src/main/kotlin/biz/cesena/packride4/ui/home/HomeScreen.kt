@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,16 +20,10 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
+import org.maplibre.android.maps.MapboxMap
 import org.maplibre.android.maps.Style
+import biz.cesena.packride4.ui.settings.MapSourceMode
 
-/**
- * Home screen: full-screen MapLibre map with GPS position and a FAB to start navigation.
- *
- * Offline tiles are served from a local MBTiles file placed in:
- *   app/src/main/assets/maps/<region>.mbtiles
- * The style JSON references the tile source via the `mbtiles://` scheme handled by MapLibre.
- * When no offline tiles are available it falls back to OSM raster tiles.
- */
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun HomeScreen(
@@ -39,11 +34,11 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     val locationPermissions = rememberMultiplePermissionsState(
-        listOf(
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        )
+        listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
     )
+
+    // Keep a reference to the map to update the style when source changes
+    var mapInstance by remember { mutableStateOf<MapboxMap?>(null) }
 
     LaunchedEffect(Unit) {
         MapLibre.getInstance(context)
@@ -53,54 +48,33 @@ fun HomeScreen(
     }
 
     LaunchedEffect(locationPermissions.allPermissionsGranted) {
-        if (locationPermissions.allPermissionsGranted) {
-            viewModel.startLocationUpdates()
-        }
+        if (locationPermissions.allPermissionsGranted) viewModel.startLocationUpdates()
+    }
+
+    // Update MapLibre style whenever source changes
+    LaunchedEffect(uiState.mapStyleJson) {
+        mapInstance?.setStyle(Style.Builder().fromJson(uiState.mapStyleJson))
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // MapLibre map view
+
         AndroidView(
             factory = { ctx ->
                 MapView(ctx).also { mapView ->
                     mapView.getMapAsync { map ->
-                        // Use OSM raster tiles as default (replace with local MBTiles style when available)
-                        val styleJson = """
-                            {
-                              "version": 8,
-                              "sources": {
-                                "osm": {
-                                  "type": "raster",
-                                  "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-                                  "tileSize": 256,
-                                  "attribution": "© OpenStreetMap contributors"
-                                }
-                              },
-                              "layers": [{
-                                "id": "osm-tiles",
-                                "type": "raster",
-                                "source": "osm"
-                              }]
-                            }
-                        """.trimIndent()
-
-                        map.setStyle(Style.Builder().fromJson(styleJson)) {
-                            // Style loaded — enable location component if permission granted
+                        mapInstance = map
+                        map.setStyle(Style.Builder().fromJson(uiState.mapStyleJson)) {
                             map.uiSettings.isCompassEnabled = true
                             map.uiSettings.isRotateGesturesEnabled = true
                         }
-
-                        // Zoom to Italy as default view
-                        map.moveCamera(
-                            CameraUpdateFactory.newLatLngZoom(LatLng(42.5, 12.5), 5.5)
-                        )
+                        map.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(42.5, 12.5), 5.5))
                     }
                 }
             },
             modifier = Modifier.fillMaxSize()
         )
 
-        // GPS position indicator
+        // GPS position chip
         uiState.lastKnownPosition?.let { pos ->
             Surface(
                 modifier = Modifier
@@ -116,21 +90,23 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Icon(
-                        Icons.Default.MyLocation,
-                        contentDescription = null,
+                        Icons.Default.MyLocation, contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(16.dp)
                     )
-                    Text(
-                        text = "%.5f, %.5f".format(pos.latitude, pos.longitude),
-                        style = MaterialTheme.typography.labelSmall
-                    )
+                    Text("%.5f, %.5f".format(pos.latitude, pos.longitude),
+                        style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
 
-        // Offline notice when no tiles are downloaded
-        if (!uiState.hasOfflineMaps) {
+        // Banner: nessuna mappa offline quando modalità OFFLINE o AUTO senza mappe
+        val showOfflineBanner = when (uiState.mapSourceMode) {
+            MapSourceMode.OFFLINE -> !uiState.hasOfflineMaps
+            MapSourceMode.AUTO -> !uiState.hasOfflineMaps
+            MapSourceMode.ONLINE -> false
+        }
+        if (showOfflineBanner) {
             Surface(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -139,36 +115,64 @@ fun HomeScreen(
                 shape = MaterialTheme.shapes.medium,
                 tonalElevation = 4.dp
             ) {
-                Text(
-                    text = "Nessuna mappa offline — scarica una regione dal menu Mappe",
-                    style = MaterialTheme.typography.bodySmall,
+                Row(
                     modifier = Modifier.padding(12.dp),
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.WifiOff, contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Text(
+                        if (uiState.mapSourceMode == MapSourceMode.OFFLINE)
+                            "Nessuna mappa offline — scarica una regione dal menu Mappe"
+                        else
+                            "Nessuna mappa offline — uso mappa online",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
             }
+        }
+
+        // Chip sorgente attiva (in alto a destra)
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(end = 12.dp, top = 12.dp),
+            color = if (uiState.mapStyleJson.contains("localhost"))
+                MaterialTheme.colorScheme.primaryContainer
+            else
+                MaterialTheme.colorScheme.surfaceVariant,
+            shape = MaterialTheme.shapes.small,
+            tonalElevation = 2.dp
+        ) {
+            Text(
+                text = if (uiState.mapStyleJson.contains("localhost")) "● OFFLINE" else "● ONLINE",
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.labelSmall,
+                color = if (uiState.mapStyleJson.contains("localhost"))
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
 
         // Permission rationale
         if (!locationPermissions.allPermissionsGranted) {
             Surface(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(16.dp),
+                modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
                 color = MaterialTheme.colorScheme.errorContainer,
                 shape = MaterialTheme.shapes.medium
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        "Posizione GPS necessaria",
+                    Text("Posizione GPS necessaria",
                         style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onErrorContainer
-                    )
+                        color = MaterialTheme.colorScheme.onErrorContainer)
                     Spacer(Modifier.height(4.dp))
-                    Text(
-                        "PackRide ha bisogno della posizione per la navigazione e la condivisione in tempo reale.",
+                    Text("PackRide ha bisogno della posizione per la navigazione.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onErrorContainer
-                    )
+                        color = MaterialTheme.colorScheme.onErrorContainer)
                     Spacer(Modifier.height(8.dp))
                     Button(onClick = { locationPermissions.launchMultiplePermissionRequest() }) {
                         Text("Concedi permesso")
@@ -177,19 +181,14 @@ fun HomeScreen(
             }
         }
 
-        // FAB — start navigation
+        // FAB navigazione
         FloatingActionButton(
             onClick = onNavigateToRouting,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
             containerColor = MaterialTheme.colorScheme.primary
         ) {
-            Icon(
-                Icons.Default.Navigation,
-                contentDescription = "Avvia navigazione",
-                tint = MaterialTheme.colorScheme.onPrimary
-            )
+            Icon(Icons.Default.Navigation, contentDescription = "Avvia navigazione",
+                tint = MaterialTheme.colorScheme.onPrimary)
         }
     }
 }

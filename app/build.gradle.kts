@@ -113,6 +113,7 @@ dependencies {
     implementation(libs.maplibre.android)
 
     // GraphHopper (offline routing)
+    implementation(libs.nanohttpd)
     implementation(libs.graphhopper.core) {
         exclude(group = "com.google.protobuf", module = "protobuf-java")
     }
