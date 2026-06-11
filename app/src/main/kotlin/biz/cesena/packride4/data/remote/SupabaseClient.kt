@@ -3,7 +3,7 @@ package biz.cesena.packride4.data.remote
 import biz.cesena.packride4.BuildConfig
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.createSupabaseClient
-import io.github.jan.supabase.gotrue.GoTrue
+import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.realtime.Realtime
 import io.github.jan.supabase.storage.Storage
@@ -21,7 +21,7 @@ class SupabaseClientProvider @Inject constructor() {
         supabaseUrl = BuildConfig.SUPABASE_URL,
         supabaseKey = BuildConfig.SUPABASE_ANON_KEY
     ) {
-        install(GoTrue)
+        install(Auth)
         install(Postgrest)
         install(Realtime)
         install(Storage)

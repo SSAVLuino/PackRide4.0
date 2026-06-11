@@ -71,11 +71,11 @@ graphhopper-core = { group = "com.graphhopper", name = "graphhopper-core", versi
 nanohttpd = { group = "org.nanohttpd", name = "nanohttpd", version.ref = "nanohttpd" }
 
 # Supabase-kt BOM + modules
-supabase-bom = { group = "io.github.jan-tennermann", name = "supabase-kt-bom", version.ref = "supabaseKt" }
-supabase-gotrue = { group = "io.github.jan-tennermann", name = "gotrue-kt" }
-supabase-postgrest = { group = "io.github.jan-tennermann", name = "postgrest-kt" }
-supabase-realtime = { group = "io.github.jan-tennermann", name = "realtime-kt" }
-supabase-storage = { group = "io.github.jan-tennermann", name = "storage-kt" }
+supabase-bom = { group = "io.github.jan-tennert.supabase", name = "bom", version.ref = "supabaseKt" }
+supabase-gotrue = { group = "io.github.jan-tennert.supabase", name = "auth-kt" }
+supabase-postgrest = { group = "io.github.jan-tennert.supabase", name = "postgrest-kt" }
+supabase-realtime = { group = "io.github.jan-tennert.supabase", name = "realtime-kt" }
+supabase-storage = { group = "io.github.jan-tennert.supabase", name = "storage-kt" }
 
 # Ktor (Supabase engine + HTTP downloads)
 ktor-client-android = { group = "io.ktor", name = "ktor-client-android", version.ref = "ktor" }
