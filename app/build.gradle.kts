@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -22,8 +25,8 @@ android {
 
         // Read secrets from local.properties (not committed)
         val localProps = rootProject.file("local.properties")
-        val props = java.util.Properties().apply {
-            if (localProps.exists()) load(localProps.inputStream())
+        val props = Properties().apply {
+            if (localProps.exists()) load(FileInputStream(localProps))
         }
         buildConfigField("String", "SUPABASE_URL", "\"${props.getProperty("SUPABASE_URL", "")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${props.getProperty("SUPABASE_ANON_KEY", "")}\"")
