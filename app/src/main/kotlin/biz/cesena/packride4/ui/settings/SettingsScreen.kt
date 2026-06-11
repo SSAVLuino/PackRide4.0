@@ -53,7 +53,7 @@ fun SettingsScreen(
                         },
                         onValueChange = {},
                         readOnly = true,
-                        modifier = Modifier.width(140.dp).menuAnchor(),
+                        modifier = Modifier.width(140.dp).menuAnchor(MenuAnchorType.PrimaryNotEditable, true),
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) }
                     )
                     ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -99,7 +99,7 @@ fun SettingsScreen(
                         readOnly = true,
                         modifier = Modifier
                             .width(120.dp)
-                            .menuAnchor(),
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, true),
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) }
                     )
                     ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -134,7 +134,7 @@ fun SettingsScreen(
                         readOnly = true,
                         modifier = Modifier
                             .width(100.dp)
-                            .menuAnchor(),
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, true),
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) }
                     )
                     ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -179,7 +179,7 @@ fun SettingsScreen(
                         readOnly = true,
                         modifier = Modifier
                             .width(110.dp)
-                            .menuAnchor(),
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, true),
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) }
                     )
                     ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -209,7 +209,7 @@ fun SettingsScreen(
                         readOnly = true,
                         modifier = Modifier
                             .width(100.dp)
-                            .menuAnchor(),
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, true),
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) }
                     )
                     ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
