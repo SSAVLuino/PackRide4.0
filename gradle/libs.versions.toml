@@ -18,7 +18,7 @@ graphhopper = "9.1"
 nanohttpd = "2.3.1"
 
 supabaseKt = "3.0.3"
-ktor = "2.3.12"
+ktor = "3.0.1"
 
 coreKtx = "1.13.1"
 appcompat = "1.7.0"
