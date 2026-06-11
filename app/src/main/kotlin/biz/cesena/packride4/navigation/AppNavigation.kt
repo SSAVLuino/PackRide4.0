@@ -79,11 +79,13 @@ fun AppNavigation() {
 
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // ── Content (NavHost fills all space, no padding for sidebar/bar) ──
+        // ── Content (NavHost fills all space; left padding reserves room for sidebar except on map) ──
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = if (showSidebar && currentRoute != Screen.Home.route) SIDEBAR_COLLAPSED_WIDTH else 0.dp)
         ) {
             composable(Screen.Home.route) {
                 HomeScreen(

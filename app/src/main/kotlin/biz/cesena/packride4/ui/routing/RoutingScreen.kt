@@ -49,7 +49,7 @@ fun RoutingScreen(
                 value = uiState.destinationQuery,
                 onValueChange = viewModel::onDestinationQueryChange,
                 label = { Text("Destinazione") },
-                placeholder = { Text("Cerca indirizzo o coordinate…") },
+                placeholder = { Text("Indirizzo, città o lat,lon…") },
                 modifier = Modifier.fillMaxWidth(),
                 trailingIcon = {
                     IconButton(onClick = viewModel::searchDestination) {

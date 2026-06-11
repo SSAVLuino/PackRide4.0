@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import biz.cesena.packride4.service.NavigationService
+import biz.cesena.packride4.utils.ConnectivityUtils
 import com.graphhopper.GHRequest
 import com.graphhopper.GHResponse
 import com.graphhopper.GraphHopper
@@ -13,6 +14,10 @@ import com.graphhopper.config.Profile
 import com.graphhopper.util.Parameters
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.request.get
+import io.ktor.client.request.header
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +25,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
 import java.io.File
 import javax.inject.Inject
 
@@ -33,9 +39,13 @@ data class RoutingUiState(
     val errorMessage: String? = null
 )
 
+@Serializable
+private data class NominatimResult(val lat: String, val lon: String)
+
 @HiltViewModel
 class RoutingViewModel @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val httpClient: HttpClient
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RoutingUiState())
@@ -45,22 +55,33 @@ class RoutingViewModel @Inject constructor(
         _uiState.update { it.copy(destinationQuery = value, errorMessage = null, routeSummary = null) }
 
     /**
-     * Parse the destination query as "lat,lon" and compute a route using GraphHopper.
-     * The OSM PBF file must be pre-placed in app files directory.
+     * Risolve la destinazione: se è "lat,lon" la usa direttamente, altrimenti
+     * cerca l'indirizzo/luogo online (Nominatim) — richiede connessione.
      */
     fun searchDestination() {
         val query = _uiState.value.destinationQuery.trim()
-        val parts = query.split(",").mapNotNull { it.trim().toDoubleOrNull() }
-        if (parts.size != 2) {
-            _uiState.update { it.copy(errorMessage = "Inserisci coordinate come: lat, lon (es. 44.14, 12.24)") }
-            return
-        }
-        val destLat = parts[0]
-        val destLon = parts[1]
+        if (query.isEmpty()) return
+
+        val coords = query.split(",").mapNotNull { it.trim().toDoubleOrNull() }
 
         viewModelScope.launch {
             _uiState.update { it.copy(isCalculating = true, errorMessage = null) }
             try {
+                val (destLat, destLon) = if (coords.size == 2) {
+                    coords[0] to coords[1]
+                } else {
+                    if (!ConnectivityUtils.isConnected(context)) {
+                        _uiState.update { it.copy(errorMessage = "Ricerca indirizzo non disponibile offline — usa coordinate (lat, lon) o connettiti a internet") }
+                        return@launch
+                    }
+                    val result = geocode(query)
+                        ?: run {
+                            _uiState.update { it.copy(errorMessage = "Nessun risultato trovato per \"$query\"") }
+                            return@launch
+                        }
+                    result
+                }
+
                 val summary = withContext(Dispatchers.IO) {
                     calculateRoute(destLat, destLon)
                 }
@@ -71,6 +92,18 @@ class RoutingViewModel @Inject constructor(
                 _uiState.update { it.copy(isCalculating = false) }
             }
         }
+    }
+
+    private suspend fun geocode(query: String): Pair<Double, Double>? = withContext(Dispatchers.IO) {
+        val results: List<NominatimResult> = httpClient.get("https://nominatim.openstreetmap.org/search") {
+            header("User-Agent", "PackRide4/4.0 (biz.cesena.packride4)")
+            url {
+                parameters.append("format", "json")
+                parameters.append("limit", "1")
+                parameters.append("q", query)
+            }
+        }.body()
+        results.firstOrNull()?.let { it.lat.toDoubleOrNull()?.let { lat -> lat to (it.lon.toDoubleOrNull() ?: return@let null) } }
     }
 
     private fun calculateRoute(destLat: Double, destLon: Double): RouteSummary {
