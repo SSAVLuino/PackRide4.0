@@ -85,8 +85,8 @@ class RoutingViewModel @Inject constructor(
         val hopper = GraphHopper().apply {
             osmFile.takeIf { it.exists() }?.let { setOSMFile(it.absolutePath) }
             graphHopperLocation = graphDir.absolutePath
-            setProfiles(Profile("motorcycle").setVehicle("motorcycle").setWeighting("fastest"))
-            chPreparationHandler.setCHProfiles(CHProfile("motorcycle"))
+            setProfiles(Profile("car"))
+            chPreparationHandler.setCHProfiles(CHProfile("car"))
         }
         hopper.importOrLoad()
 
@@ -95,7 +95,7 @@ class RoutingViewModel @Inject constructor(
         val startLon = 12.2435
 
         val req = GHRequest(startLat, startLon, destLat, destLon).apply {
-            profile = "motorcycle"
+            profile = "car"
             putHint(Parameters.Routing.INSTRUCTIONS, true)
         }
         val resp: GHResponse = hopper.route(req)
