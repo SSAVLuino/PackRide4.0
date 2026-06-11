@@ -13,6 +13,7 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.utils.io.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
@@ -160,7 +161,7 @@ class MapManagerViewModel @Inject constructor(
     }
 
     private fun startDownload(regionId: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             setProgress(regionId, 0)
             try {
                 val entry = AVAILABLE_REGIONS.find { it.id == regionId } ?: return@launch
@@ -175,17 +176,21 @@ class MapManagerViewModel @Inject constructor(
 
                 val totalBytes = response.headers[HttpHeaders.ContentLength]?.toLongOrNull() ?: 1L
                 var bytesWritten = 0L
+                var lastReportedPct = -1
 
                 destFile.outputStream().buffered().use { out ->
                     val channel = response.bodyAsChannel()
-                    val buffer = ByteArray(8192)
+                    val buffer = ByteArray(65536)
                     while (!channel.isClosedForRead) {
                         val read = channel.readAvailable(buffer, 0, buffer.size)
                         if (read <= 0) break
                         out.write(buffer, 0, read)
                         bytesWritten += read
                         val pct = ((bytesWritten.toDouble() / totalBytes) * 100).toInt().coerceIn(0, 99)
-                        setProgress(regionId, pct)
+                        if (pct != lastReportedPct) {
+                            lastReportedPct = pct
+                            setProgress(regionId, pct)
+                        }
                     }
                 }
 
