@@ -85,7 +85,7 @@ class RoutingViewModel @Inject constructor(
         val hopper = GraphHopper().apply {
             osmFile.takeIf { it.exists() }?.let { setOSMFile(it.absolutePath) }
             graphHopperLocation = graphDir.absolutePath
-            setProfiles(Profile("motorcycle").apply { vehicle = "motorcycle"; weighting = "fastest" })
+            setProfiles(Profile("motorcycle").setVehicle("motorcycle").setWeighting("fastest"))
             chPreparationHandler.setCHProfiles(CHProfile("motorcycle"))
         }
         hopper.importOrLoad()

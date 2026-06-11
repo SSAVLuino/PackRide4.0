@@ -20,7 +20,7 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
-import org.maplibre.android.maps.MapboxMap
+import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.Style
 import biz.cesena.packride4.ui.settings.MapSourceMode
 
@@ -38,7 +38,7 @@ fun HomeScreen(
     )
 
     // Keep a reference to the map to update the style when source changes
-    var mapInstance by remember { mutableStateOf<MapboxMap?>(null) }
+    var mapInstance by remember { mutableStateOf<MapLibreMap?>(null) }
 
     LaunchedEffect(Unit) {
         MapLibre.getInstance(context)
