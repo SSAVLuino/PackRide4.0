@@ -74,18 +74,15 @@ fun HomeScreen(
         val mapView = mapViewRef
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             when (event) {
-                androidx.lifecycle.Lifecycle.Event.ON_CREATE -> mapView?.onCreate(null)
                 androidx.lifecycle.Lifecycle.Event.ON_START -> mapView?.onStart()
                 androidx.lifecycle.Lifecycle.Event.ON_RESUME -> mapView?.onResume()
                 androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> mapView?.onPause()
                 androidx.lifecycle.Lifecycle.Event.ON_STOP -> mapView?.onStop()
-                androidx.lifecycle.Lifecycle.Event.ON_DESTROY -> mapView?.onDestroy()
                 else -> {}
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         if (mapView != null) {
-            mapView.onCreate(null)
             mapView.onStart()
             mapView.onResume()
         }
@@ -93,7 +90,6 @@ fun HomeScreen(
             lifecycleOwner.lifecycle.removeObserver(observer)
             mapView?.onPause()
             mapView?.onStop()
-            mapView?.onDestroy()
         }
     }
 
@@ -136,6 +132,11 @@ fun HomeScreen(
                     }
                     mapViewRef = mapView
                 }
+            },
+            onRelease = { mapView ->
+                mapView.onPause()
+                mapView.onStop()
+                mapView.onDestroy()
             },
             modifier = Modifier.fillMaxSize()
         )
