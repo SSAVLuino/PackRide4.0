@@ -195,7 +195,7 @@ fun HomeScreen(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(16.dp),
+                .padding(start = 64.dp + 16.dp, bottom = 16.dp),
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         ) {
             Icon(
