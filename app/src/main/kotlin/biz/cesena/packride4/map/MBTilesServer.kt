@@ -2,7 +2,9 @@ package biz.cesena.packride4.map
 
 import android.database.sqlite.SQLiteDatabase
 import fi.iki.elonen.NanoHTTPD
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.util.zip.GZIPInputStream
 
 /**
  * Lightweight HTTP server that serves vector tiles from local MBTiles (SQLite) files.
@@ -44,13 +46,13 @@ class MBTilesServer(port: Int = 8787) : NanoHTTPD(port) {
         synchronized(databases) {
             for (db in databases) {
                 val tile = queryTile(db, z, x, tmsY) ?: continue
+                val decompressed = decompressIfGzip(tile)
                 return newFixedLengthResponse(
                     Response.Status.OK,
                     "application/x-protobuf",
-                    tile.inputStream(),
-                    tile.size.toLong()
+                    decompressed.inputStream(),
+                    decompressed.size.toLong()
                 ).apply {
-                    addHeader("Content-Encoding", "gzip")
                     addHeader("Access-Control-Allow-Origin", "*")
                 }
             }
@@ -67,6 +69,14 @@ class MBTilesServer(port: Int = 8787) : NanoHTTPD(port) {
                 if (cursor.moveToFirst()) cursor.getBlob(0) else null
             }
         }.getOrNull()
+
+    private fun decompressIfGzip(data: ByteArray): ByteArray {
+        // gzip magic number: 0x1f 0x8b
+        if (data.size < 2 || data[0] != 0x1f.toByte() || data[1] != 0x8b.toByte()) return data
+        return runCatching {
+            GZIPInputStream(data.inputStream()).use { it.readBytes() }
+        }.getOrDefault(data)
+    }
 
     private fun notFound() =
         newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "")
