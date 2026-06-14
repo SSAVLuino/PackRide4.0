@@ -102,15 +102,18 @@ object ShortbreadStyle {
     }
     """.trimIndent()
 
+    // tile.openstreetmap.org enforces a strict usage policy and often returns 403
+    // (blank/white tiles) for traffic without a registered User-Agent. CartoDB's
+    // basemaps are free to use from apps and don't have this restriction.
     val online: String = """
     {
       "version": 8,
       "sources": {
         "osm": {
           "type": "raster",
-          "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+          "tiles": ["https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"],
           "tileSize": 256,
-          "attribution": "© OpenStreetMap contributors"
+          "attribution": "© OpenStreetMap contributors © CARTO"
         }
       },
       "layers": [{ "id": "osm", "type": "raster", "source": "osm" }]
