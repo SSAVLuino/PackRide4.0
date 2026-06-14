@@ -86,6 +86,8 @@ fun HomeScreen(
                         map.setStyle(Style.Builder().fromJson(uiState.mapStyleJson)) { style ->
                             map.uiSettings.isCompassEnabled = true
                             map.uiSettings.isRotateGesturesEnabled = true
+                            val statusBarPx = (ctx.resources.displayMetrics.density * 56).toInt()
+                            map.uiSettings.setCompassMargins(0, statusBarPx, 0, 0)
                             addUserLocationLayer(style)
                         }
                         map.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(42.5, 12.5), 5.5))
