@@ -2,9 +2,13 @@ package biz.cesena.packride4.ui.home
 
 import android.Manifest
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.WifiOff
+import biz.cesena.packride4.debug.DebugLog
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,6 +46,7 @@ fun HomeScreen(
 
     // Keep a reference to the map to update the style when source changes
     var mapInstance by remember { mutableStateOf<MapLibreMap?>(null) }
+    var showDebugLog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         MapLibre.getInstance(context)
@@ -145,6 +150,22 @@ fun HomeScreen(
             }
         }
 
+        // Debug log viewer (no-adb diagnostics)
+        FloatingActionButton(
+            onClick = { showDebugLog = true },
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(16.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ) {
+            Icon(
+                Icons.Default.BugReport,
+                contentDescription = "Log di debug",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
         // Follow-GPS toggle
         FloatingActionButton(
             onClick = { viewModel.toggleFollow() },
@@ -192,7 +213,33 @@ fun HomeScreen(
                 }
             }
         }
+
+        if (showDebugLog) {
+            DebugLogDialog(onDismiss = { showDebugLog = false })
+        }
     }
+}
+
+@Composable
+private fun DebugLogDialog(onDismiss: () -> Unit) {
+    val lines by DebugLog.lines.collectAsState()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Log di debug") },
+        text = {
+            LazyColumn(modifier = Modifier.fillMaxWidth().height(400.dp)) {
+                items(lines) { line ->
+                    Text(line, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Chiudi") }
+        },
+        dismissButton = {
+            TextButton(onClick = { DebugLog.clear() }) { Text("Pulisci") }
+        }
+    )
 }
 
 /** Adds (or re-adds, after a style change) a source/layer to draw the GPS position as a blue dot. */
