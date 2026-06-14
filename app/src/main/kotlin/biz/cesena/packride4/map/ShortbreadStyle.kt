@@ -10,7 +10,7 @@ object ShortbreadStyle {
     fun offline(tilesUrl: String = "http://localhost:8787/tiles/{z}/{x}/{y}.pbf"): String = """
     {
       "version": 8,
-      "glyphs": "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf",
+      "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
       "sources": {
         "sb": {
           "type": "vector",
@@ -22,7 +22,7 @@ object ShortbreadStyle {
       "layers": [
         { "id": "bg",    "type": "background", "paint": { "background-color": "#f5f3ef" } },
         { "id": "land",  "type": "fill", "source": "sb", "source-layer": "land",
-          "paint": { "fill-color": "#00ff00" } },
+          "paint": { "fill-color": "#f5f3ef" } },
         { "id": "water", "type": "fill", "source": "sb", "source-layer": "water_polygons",
           "paint": { "fill-color": "#aad3df" } },
         { "id": "water-lines", "type": "line", "source": "sb", "source-layer": "water_lines",
