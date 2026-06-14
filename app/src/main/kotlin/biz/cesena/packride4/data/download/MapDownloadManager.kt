@@ -28,8 +28,7 @@ data class RegionCatalogEntry(
     val fileName: String,
     val estimatedSizeMb: Double,
     val bbox: String,
-    val routingPbfUrl: String? = null,
-    val routingPbfFileName: String? = null
+    val routingGraphUrl: String? = null
 )
 
 val AVAILABLE_REGIONS = listOf(
@@ -86,8 +85,7 @@ val AVAILABLE_REGIONS = listOf(
         fileName = "svizzera.mbtiles",
         estimatedSizeMb = 400.0,
         bbox = "5.9,45.8,10.5,47.8",
-        routingPbfUrl = "$GEOFABRIK/europe/switzerland-latest.osm.pbf",
-        routingPbfFileName = "svizzera.osm.pbf"
+        routingGraphUrl = "https://github.com/SSAVLuino/PackRide4.0/releases/download/routing-graph-svizzera-v1/graph-svizzera.zip"
     ),
 )
 
@@ -178,37 +176,58 @@ class MapDownloadManager @Inject constructor(
         }
     }
 
-    /** Downloads the OSM pbf for [regionId] (if defined) and builds the routing graph from it. */
+    /** Downloads the prebuilt routing graph archive for [regionId] (if defined) and extracts it. */
     fun startRoutingDownload(regionId: String) {
         if (_routingProgress.value[regionId] != null) return
         val entry = AVAILABLE_REGIONS.find { it.id == regionId } ?: return
-        val pbfUrl = entry.routingPbfUrl ?: return
-        val pbfFileName = entry.routingPbfFileName ?: return
+        val graphUrl = entry.routingGraphUrl ?: return
         scope.launch {
             setRoutingProgress(regionId, 0)
             try {
                 val routingDir = File(context.filesDir, "routing").also { it.mkdirs() }
-                val destFile = File(routingDir, pbfFileName)
+                val zipFile = File(routingDir, "graph-$regionId.zip")
 
-                val success = downloadToFile(pbfUrl, destFile) { pct ->
+                val success = downloadToFile(graphUrl, zipFile) { pct ->
                     setRoutingProgress(regionId, pct)
                 }
                 if (!success) {
-                    destFile.delete()
+                    zipFile.delete()
                     setRoutingProgress(regionId, null)
-                    _errorMessage.value = "Download dati di routing per ${entry.name} interrotto — riprova"
-                    biz.cesena.packride4.debug.DebugLog.log("routing pbf download ${entry.name} FAILED")
+                    _errorMessage.value = "Download dati di navigazione per ${entry.name} interrotto — riprova"
+                    biz.cesena.packride4.debug.DebugLog.log("routing graph download ${entry.name} FAILED")
                     return@launch
                 }
-                biz.cesena.packride4.debug.DebugLog.log("routing pbf download ${entry.name} OK, ${destFile.length()}B")
+                biz.cesena.packride4.debug.DebugLog.log("routing graph download ${entry.name} OK, ${zipFile.length()}B")
 
-                setRoutingProgress(regionId, -1) // building graph
+                setRoutingProgress(regionId, -1) // extracting graph
                 val graphDir = File(routingDir, "graph-$regionId")
-                routingManager.loadGraph(destFile, graphDir)
+                extractZip(zipFile, graphDir)
+                zipFile.delete()
+                biz.cesena.packride4.debug.DebugLog.log("routing graph extracted to ${graphDir.absolutePath}")
+
+                routingManager.loadPrebuiltGraph(graphDir)
                 setRoutingProgress(regionId, null)
             } catch (e: Exception) {
                 setRoutingProgress(regionId, null)
-                biz.cesena.packride4.debug.DebugLog.log("routing download/build error: ${e.message}")
+                biz.cesena.packride4.debug.DebugLog.log("routing download/extract error: ${e.message}")
+            }
+        }
+    }
+
+    private fun extractZip(zipFile: File, destDir: File) {
+        destDir.mkdirs()
+        java.util.zip.ZipInputStream(zipFile.inputStream().buffered()).use { zis ->
+            var entry = zis.nextEntry
+            while (entry != null) {
+                val outFile = File(destDir, entry.name)
+                if (entry.isDirectory) {
+                    outFile.mkdirs()
+                } else {
+                    outFile.parentFile?.mkdirs()
+                    outFile.outputStream().buffered().use { out -> zis.copyTo(out) }
+                }
+                zis.closeEntry()
+                entry = zis.nextEntry
             }
         }
     }
