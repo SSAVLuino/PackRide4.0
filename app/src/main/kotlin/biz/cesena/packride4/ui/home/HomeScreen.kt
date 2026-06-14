@@ -85,10 +85,16 @@ fun HomeScreen(
 
         AndroidView(
             factory = { ctx ->
+                DebugLog.log("MapView factory: creating MapView")
                 MapView(ctx).also { mapView ->
+                    mapView.addOnDidFailLoadingMapListener { error ->
+                        DebugLog.log("map load FAILED: $error")
+                    }
                     mapView.getMapAsync { map ->
+                        DebugLog.log("getMapAsync: map ready, applying style")
                         mapInstance = map
                         map.setStyle(Style.Builder().fromJson(uiState.mapStyleJson)) { style ->
+                            DebugLog.log("style loaded OK")
                             map.uiSettings.isCompassEnabled = true
                             map.uiSettings.isRotateGesturesEnabled = true
                             val statusBarPx = (ctx.resources.displayMetrics.density * 56).toInt()
