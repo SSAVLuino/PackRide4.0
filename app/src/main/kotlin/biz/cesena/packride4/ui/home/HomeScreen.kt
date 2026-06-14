@@ -95,37 +95,12 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // GPS position chip
-        uiState.lastKnownPosition?.let { pos ->
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(start = 12.dp, top = 12.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
-                shape = MaterialTheme.shapes.small,
-                tonalElevation = 2.dp
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        Icons.Default.MyLocation, contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text("%.5f, %.5f".format(pos.latitude, pos.longitude),
-                        style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        }
-
         // Banner: nessuna mappa offline disponibile (mostrata solo se è stata richiesta una mappa offline)
         if (!uiState.hasOfflineMaps && uiState.mapStyleJson.contains("localhost")) {
             Surface(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
+                    .windowInsetsPadding(WindowInsets.statusBars)
                     .padding(top = 12.dp, start = 12.dp, end = 12.dp),
                 color = MaterialTheme.colorScheme.secondaryContainer,
                 shape = MaterialTheme.shapes.medium,
@@ -153,6 +128,7 @@ fun HomeScreen(
             Surface(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
+                    .windowInsetsPadding(WindowInsets.statusBars)
                     .padding(end = 12.dp, top = 12.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 shape = MaterialTheme.shapes.small,
@@ -172,6 +148,7 @@ fun HomeScreen(
             onClick = { viewModel.toggleFollow() },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
+                .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(16.dp),
             containerColor = if (uiState.isFollowing)
                 MaterialTheme.colorScheme.primary
@@ -191,7 +168,10 @@ fun HomeScreen(
         // Permission rationale
         if (!locationPermissions.allPermissionsGranted) {
             Surface(
-                modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(16.dp),
                 color = MaterialTheme.colorScheme.errorContainer,
                 shape = MaterialTheme.shapes.medium
             ) {
