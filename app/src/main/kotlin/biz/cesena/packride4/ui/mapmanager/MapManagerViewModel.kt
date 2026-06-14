@@ -171,8 +171,11 @@ class MapManagerViewModel @Inject constructor(
                     destFile.delete()
                     setProgress(regionId, null)
                     _uiState.update { it.copy(errorMessage = "Download di ${entry.name} interrotto — riprova") }
+                    biz.cesena.packride4.debug.DebugLog.log("download ${entry.name} FAILED")
                     return@launch
                 }
+
+                biz.cesena.packride4.debug.DebugLog.log("download ${entry.name} OK, ${destFile.length()}B at ${destFile.absolutePath}")
 
                 // Persist to Room
                 val bboxParts = entry.bbox.split(",").mapNotNull { it.toDoubleOrNull() }
@@ -192,6 +195,7 @@ class MapManagerViewModel @Inject constructor(
                 setProgress(regionId, null)
             } catch (e: Exception) {
                 setProgress(regionId, null)
+                biz.cesena.packride4.debug.DebugLog.log("download error: ${e.message}")
             }
         }
     }

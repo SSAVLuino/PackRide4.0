@@ -1,6 +1,7 @@
 package biz.cesena.packride4.map
 
 import android.database.sqlite.SQLiteDatabase
+import biz.cesena.packride4.debug.DebugLog
 import fi.iki.elonen.NanoHTTPD
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -18,6 +19,7 @@ class MBTilesServer(port: Int = 8787) : NanoHTTPD(port) {
     private val databases = mutableListOf<SQLiteDatabase>()
 
     fun loadMaps(files: List<File>) {
+        DebugLog.log("loadMaps: ${files.map { "${it.name} exists=${it.exists()} size=${it.length()}" }}")
         synchronized(databases) {
             databases.forEach { runCatching { it.close() } }
             databases.clear()
@@ -28,8 +30,9 @@ class MBTilesServer(port: Int = 8787) : NanoHTTPD(port) {
                             file.absolutePath, null, SQLiteDatabase.OPEN_READONLY
                         )
                     )
-                }
+                }.onFailure { DebugLog.log("loadMaps: failed to open ${file.name}: ${it.message}") }
             }
+            DebugLog.log("loadMaps: ${databases.size} db(s) open")
         }
     }
 
@@ -44,12 +47,13 @@ class MBTilesServer(port: Int = 8787) : NanoHTTPD(port) {
         val tmsY = (1 shl z) - 1 - y
 
         synchronized(databases) {
+            if (databases.isEmpty()) {
+                DebugLog.log("tile $z/$x/$y -> 404 (no mbtiles loaded)")
+            }
             for (db in databases) {
                 val tile = queryTile(db, z, x, tmsY) ?: continue
                 val decompressed = decompressIfGzip(tile)
-                if (z >= 10) {
-                    android.util.Log.d("MBTilesServer", "tile $z/$x/$y layers=${layerNames(decompressed)}")
-                }
+                DebugLog.log("tile $z/$x/$y -> 200 (${decompressed.size}B, layers=${layerNames(decompressed)})")
                 return newFixedLengthResponse(
                     Response.Status.OK,
                     "application/x-protobuf",
@@ -60,6 +64,7 @@ class MBTilesServer(port: Int = 8787) : NanoHTTPD(port) {
                 }
             }
         }
+        DebugLog.log("tile $z/$x/$y -> 404 (not in any loaded mbtiles)")
         return notFound()
     }
 
