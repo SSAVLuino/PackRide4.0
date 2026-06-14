@@ -15,12 +15,18 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import androidx.compose.material.icons.filled.GpsFixed
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.Style
+import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.geojson.Point
+import org.maplibre.geojson.Feature
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -50,7 +56,24 @@ fun HomeScreen(
 
     // Update MapLibre style whenever source changes
     LaunchedEffect(uiState.mapStyleJson) {
-        mapInstance?.setStyle(Style.Builder().fromJson(uiState.mapStyleJson))
+        mapInstance?.setStyle(Style.Builder().fromJson(uiState.mapStyleJson)) { style ->
+            addUserLocationLayer(style)
+        }
+    }
+
+    // Update the GPS marker, and recenter the camera if "follow" mode is on
+    LaunchedEffect(uiState.lastKnownPosition, uiState.isFollowing) {
+        val pos = uiState.lastKnownPosition ?: return@LaunchedEffect
+        val map = mapInstance ?: return@LaunchedEffect
+        val latLng = LatLng(pos.latitude, pos.longitude)
+
+        (map.style?.getSourceAs<GeoJsonSource>("user-location"))?.setGeoJson(
+            Feature.fromGeometry(Point.fromLngLat(pos.longitude, pos.latitude))
+        )
+
+        if (uiState.isFollowing) {
+            map.animateCamera(CameraUpdateFactory.newLatLng(latLng))
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -60,9 +83,10 @@ fun HomeScreen(
                 MapView(ctx).also { mapView ->
                     mapView.getMapAsync { map ->
                         mapInstance = map
-                        map.setStyle(Style.Builder().fromJson(uiState.mapStyleJson)) {
+                        map.setStyle(Style.Builder().fromJson(uiState.mapStyleJson)) { style ->
                             map.uiSettings.isCompassEnabled = true
                             map.uiSettings.isRotateGesturesEnabled = true
+                            addUserLocationLayer(style)
                         }
                         map.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(42.5, 12.5), 5.5))
                     }
@@ -143,6 +167,27 @@ fun HomeScreen(
             }
         }
 
+        // Follow-GPS toggle
+        FloatingActionButton(
+            onClick = { viewModel.toggleFollow() },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp),
+            containerColor = if (uiState.isFollowing)
+                MaterialTheme.colorScheme.primary
+            else
+                MaterialTheme.colorScheme.surfaceVariant
+        ) {
+            Icon(
+                if (uiState.isFollowing) Icons.Default.GpsFixed else Icons.Default.MyLocation,
+                contentDescription = "Segui posizione GPS",
+                tint = if (uiState.isFollowing)
+                    MaterialTheme.colorScheme.onPrimary
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
         // Permission rationale
         if (!locationPermissions.allPermissionsGranted) {
             Surface(
@@ -165,5 +210,22 @@ fun HomeScreen(
                 }
             }
         }
+    }
+}
+
+/** Adds (or re-adds, after a style change) a source/layer to draw the GPS position as a blue dot. */
+private fun addUserLocationLayer(style: Style) {
+    if (style.getSource("user-location") == null) {
+        style.addSource(GeoJsonSource("user-location"))
+    }
+    if (style.getLayer("user-location") == null) {
+        style.addLayer(
+            CircleLayer("user-location", "user-location").withProperties(
+                PropertyFactory.circleRadius(7f),
+                PropertyFactory.circleColor("#1a73e8"),
+                PropertyFactory.circleStrokeWidth(2f),
+                PropertyFactory.circleStrokeColor("#ffffff")
+            )
+        )
     }
 }
