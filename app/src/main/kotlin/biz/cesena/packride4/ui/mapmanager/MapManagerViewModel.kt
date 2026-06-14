@@ -170,6 +170,7 @@ class MapManagerViewModel @Inject constructor(
                 if (!success) {
                     destFile.delete()
                     setProgress(regionId, null)
+                    _uiState.update { it.copy(errorMessage = "Download di ${entry.name} interrotto — riprova") }
                     return@launch
                 }
 
@@ -232,8 +233,8 @@ class MapManagerViewModel @Inject constructor(
             var redirects = 0
             while (true) {
                 conn = (URL(currentUrl).openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 15_000
-                    readTimeout = 60_000
+                    connectTimeout = 30_000
+                    readTimeout = 120_000
                     instanceFollowRedirects = false
                 }
                 conn.connect()
@@ -273,6 +274,7 @@ class MapManagerViewModel @Inject constructor(
             }
             true
         } catch (e: Exception) {
+            android.util.Log.e("MapManager", "Download failed for $url", e)
             false
         } finally {
             connection?.disconnect()
