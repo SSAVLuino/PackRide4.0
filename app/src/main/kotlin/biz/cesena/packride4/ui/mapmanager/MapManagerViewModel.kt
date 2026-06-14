@@ -73,7 +73,7 @@ class MapManagerViewModel @Inject constructor(
                 bbox = entry.bbox,
                 isDownloaded = entry.id in downloadedIds,
                 downloadProgress = progress[entry.id],
-                hasRoutingPbf = entry.routingPbfUrl != null,
+                hasRoutingPbf = entry.routingGraphUrl != null,
                 routingProgress = routingProgress[entry.id],
                 isRoutingReady = routingReady
             )

@@ -4,6 +4,8 @@ import biz.cesena.packride4.debug.DebugLog
 import com.graphhopper.GHRequest
 import com.graphhopper.GraphHopper
 import com.graphhopper.config.Profile
+import com.graphhopper.json.Statement
+import com.graphhopper.util.CustomModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,16 +37,25 @@ class RoutingManager @Inject constructor() {
     private val _isReady = MutableStateFlow(false)
     val isReady: StateFlow<Boolean> = _isReady.asStateFlow()
 
-    /** Builds the routing graph (or loads it from cache) from [osmPbfFile]. May take a while. */
-    suspend fun loadGraph(osmPbfFile: File, graphCacheDir: File) = withContext(Dispatchers.IO) {
+    private fun carProfile(): Profile {
+        val customModel = CustomModel()
+        customModel.addToPriority(Statement.If("road_access == DESTINATION", Statement.Op.MULTIPLY, "0.1"))
+        return Profile("car").setVehicle("car").setWeighting("custom").setCustomModel(customModel)
+    }
+
+    /** Loads a prebuilt routing graph from [graphDir] (downloaded as a ready-made archive). */
+    suspend fun loadPrebuiltGraph(graphDir: File) = withContext(Dispatchers.IO) {
         try {
-            DebugLog.log("routing: importing graph from ${osmPbfFile.name} (${osmPbfFile.length()}B)")
+            DebugLog.log("routing: loading prebuilt graph from ${graphDir.absolutePath}")
             hopper?.close()
             val gh = GraphHopper()
-            gh.osmFile = osmPbfFile.absolutePath
-            gh.graphHopperLocation = graphCacheDir.absolutePath
-            gh.setProfiles(Profile("car").setVehicle("car").setWeighting("fastest"))
-            gh.importOrLoad()
+            gh.graphHopperLocation = graphDir.absolutePath
+            gh.setProfiles(carProfile())
+            if (!gh.load()) {
+                DebugLog.log("routing: prebuilt graph load FAILED: gh.load() returned false")
+                _isReady.value = false
+                return@withContext
+            }
             hopper = gh
             _isReady.value = true
             DebugLog.log("routing: graph ready")
