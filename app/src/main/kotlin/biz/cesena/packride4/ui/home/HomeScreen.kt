@@ -59,9 +59,20 @@ fun HomeScreen(
         if (locationPermissions.allPermissionsGranted) viewModel.startLocationUpdates()
     }
 
+    // Keep the screen on while this map screen is visible (useful for navigation)
+    DisposableEffect(Unit) {
+        val activity = context as? android.app.Activity
+        activity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose {
+            activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+
     // Update MapLibre style whenever source changes
     LaunchedEffect(uiState.mapStyleJson) {
+        DebugLog.log("style update: hasOfflineMaps=${uiState.hasOfflineMaps} localhost=${uiState.mapStyleJson.contains("localhost")}")
         mapInstance?.setStyle(Style.Builder().fromJson(uiState.mapStyleJson)) { style ->
+            DebugLog.log("style update loaded: sources=${style.sources.size} layers=${style.layers.size}")
             addUserLocationLayer(style)
         }
     }
@@ -118,10 +129,10 @@ fun HomeScreen(
                         DebugLog.log("map load FAILED: $error")
                     }
                     mapView.getMapAsync { map ->
-                        DebugLog.log("getMapAsync: map ready, applying style")
+                        DebugLog.log("getMapAsync: map ready, hasOfflineMaps=${uiState.hasOfflineMaps} localhost=${uiState.mapStyleJson.contains("localhost")}")
                         mapInstance = map
                         map.setStyle(Style.Builder().fromJson(uiState.mapStyleJson)) { style ->
-                            DebugLog.log("style loaded OK")
+                            DebugLog.log("style loaded OK: sources=${style.sources.size} layers=${style.layers.size}")
                             map.uiSettings.isCompassEnabled = true
                             map.uiSettings.isRotateGesturesEnabled = true
                             val statusBarPx = (ctx.resources.displayMetrics.density * 56).toInt()
