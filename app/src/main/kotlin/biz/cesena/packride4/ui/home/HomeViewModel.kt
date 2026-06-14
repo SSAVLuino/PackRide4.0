@@ -6,10 +6,8 @@ import android.os.Looper
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import biz.cesena.packride4.data.local.AppDatabase
-import biz.cesena.packride4.data.local.appDataStore
 import biz.cesena.packride4.map.MBTilesServer
 import biz.cesena.packride4.map.ShortbreadStyle
-import biz.cesena.packride4.ui.settings.MapSourceMode
 import com.google.android.gms.location.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -17,7 +15,6 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
-import androidx.datastore.preferences.core.stringPreferencesKey
 
 data class GpsPosition(val latitude: Double, val longitude: Double, val accuracy: Float)
 
@@ -25,11 +22,8 @@ data class HomeUiState(
     val lastKnownPosition: GpsPosition? = null,
     val hasOfflineMaps: Boolean = false,
     val isTracking: Boolean = false,
-    val mapStyleJson: String = ShortbreadStyle.online,
-    val mapSourceMode: MapSourceMode = MapSourceMode.AUTO
+    val mapStyleJson: String = ShortbreadStyle.online
 )
-
-private val MAP_SOURCE_KEY = stringPreferencesKey("map_source_mode")
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -68,36 +62,17 @@ class HomeViewModel @Inject constructor(
 
     private fun observeMapSource() {
         viewModelScope.launch {
-            combine(
-                context.appDataStore.data.map { prefs ->
-                    runCatching { MapSourceMode.valueOf(prefs[MAP_SOURCE_KEY] ?: "AUTO") }
-                        .getOrDefault(MapSourceMode.AUTO)
-                },
-                db.mapRegionDao().getAll()
-            ) { mode, downloadedRegions ->
+            db.mapRegionDao().getAll().collect { downloadedRegions ->
                 val mapFiles = downloadedRegions
                     .map { File(it.filePath) }
                     .filter { it.exists() }
                 val hasOffline = mapFiles.isNotEmpty()
 
-                val useOffline = when (mode) {
-                    MapSourceMode.OFFLINE -> true
-                    MapSourceMode.ONLINE -> false
-                    MapSourceMode.AUTO -> hasOffline
-                }
+                mbTilesServer.loadMaps(mapFiles)
 
-                if (useOffline) {
-                    mbTilesServer.loadMaps(mapFiles)
-                } else {
-                    mbTilesServer.loadMaps(emptyList())
-                }
-
-                Triple(mode, hasOffline, useOffline)
-            }.collect { (mode, hasOffline, useOffline) ->
                 _uiState.update { it.copy(
                     hasOfflineMaps = hasOffline,
-                    mapSourceMode = mode,
-                    mapStyleJson = if (useOffline) ShortbreadStyle.offline() else ShortbreadStyle.online
+                    mapStyleJson = if (hasOffline) ShortbreadStyle.offline() else ShortbreadStyle.online
                 )}
             }
         }

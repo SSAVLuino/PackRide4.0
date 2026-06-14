@@ -4,7 +4,6 @@ import android.Manifest
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,12 +21,10 @@ import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.Style
-import biz.cesena.packride4.ui.settings.MapSourceMode
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun HomeScreen(
-    onNavigateToRouting: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -100,13 +97,8 @@ fun HomeScreen(
             }
         }
 
-        // Banner: nessuna mappa offline quando modalità OFFLINE o AUTO senza mappe
-        val showOfflineBanner = when (uiState.mapSourceMode) {
-            MapSourceMode.OFFLINE -> !uiState.hasOfflineMaps
-            MapSourceMode.AUTO -> !uiState.hasOfflineMaps
-            MapSourceMode.ONLINE -> false
-        }
-        if (showOfflineBanner) {
+        // Banner: nessuna mappa offline disponibile (mostrata solo se è stata richiesta una mappa offline)
+        if (!uiState.hasOfflineMaps && uiState.mapStyleJson.contains("localhost")) {
             Surface(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -124,10 +116,7 @@ fun HomeScreen(
                         modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.colorScheme.onSecondaryContainer)
                     Text(
-                        if (uiState.mapSourceMode == MapSourceMode.OFFLINE)
-                            "Nessuna mappa offline — scarica una regione dal menu Mappe"
-                        else
-                            "Nessuna mappa offline — uso mappa online",
+                        "Nessuna mappa offline — scarica una regione dal menu Mappe offline",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
@@ -166,7 +155,7 @@ fun HomeScreen(
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onErrorContainer)
                     Spacer(Modifier.height(4.dp))
-                    Text("PackRide ha bisogno della posizione per la navigazione.",
+                    Text("PackRide ha bisogno della posizione per centrare la mappa.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onErrorContainer)
                     Spacer(Modifier.height(8.dp))
@@ -175,16 +164,6 @@ fun HomeScreen(
                     }
                 }
             }
-        }
-
-        // FAB navigazione
-        FloatingActionButton(
-            onClick = onNavigateToRouting,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-            containerColor = MaterialTheme.colorScheme.primary
-        ) {
-            Icon(Icons.Default.Navigation, contentDescription = "Avvia navigazione",
-                tint = MaterialTheme.colorScheme.onPrimary)
         }
     }
 }

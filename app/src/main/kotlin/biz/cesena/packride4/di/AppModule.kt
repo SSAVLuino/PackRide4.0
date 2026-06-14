@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.room.Room
 import biz.cesena.packride4.data.local.AppDatabase
 import biz.cesena.packride4.data.local.MapRegionDao
-import biz.cesena.packride4.data.remote.SupabaseClientProvider
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -13,9 +12,6 @@ import dagger.hilt.components.SingletonComponent
 import io.ktor.client.*
 import io.ktor.client.engine.android.*
 import io.ktor.client.plugins.*
-import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.serialization.kotlinx.json.*
-import kotlinx.serialization.json.Json
 import javax.inject.Singleton
 
 @Module
@@ -34,24 +30,17 @@ object AppModule {
     @Provides
     fun provideMapRegionDao(db: AppDatabase): MapRegionDao = db.mapRegionDao()
 
-    // ── Supabase ─────────────────────────────────────────────────────────────
-
-    @Provides
-    @Singleton
-    fun provideSupabaseClientProvider(): SupabaseClientProvider = SupabaseClientProvider()
-
     // ── Ktor HTTP client (used for map region downloads) ──────────────────────
 
     @Provides
     @Singleton
     fun provideHttpClient(): HttpClient = HttpClient(Android) {
         install(HttpTimeout) {
-            requestTimeoutMillis = 30_000
-            connectTimeoutMillis = 10_000
-            socketTimeoutMillis = 60_000   // large files need longer socket timeout
-        }
-        install(ContentNegotiation) {
-            json(Json { ignoreUnknownKeys = true })
+            // Map files are hundreds of MB — no overall request timeout,
+            // just per-chunk socket/connect timeouts.
+            requestTimeoutMillis = HttpTimeoutConfig.INFINITE_TIMEOUT_MS
+            connectTimeoutMillis = 15_000
+            socketTimeoutMillis = 60_000
         }
         // Follow redirects (CDN may redirect to regional endpoints)
         followRedirects = true
