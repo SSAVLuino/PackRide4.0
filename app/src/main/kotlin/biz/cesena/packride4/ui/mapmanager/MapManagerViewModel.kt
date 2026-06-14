@@ -8,15 +8,12 @@ import biz.cesena.packride4.data.local.MapRegion
 import biz.cesena.packride4.utils.ConnectivityUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import io.ktor.client.*
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
-import io.ktor.http.*
-import io.ktor.utils.io.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 import javax.inject.Inject
 
 data class MapRegionUi(
@@ -106,8 +103,7 @@ private val AVAILABLE_REGIONS = listOf(
 @HiltViewModel
 class MapManagerViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val db: AppDatabase,
-    private val httpClient: HttpClient
+    private val db: AppDatabase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MapManagerUiState())
@@ -168,30 +164,8 @@ class MapManagerViewModel @Inject constructor(
                 val mapsDir = File(context.filesDir, "maps").also { it.mkdirs() }
                 val destFile = File(mapsDir, entry.fileName)
 
-                var success = false
-                httpClient.prepareGet(entry.downloadUrl).execute { response ->
-                    if (!response.status.isSuccess()) return@execute
-
-                    val totalBytes = response.headers[HttpHeaders.ContentLength]?.toLongOrNull() ?: 1L
-                    var bytesWritten = 0L
-                    var lastReportedPct = -1
-
-                    destFile.outputStream().buffered().use { out ->
-                        val channel = response.bodyAsChannel()
-                        val buffer = ByteArray(65536)
-                        while (!channel.isClosedForRead) {
-                            val read = channel.readAvailable(buffer, 0, buffer.size)
-                            if (read <= 0) break
-                            out.write(buffer, 0, read)
-                            bytesWritten += read
-                            val pct = ((bytesWritten.toDouble() / totalBytes) * 100).toInt().coerceIn(0, 99)
-                            if (pct != lastReportedPct) {
-                                lastReportedPct = pct
-                                setProgress(regionId, pct)
-                            }
-                        }
-                    }
-                    success = true
+                val success = downloadToFile(entry.downloadUrl, destFile) { pct ->
+                    setProgress(regionId, pct)
                 }
                 if (!success) {
                     destFile.delete()
@@ -245,4 +219,63 @@ class MapManagerViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Streams [url] to [destFile] using a plain HttpURLConnection — Ktor's Android
+     * engine buffers the whole response in memory before returning, which OOMs
+     * for the 300-700MB mbtiles files downloaded here.
+     */
+    private fun downloadToFile(url: String, destFile: File, onProgress: (Int) -> Unit): Boolean {
+        var connection: HttpURLConnection? = null
+        return try {
+            var currentUrl = url
+            var conn: HttpURLConnection
+            var redirects = 0
+            while (true) {
+                conn = (URL(currentUrl).openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 15_000
+                    readTimeout = 60_000
+                    instanceFollowRedirects = false
+                }
+                conn.connect()
+                val code = conn.responseCode
+                if (code in 300..399) {
+                    val location = conn.getHeaderField("Location") ?: return false
+                    conn.disconnect()
+                    currentUrl = location
+                    if (++redirects > 5) return false
+                    continue
+                }
+                connection = conn
+                break
+            }
+
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) return false
+
+            val totalBytes = connection.contentLengthLong.takeIf { it > 0 } ?: 1L
+            var bytesWritten = 0L
+            var lastReportedPct = -1
+
+            connection.inputStream.use { input ->
+                destFile.outputStream().buffered().use { out ->
+                    val buffer = ByteArray(65536)
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read <= 0) break
+                        out.write(buffer, 0, read)
+                        bytesWritten += read
+                        val pct = ((bytesWritten.toDouble() / totalBytes) * 100).toInt().coerceIn(0, 99)
+                        if (pct != lastReportedPct) {
+                            lastReportedPct = pct
+                            onProgress(pct)
+                        }
+                    }
+                }
+            }
+            true
+        } catch (e: Exception) {
+            false
+        } finally {
+            connection?.disconnect()
+        }
+    }
 }
