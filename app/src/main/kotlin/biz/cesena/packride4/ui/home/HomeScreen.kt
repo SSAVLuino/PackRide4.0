@@ -66,6 +66,37 @@ fun HomeScreen(
         }
     }
 
+    // MapView needs lifecycle callbacks to start/stop GL rendering — Compose's AndroidView
+    // doesn't forward these automatically, which leaves the map blank on some devices.
+    var mapViewRef by remember { mutableStateOf<MapView?>(null) }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, mapViewRef) {
+        val mapView = mapViewRef
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_CREATE -> mapView?.onCreate(null)
+                androidx.lifecycle.Lifecycle.Event.ON_START -> mapView?.onStart()
+                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> mapView?.onResume()
+                androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> mapView?.onPause()
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> mapView?.onStop()
+                androidx.lifecycle.Lifecycle.Event.ON_DESTROY -> mapView?.onDestroy()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        if (mapView != null) {
+            mapView.onCreate(null)
+            mapView.onStart()
+            mapView.onResume()
+        }
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            mapView?.onPause()
+            mapView?.onStop()
+            mapView?.onDestroy()
+        }
+    }
+
     // Update the GPS marker, and recenter the camera if "follow" mode is on
     LaunchedEffect(uiState.lastKnownPosition, uiState.isFollowing) {
         val pos = uiState.lastKnownPosition ?: return@LaunchedEffect
@@ -103,6 +134,7 @@ fun HomeScreen(
                         }
                         map.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(42.5, 12.5), 5.5))
                     }
+                    mapViewRef = mapView
                 }
             },
             modifier = Modifier.fillMaxSize()
