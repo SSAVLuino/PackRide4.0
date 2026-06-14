@@ -168,30 +168,35 @@ class MapManagerViewModel @Inject constructor(
                 val mapsDir = File(context.filesDir, "maps").also { it.mkdirs() }
                 val destFile = File(mapsDir, entry.fileName)
 
-                val response: HttpResponse = httpClient.get(entry.downloadUrl)
-                if (!response.status.isSuccess()) {
-                    setProgress(regionId, null)
-                    return@launch
-                }
+                var success = false
+                httpClient.prepareGet(entry.downloadUrl).execute { response ->
+                    if (!response.status.isSuccess()) return@execute
 
-                val totalBytes = response.headers[HttpHeaders.ContentLength]?.toLongOrNull() ?: 1L
-                var bytesWritten = 0L
-                var lastReportedPct = -1
+                    val totalBytes = response.headers[HttpHeaders.ContentLength]?.toLongOrNull() ?: 1L
+                    var bytesWritten = 0L
+                    var lastReportedPct = -1
 
-                destFile.outputStream().buffered().use { out ->
-                    val channel = response.bodyAsChannel()
-                    val buffer = ByteArray(65536)
-                    while (!channel.isClosedForRead) {
-                        val read = channel.readAvailable(buffer, 0, buffer.size)
-                        if (read <= 0) break
-                        out.write(buffer, 0, read)
-                        bytesWritten += read
-                        val pct = ((bytesWritten.toDouble() / totalBytes) * 100).toInt().coerceIn(0, 99)
-                        if (pct != lastReportedPct) {
-                            lastReportedPct = pct
-                            setProgress(regionId, pct)
+                    destFile.outputStream().buffered().use { out ->
+                        val channel = response.bodyAsChannel()
+                        val buffer = ByteArray(65536)
+                        while (!channel.isClosedForRead) {
+                            val read = channel.readAvailable(buffer, 0, buffer.size)
+                            if (read <= 0) break
+                            out.write(buffer, 0, read)
+                            bytesWritten += read
+                            val pct = ((bytesWritten.toDouble() / totalBytes) * 100).toInt().coerceIn(0, 99)
+                            if (pct != lastReportedPct) {
+                                lastReportedPct = pct
+                                setProgress(regionId, pct)
+                            }
                         }
                     }
+                    success = true
+                }
+                if (!success) {
+                    destFile.delete()
+                    setProgress(regionId, null)
+                    return@launch
                 }
 
                 // Persist to Room
