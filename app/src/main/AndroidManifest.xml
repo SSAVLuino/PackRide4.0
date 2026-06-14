@@ -9,13 +9,6 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
-    <!-- Screen & power -->
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-
-    <!-- Foreground service (GPS navigation) -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-
     <!-- Storage (legacy, needed for MBTiles on older devices) -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
@@ -23,9 +16,6 @@
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
-
-    <!-- Post notifications (for foreground service on API 33+) -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".PackRideApp"
@@ -49,13 +39,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <!-- Navigation foreground service -->
-        <service
-            android:name=".service.NavigationService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="location" />
 
     </application>
 

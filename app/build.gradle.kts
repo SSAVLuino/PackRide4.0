@@ -1,11 +1,7 @@
-import java.util.Properties
-import java.io.FileInputStream
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
 }
@@ -22,14 +18,6 @@ android {
         versionName = "4.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        // Read secrets from local.properties (not committed)
-        val localProps = rootProject.file("local.properties")
-        val props = Properties().apply {
-            if (localProps.exists()) load(FileInputStream(localProps))
-        }
-        buildConfigField("String", "SUPABASE_URL", "\"${props.getProperty("SUPABASE_URL", "")}\"")
-        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${props.getProperty("SUPABASE_ANON_KEY", "")}\"")
     }
 
     buildTypes {
@@ -60,16 +48,11 @@ android {
 
     buildFeatures {
         compose = true
-        buildConfig = true
     }
 
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
-            // GraphHopper ships duplicate service files
-            excludes += "META-INF/services/javax.xml.stream.XMLInputFactory"
-            excludes += "META-INF/services/javax.xml.stream.XMLOutputFactory"
-            excludes += "META-INF/services/javax.xml.stream.XMLEventFactory"
         }
     }
 
@@ -117,33 +100,15 @@ dependencies {
     // MapLibre
     implementation(libs.maplibre.android)
 
-    // GraphHopper (offline routing)
+    // MBTiles local tile server
     implementation(libs.nanohttpd)
-    implementation(libs.graphhopper.core) {
-        exclude(group = "com.google.protobuf", module = "protobuf-java")
-    }
 
-    // Supabase-kt
-    implementation(platform(libs.supabase.bom))
-    implementation(libs.supabase.gotrue)
-    implementation(libs.supabase.postgrest)
-    implementation(libs.supabase.realtime)
-    implementation(libs.supabase.storage)
-
-    // Ktor (Supabase engine + downloads)
+    // Ktor (map downloads)
     implementation(libs.ktor.client.android)
     implementation(libs.ktor.client.core)
-    implementation(libs.ktor.client.content.negotiation)
-    implementation(libs.ktor.serialization.kotlinx.json)
-
-    // Serialization
-    implementation(libs.kotlinx.serialization.json)
 
     // Google Play Services — FusedLocationProvider
     implementation(libs.play.services.location)
-
-    // DataStore
-    implementation(libs.androidx.datastore.preferences)
 
     // Test
     testImplementation(libs.junit)
