@@ -15,6 +15,8 @@ coroutines = "1.8.1"
 
 maplibre = "11.5.1"
 nanohttpd = "2.3.1"
+graphhopper = "8.0"
+slf4jAndroid = "1.7.36"
 
 coreKtx = "1.13.1"
 appcompat = "1.7.0"
@@ -64,6 +66,10 @@ maplibre-android = { group = "org.maplibre.gl", name = "android-sdk", version.re
 
 # MBTiles local tile server
 nanohttpd = { group = "org.nanohttpd", name = "nanohttpd", version.ref = "nanohttpd" }
+
+# Offline routing
+graphhopper-core = { group = "com.graphhopper", name = "graphhopper-core", version.ref = "graphhopper" }
+slf4j-android = { group = "org.slf4j", name = "slf4j-android", version.ref = "slf4jAndroid" }
 
 # Test
 junit = { group = "junit", name = "junit", version = "4.13.2" }

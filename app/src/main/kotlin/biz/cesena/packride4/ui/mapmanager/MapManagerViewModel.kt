@@ -19,7 +19,10 @@ data class MapRegionUi(
     val sizeMb: Double,
     val bbox: String,
     val isDownloaded: Boolean,
-    val downloadProgress: Int? = null  // null = not downloading; 0-100 = in progress
+    val downloadProgress: Int? = null,  // null = not downloading; 0-100 = in progress
+    val hasRoutingPbf: Boolean = false,
+    val routingProgress: Int? = null,   // null = idle; -1 = building graph; 0-100 = downloading
+    val isRoutingReady: Boolean = false
 )
 
 data class MapManagerUiState(
@@ -28,21 +31,38 @@ data class MapManagerUiState(
     val errorMessage: String? = null
 )
 
+private data class DownloadState(
+    val downloaded: List<biz.cesena.packride4.data.local.MapRegion>,
+    val progress: Map<String, Int?>,
+    val routingProgress: Map<String, Int?>,
+    val error: String?,
+    val mobileWarning: String?
+)
+
 @HiltViewModel
 class MapManagerViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val db: AppDatabase,
-    private val downloadManager: MapDownloadManager
+    private val downloadManager: MapDownloadManager,
+    private val routingManager: biz.cesena.packride4.routing.RoutingManager
 ) : ViewModel() {
 
     private val _showMobileDataWarning = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<MapManagerUiState> = combine(
-        db.mapRegionDao().getAll(),
-        downloadManager.progress,
-        downloadManager.errorMessage,
-        _showMobileDataWarning
-    ) { downloaded, progress, error, mobileWarning ->
+        combine(
+            db.mapRegionDao().getAll(),
+            downloadManager.progress,
+            downloadManager.routingProgress,
+            downloadManager.errorMessage,
+            _showMobileDataWarning
+        ) { downloaded, progress, routingProgress, error, mobileWarning ->
+            DownloadState(downloaded, progress, routingProgress, error, mobileWarning)
+        },
+        routingManager.isReady
+    ) { state, routingReady ->
+        val (downloaded, progress, routingProgress, error, mobileWarning) = state
+
         val downloadedIds = downloaded.map { it.id }.toSet()
         val regions = AVAILABLE_REGIONS.map { entry ->
             val entity = downloaded.find { it.id == entry.id }
@@ -52,7 +72,10 @@ class MapManagerViewModel @Inject constructor(
                 sizeMb = entity?.sizeBytes?.div(1_048_576.0) ?: entry.estimatedSizeMb,
                 bbox = entry.bbox,
                 isDownloaded = entry.id in downloadedIds,
-                downloadProgress = progress[entry.id]
+                downloadProgress = progress[entry.id],
+                hasRoutingPbf = entry.routingPbfUrl != null,
+                routingProgress = routingProgress[entry.id],
+                isRoutingReady = routingReady
             )
         }
         MapManagerUiState(regions = regions, showMobileDataWarning = mobileWarning, errorMessage = error)
@@ -78,6 +101,10 @@ class MapManagerViewModel @Inject constructor(
             }
             else -> downloadManager.startDownload(regionId)
         }
+    }
+
+    fun downloadRoutingData(regionId: String) {
+        downloadManager.startRoutingDownload(regionId)
     }
 
     fun deleteRegion(regionId: String) {

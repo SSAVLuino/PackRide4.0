@@ -103,7 +103,8 @@ fun MapManagerScreen(
                         MapRegionCard(
                             region = region,
                             onDownload = { viewModel.downloadRegion(region.id) },
-                            onDelete = { viewModel.deleteRegion(region.id) }
+                            onDelete = { viewModel.deleteRegion(region.id) },
+                            onDownloadRouting = { viewModel.downloadRoutingData(region.id) }
                         )
                     }
                 }
@@ -116,16 +117,16 @@ fun MapManagerScreen(
 private fun MapRegionCard(
     region: MapRegionUi,
     onDownload: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onDownloadRouting: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
+        Column(modifier = Modifier.padding(16.dp)) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -181,6 +182,43 @@ private fun MapRegionCard(
                     }
                 }
             }
+        }
+
+        if (region.isDownloaded && region.hasRoutingPbf) {
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                when {
+                    region.isRoutingReady -> {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = "Routing pronto",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Navigazione offline pronta", style = MaterialTheme.typography.bodySmall)
+                    }
+                    region.routingProgress == -1 -> {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Elaborazione dati di navigazione...", style = MaterialTheme.typography.bodySmall)
+                    }
+                    region.routingProgress != null -> {
+                        LinearProgressIndicator(
+                            progress = { region.routingProgress / 100f },
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("${region.routingProgress}%", style = MaterialTheme.typography.labelSmall)
+                    }
+                    else -> {
+                        TextButton(onClick = onDownloadRouting) {
+                            Text("Scarica dati per la navigazione")
+                        }
+                    }
+                }
+            }
+        }
         }
     }
 }

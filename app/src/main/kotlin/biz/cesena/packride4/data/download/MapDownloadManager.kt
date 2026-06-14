@@ -27,7 +27,9 @@ data class RegionCatalogEntry(
     val downloadUrl: String,
     val fileName: String,
     val estimatedSizeMb: Double,
-    val bbox: String
+    val bbox: String,
+    val routingPbfUrl: String? = null,
+    val routingPbfFileName: String? = null
 )
 
 val AVAILABLE_REGIONS = listOf(
@@ -83,7 +85,9 @@ val AVAILABLE_REGIONS = listOf(
         downloadUrl = "$GEOFABRIK/europe/switzerland-shortbread-1.0.mbtiles",
         fileName = "svizzera.mbtiles",
         estimatedSizeMb = 400.0,
-        bbox = "5.9,45.8,10.5,47.8"
+        bbox = "5.9,45.8,10.5,47.8",
+        routingPbfUrl = "$GEOFABRIK/europe/switzerland-latest.osm.pbf",
+        routingPbfFileName = "svizzera.osm.pbf"
     ),
 )
 
@@ -95,12 +99,17 @@ val AVAILABLE_REGIONS = listOf(
 @Singleton
 class MapDownloadManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val db: AppDatabase
+    private val db: AppDatabase,
+    private val routingManager: biz.cesena.packride4.routing.RoutingManager
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _progress = MutableStateFlow<Map<String, Int?>>(emptyMap())
     val progress: StateFlow<Map<String, Int?>> = _progress.asStateFlow()
+
+    // null = not present, -1 = building graph, 0-100 = download progress
+    private val _routingProgress = MutableStateFlow<Map<String, Int?>>(emptyMap())
+    val routingProgress: StateFlow<Map<String, Int?>> = _routingProgress.asStateFlow()
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
@@ -160,6 +169,47 @@ class MapDownloadManager @Inject constructor(
     private fun setProgress(regionId: String, progress: Int?) {
         _progress.update { current ->
             if (progress == null) current - regionId else current + (regionId to progress)
+        }
+    }
+
+    private fun setRoutingProgress(regionId: String, progress: Int?) {
+        _routingProgress.update { current ->
+            if (progress == null) current - regionId else current + (regionId to progress)
+        }
+    }
+
+    /** Downloads the OSM pbf for [regionId] (if defined) and builds the routing graph from it. */
+    fun startRoutingDownload(regionId: String) {
+        if (_routingProgress.value[regionId] != null) return
+        val entry = AVAILABLE_REGIONS.find { it.id == regionId } ?: return
+        val pbfUrl = entry.routingPbfUrl ?: return
+        val pbfFileName = entry.routingPbfFileName ?: return
+        scope.launch {
+            setRoutingProgress(regionId, 0)
+            try {
+                val routingDir = File(context.filesDir, "routing").also { it.mkdirs() }
+                val destFile = File(routingDir, pbfFileName)
+
+                val success = downloadToFile(pbfUrl, destFile) { pct ->
+                    setRoutingProgress(regionId, pct)
+                }
+                if (!success) {
+                    destFile.delete()
+                    setRoutingProgress(regionId, null)
+                    _errorMessage.value = "Download dati di routing per ${entry.name} interrotto — riprova"
+                    biz.cesena.packride4.debug.DebugLog.log("routing pbf download ${entry.name} FAILED")
+                    return@launch
+                }
+                biz.cesena.packride4.debug.DebugLog.log("routing pbf download ${entry.name} OK, ${destFile.length()}B")
+
+                setRoutingProgress(regionId, -1) // building graph
+                val graphDir = File(routingDir, "graph-$regionId")
+                routingManager.loadGraph(destFile, graphDir)
+                setRoutingProgress(regionId, null)
+            } catch (e: Exception) {
+                setRoutingProgress(regionId, null)
+                biz.cesena.packride4.debug.DebugLog.log("routing download/build error: ${e.message}")
+            }
         }
     }
 
