@@ -1,0 +1,1 @@
+- [UI overlay placement](feedback_ui_overlays.md) — floating buttons must clear the left sidebar (64dp) and system bar insets
