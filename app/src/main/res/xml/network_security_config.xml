@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Allows plain HTTP to localhost. Since targetSdk 28, Android blocks cleartext
+    traffic by default, which silently blocks the offline MBTiles tile server
+    (http://localhost:8787) and leaves the offline map blank.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>
