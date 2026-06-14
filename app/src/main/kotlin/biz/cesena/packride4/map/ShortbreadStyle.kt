@@ -22,7 +22,7 @@ object ShortbreadStyle {
       "layers": [
         { "id": "bg",    "type": "background", "paint": { "background-color": "#f5f3ef" } },
         { "id": "land",  "type": "fill", "source": "sb", "source-layer": "land",
-          "paint": { "fill-color": "#f5f3ef" } },
+          "paint": { "fill-color": "#00ff00" } },
         { "id": "water", "type": "fill", "source": "sb", "source-layer": "water_polygons",
           "paint": { "fill-color": "#aad3df" } },
         { "id": "water-lines", "type": "line", "source": "sb", "source-layer": "water_lines",
