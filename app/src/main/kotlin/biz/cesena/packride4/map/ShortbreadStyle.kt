@@ -23,8 +23,6 @@ object ShortbreadStyle {
         { "id": "bg",    "type": "background", "paint": { "background-color": "#f5f3ef" } },
         { "id": "land",  "type": "fill", "source": "sb", "source-layer": "land",
           "paint": { "fill-color": "#f5f3ef" } },
-        { "id": "ocean", "type": "fill", "source": "sb", "source-layer": "ocean",
-          "paint": { "fill-color": "#aad3df" } },
         { "id": "water", "type": "fill", "source": "sb", "source-layer": "water_polygons",
           "paint": { "fill-color": "#aad3df" } },
         { "id": "water-lines", "type": "line", "source": "sb", "source-layer": "water_lines",
@@ -85,7 +83,7 @@ object ShortbreadStyle {
             "text-size": ["interpolate",["linear"],["zoom"],10,10,14,13]
           },
           "paint": { "text-color": "#555555", "text-halo-color": "#ffffff", "text-halo-width": 1 } },
-        { "id": "roads-labels", "type": "symbol", "source": "sb", "source-layer": "streets_labels",
+        { "id": "roads-labels", "type": "symbol", "source": "sb", "source-layer": "street_labels",
           "minzoom": 13,
           "layout": {
             "text-field": ["get", "name"],
