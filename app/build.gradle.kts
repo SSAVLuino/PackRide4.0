@@ -103,10 +103,6 @@ dependencies {
     // MBTiles local tile server
     implementation(libs.nanohttpd)
 
-    // Ktor (map downloads)
-    implementation(libs.ktor.client.android)
-    implementation(libs.ktor.client.core)
-
     // Google Play Services — FusedLocationProvider
     implementation(libs.play.services.location)
 
