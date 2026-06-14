@@ -22,6 +22,7 @@ data class HomeUiState(
     val lastKnownPosition: GpsPosition? = null,
     val hasOfflineMaps: Boolean = false,
     val isTracking: Boolean = false,
+    val isFollowing: Boolean = false,
     val mapStyleJson: String = ShortbreadStyle.online
 )
 
@@ -84,6 +85,10 @@ class HomeViewModel @Inject constructor(
             locationRequest, locationCallback, Looper.getMainLooper()
         )
         _uiState.update { it.copy(isTracking = true) }
+    }
+
+    fun toggleFollow() {
+        _uiState.update { it.copy(isFollowing = !it.isFollowing) }
     }
 
     override fun onCleared() {
