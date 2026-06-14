@@ -103,6 +103,12 @@ dependencies {
     // MBTiles local tile server
     implementation(libs.nanohttpd)
 
+    // Offline routing
+    implementation(libs.graphhopper.core) {
+        exclude(group = "org.slf4j", module = "slf4j-api")
+    }
+    implementation(libs.slf4j.android)
+
     // Google Play Services — FusedLocationProvider
     implementation(libs.play.services.location)
 

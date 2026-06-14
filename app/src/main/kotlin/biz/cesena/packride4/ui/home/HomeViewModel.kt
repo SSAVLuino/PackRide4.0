@@ -8,6 +8,8 @@ import androidx.lifecycle.viewModelScope
 import biz.cesena.packride4.data.local.AppDatabase
 import biz.cesena.packride4.map.MBTilesServer
 import biz.cesena.packride4.map.ShortbreadStyle
+import biz.cesena.packride4.routing.RouteResult
+import biz.cesena.packride4.routing.RoutingManager
 import com.google.android.gms.location.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -23,13 +25,16 @@ data class HomeUiState(
     val hasOfflineMaps: Boolean = false,
     val isTracking: Boolean = false,
     val isFollowing: Boolean = false,
-    val mapStyleJson: String = ShortbreadStyle.online
+    val mapStyleJson: String = ShortbreadStyle.online,
+    val isRoutingReady: Boolean = false,
+    val route: RouteResult? = null
 )
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val db: AppDatabase
+    private val db: AppDatabase,
+    private val routingManager: RoutingManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -55,6 +60,24 @@ class HomeViewModel @Inject constructor(
     init {
         startMBTilesServer()
         observeMapSource()
+        viewModelScope.launch {
+            routingManager.isReady.collect { ready ->
+                _uiState.update { it.copy(isRoutingReady = ready) }
+            }
+        }
+    }
+
+    /** Computes a test route from the last known GPS position to [destLat]/[destLon]. */
+    fun computeTestRoute(destLat: Double, destLon: Double) {
+        val from = _uiState.value.lastKnownPosition ?: return
+        viewModelScope.launch {
+            val result = routingManager.route(listOf(from.latitude to from.longitude, destLat to destLon))
+            _uiState.update { it.copy(route = result) }
+        }
+    }
+
+    fun clearRoute() {
+        _uiState.update { it.copy(route = null) }
     }
 
     private fun startMBTilesServer() {

@@ -104,6 +104,21 @@ fun HomeScreen(
         }
     }
 
+    // Draw/clear the computed route line
+    LaunchedEffect(uiState.route) {
+        val map = mapInstance ?: return@LaunchedEffect
+        val route = uiState.route
+        val source = map.style?.getSourceAs<GeoJsonSource>("route")
+        if (route == null) {
+            source?.setGeoJson(org.maplibre.geojson.FeatureCollection.fromFeatures(emptyArray()))
+        } else {
+            val line = org.maplibre.geojson.LineString.fromLngLats(
+                route.points.map { (lat, lon) -> Point.fromLngLat(lon, lat) }
+            )
+            source?.setGeoJson(Feature.fromGeometry(line))
+        }
+    }
+
     // Update the GPS marker, and recenter the camera if "follow" mode is on
     LaunchedEffect(uiState.lastKnownPosition, uiState.isFollowing) {
         val pos = uiState.lastKnownPosition ?: return@LaunchedEffect
@@ -238,6 +253,26 @@ fun HomeScreen(
             )
         }
 
+        // Test routing: compute a route from GPS position to Lugano (only when graph is ready)
+        if (uiState.isRoutingReady && uiState.lastKnownPosition != null) {
+            ExtendedFloatingActionButton(
+                onClick = {
+                    if (uiState.route == null) {
+                        viewModel.computeTestRoute(46.0037, 8.9511) // Lugano
+                    } else {
+                        viewModel.clearRoute()
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(top = 64.dp),
+                containerColor = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Text(if (uiState.route == null) "Test percorso → Lugano" else "Nascondi percorso")
+            }
+        }
+
         // Permission rationale
         if (!locationPermissions.allPermissionsGranted) {
             Surface(
@@ -305,6 +340,19 @@ private fun addUserLocationLayer(style: Style) {
                 PropertyFactory.circleStrokeWidth(2f),
                 PropertyFactory.circleStrokeColor("#ffffff")
             )
+        )
+    }
+    if (style.getSource("route") == null) {
+        style.addSource(GeoJsonSource("route"))
+    }
+    if (style.getLayer("route") == null) {
+        style.addLayerBelow(
+            org.maplibre.android.style.layers.LineLayer("route", "route").withProperties(
+                PropertyFactory.lineColor("#1a73e8"),
+                PropertyFactory.lineWidth(4f),
+                PropertyFactory.lineOpacity(0.8f)
+            ),
+            "user-location"
         )
     }
 }
