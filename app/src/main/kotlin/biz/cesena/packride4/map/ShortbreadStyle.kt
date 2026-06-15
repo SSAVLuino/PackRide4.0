@@ -7,10 +7,22 @@ package biz.cesena.packride4.map
  */
 object ShortbreadStyle {
 
+    // Glyphs (font PBFs) for fully offline rendering. The style only references the
+    // "Noto Sans Regular" fontstack (see "text-font" entries below), so only that
+    // fontstack needs to be bundled.
+    //
+    // MANUAL STEP REQUIRED: place the glyph PBF range files at:
+    //   app/src/main/assets/glyphs/Noto Sans Regular/{range}.pbf
+    // (ranges are 256-codepoint blocks, e.g. "0-255.pbf", "256-511.pbf", ...).
+    // These can be generated with tools such as `fontnik`/`build-glyphs` or extracted
+    // from any existing Shortbread/OpenMapTiles font set. They are served locally via
+    // MapLibre's "asset://" URI scheme, which is bundled with the APK (no network call).
+    private const val GLYPHS_URL = "asset://glyphs/{fontstack}/{range}.pbf"
+
     fun offline(tilesUrl: String = "http://localhost:8787/tiles/{z}/{x}/{y}.pbf"): String = """
     {
       "version": 8,
-      "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+      "glyphs": "$GLYPHS_URL",
       "sources": {
         "sb": {
           "type": "vector",
