@@ -16,7 +16,6 @@ coroutines = "1.8.1"
 maplibre = "11.5.1"
 nanohttpd = "2.3.1"
 graphhopper = "8.0"
-janino = "3.1.12"
 slf4jAndroid = "1.7.36"
 
 coreKtx = "1.13.1"
@@ -70,7 +69,6 @@ nanohttpd = { group = "org.nanohttpd", name = "nanohttpd", version.ref = "nanoht
 
 # Offline routing
 graphhopper-core = { group = "com.graphhopper", name = "graphhopper-core", version.ref = "graphhopper" }
-janino = { group = "org.codehaus.janino", name = "janino", version.ref = "janino" }
 slf4j-android = { group = "org.slf4j", name = "slf4j-android", version.ref = "slf4jAndroid" }
 
 # Test

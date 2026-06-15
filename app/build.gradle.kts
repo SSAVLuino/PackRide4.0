@@ -106,15 +106,8 @@ dependencies {
     // Offline routing
     implementation(libs.graphhopper.core) {
         exclude(group = "org.slf4j", module = "slf4j-api")
-        exclude(group = "org.codehaus.janino", module = "janino")
-        exclude(group = "org.codehaus.janino", module = "commons-compiler")
     }
     implementation(libs.slf4j.android)
-    // Newer Janino than GraphHopper's transitive dep: required to compile
-    // CustomModel expressions when the app is built targeting Java 17
-    // class files (GraphHopper's bundled 3.1.9 fails with
-    // "can't load this type of class file" on Java 17 bytecode).
-    implementation(libs.janino)
 
     // Google Play Services — FusedLocationProvider
     implementation(libs.play.services.location)

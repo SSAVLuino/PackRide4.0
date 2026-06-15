@@ -10,7 +10,7 @@ To (re)generate a graph for a region:
    `italy-latest.osm.pbf`, ...).
 2. Run `./build-graph.sh <region-id> <path-to-extract.osm.pbf>`.
    This produces a `graph-<region-id>/` directory using the same `car`
-   profile/custom model as the app (`config.yml`, kept in sync with
+   profile as the app (`config.yml`, kept in sync with
    `RoutingManager.carProfile()`).
 3. Zip the *contents* of `graph-<region-id>/` (not the folder itself) into
    `graph-<region-id>.zip`.
@@ -29,6 +29,6 @@ re-download the graph (compare with the stored version, if tracked).
 
 ## Keeping config.yml in sync
 
-If `RoutingManager.carProfile()` changes (profile name, vehicle, custom
-model), update `config.yml` to match before regenerating graphs, otherwise
+If `RoutingManager.carProfile()` changes (profile name, vehicle, weighting),
+update `config.yml` to match before regenerating graphs, otherwise
 `gh.load()` may fail or silently use a different weighting than expected.
