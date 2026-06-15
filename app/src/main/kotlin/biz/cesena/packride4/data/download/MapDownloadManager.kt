@@ -102,6 +102,9 @@ class MapDownloadManager @Inject constructor(
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /** Set by [downloadToFile] when it fails, so callers can log technical details. */
+    private var lastDownloadError: String? = null
+
     private val _progress = MutableStateFlow<Map<String, Int?>>(emptyMap())
     val progress: StateFlow<Map<String, Int?>> = _progress.asStateFlow()
 
@@ -136,7 +139,7 @@ class MapDownloadManager @Inject constructor(
                     destFile.delete()
                     setProgress(regionId, null)
                     _errorMessage.value = "Download di ${entry.name} interrotto — riprova"
-                    biz.cesena.packride4.debug.DebugLog.log("download ${entry.name} FAILED")
+                    biz.cesena.packride4.debug.DebugLog.log("download ${entry.name} FAILED: ${lastDownloadError ?: "unknown error"}")
                     return@launch
                 }
 
@@ -194,7 +197,7 @@ class MapDownloadManager @Inject constructor(
                     zipFile.delete()
                     setRoutingProgress(regionId, null)
                     _errorMessage.value = "Download dati di navigazione per ${entry.name} interrotto — riprova"
-                    biz.cesena.packride4.debug.DebugLog.log("routing graph download ${entry.name} FAILED")
+                    biz.cesena.packride4.debug.DebugLog.log("routing graph download ${entry.name} FAILED: ${lastDownloadError ?: "unknown error"}")
                     return@launch
                 }
                 biz.cesena.packride4.debug.DebugLog.log("routing graph download ${entry.name} OK, ${zipFile.length()}B")
@@ -262,7 +265,7 @@ class MapDownloadManager @Inject constructor(
             while (true) {
                 conn = (URL(currentUrl).openConnection() as HttpURLConnection).apply {
                     connectTimeout = 30_000
-                    readTimeout = 120_000
+                    readTimeout = 600_000
                     instanceFollowRedirects = false
                 }
                 conn.connect()
@@ -303,6 +306,7 @@ class MapDownloadManager @Inject constructor(
             true
         } catch (e: Exception) {
             android.util.Log.e("MapDownloadManager", "Download failed for $url", e)
+            lastDownloadError = "${e::class.simpleName}: ${e.message}"
             false
         } finally {
             connection?.disconnect()
