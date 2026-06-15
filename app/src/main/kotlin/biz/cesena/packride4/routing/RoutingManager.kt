@@ -4,6 +4,8 @@ import biz.cesena.packride4.debug.DebugLog
 import com.graphhopper.GHRequest
 import com.graphhopper.GraphHopper
 import com.graphhopper.config.Profile
+import com.graphhopper.json.Statement
+import com.graphhopper.util.CustomModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,7 +38,9 @@ class RoutingManager @Inject constructor() {
     val isReady: StateFlow<Boolean> = _isReady.asStateFlow()
 
     private fun carProfile(): Profile {
-        return Profile("car").setVehicle("car").setWeighting("fastest")
+        val customModel = CustomModel()
+        customModel.addToPriority(Statement.If("road_access == DESTINATION", Statement.Op.MULTIPLY, "0.1"))
+        return Profile("car").setVehicle("car").setWeighting("custom").setCustomModel(customModel)
     }
 
     /** Loads a prebuilt routing graph from [graphDir] (downloaded as a ready-made archive). */

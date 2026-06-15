@@ -5,7 +5,11 @@ graphhopper:
   profiles:
     - name: car
       vehicle: car
-      weighting: fastest
+      weighting: custom
+      custom_model:
+        priority:
+          - if: road_access == DESTINATION
+            multiply_by: 0.1
 
   graph.elevation.provider: noop
   import.osm.ignored_highways: ""
