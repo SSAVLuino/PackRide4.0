@@ -203,9 +203,25 @@ class MapDownloadManager @Inject constructor(
                 val graphDir = File(routingDir, "graph-$regionId")
                 extractZip(zipFile, graphDir)
                 zipFile.delete()
+
+                // If the zip had a single top-level wrapper folder, flatten it.
+                val children = graphDir.listFiles() ?: emptyArray()
+                if (children.size == 1 && children[0].isDirectory) {
+                    val wrapper = children[0]
+                    wrapper.listFiles()?.forEach { child ->
+                        child.renameTo(File(graphDir, child.name))
+                    }
+                    wrapper.delete()
+                }
                 biz.cesena.packride4.debug.DebugLog.log("routing graph extracted to ${graphDir.absolutePath}")
 
                 routingManager.loadPrebuiltGraph(graphDir)
+                if (!routingManager.isReady.value) {
+                    setRoutingProgress(regionId, null)
+                    _errorMessage.value = "Caricamento dati di navigazione per ${entry.name} non riuscito"
+                    biz.cesena.packride4.debug.DebugLog.log("routing graph load ${entry.name} FAILED: isReady still false")
+                    return@launch
+                }
                 setRoutingProgress(regionId, null)
             } catch (e: Exception) {
                 setRoutingProgress(regionId, null)
