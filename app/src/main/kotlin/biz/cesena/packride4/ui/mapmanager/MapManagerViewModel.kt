@@ -112,6 +112,46 @@ class MapManagerViewModel @Inject constructor(
             val entity = db.mapRegionDao().getById(regionId) ?: return@launch
             java.io.File(entity.filePath).takeIf { it.exists() }?.delete()
             db.mapRegionDao().deleteById(regionId)
+
+            val graphDir = java.io.File(context.filesDir, "routing/graph-$regionId")
+            if (graphDir.exists()) {
+                graphDir.deleteRecursively()
+                routingManager.reset()
+            }
+        }
+    }
+
+    init {
+        viewModelScope.launch {
+            val mapsDir = java.io.File(context.filesDir, "maps")
+            val routingDir = java.io.File(context.filesDir, "routing")
+
+            for (entry in AVAILABLE_REGIONS) {
+                // Re-register downloaded map files missing their DB row.
+                val mapFile = java.io.File(mapsDir, entry.fileName)
+                if (mapFile.exists() && db.mapRegionDao().getById(entry.id) == null) {
+                    val bboxParts = entry.bbox.split(",").mapNotNull { it.toDoubleOrNull() }
+                    db.mapRegionDao().insert(
+                        biz.cesena.packride4.data.local.MapRegion(
+                            id = entry.id,
+                            name = entry.name,
+                            filePath = mapFile.absolutePath,
+                            downloadedAt = mapFile.lastModified(),
+                            sizeBytes = mapFile.length(),
+                            bboxMinLon = bboxParts.getOrElse(0) { 0.0 },
+                            bboxMinLat = bboxParts.getOrElse(1) { 0.0 },
+                            bboxMaxLon = bboxParts.getOrElse(2) { 0.0 },
+                            bboxMaxLat = bboxParts.getOrElse(3) { 0.0 }
+                        )
+                    )
+                }
+
+                // Reload prebuilt routing graphs found on disk so isReady reflects reality.
+                val graphDir = java.io.File(routingDir, "graph-${entry.id}")
+                if (graphDir.exists() && graphDir.isDirectory) {
+                    routingManager.loadPrebuiltGraph(graphDir)
+                }
+            }
         }
     }
 }

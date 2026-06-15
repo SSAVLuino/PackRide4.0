@@ -65,6 +65,13 @@ class RoutingManager @Inject constructor() {
         }
     }
 
+    /** Unloads the current graph (if any) and marks routing as not ready. */
+    suspend fun reset() = withContext(Dispatchers.IO) {
+        hopper?.close()
+        hopper = null
+        _isReady.value = false
+    }
+
     suspend fun route(points: List<Pair<Double, Double>>): RouteResult? = withContext(Dispatchers.IO) {
         val gh = hopper ?: run {
             DebugLog.log("routing: no graph loaded")
