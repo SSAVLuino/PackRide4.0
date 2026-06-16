@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Looper
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import biz.cesena.packride4.data.download.AVAILABLE_REGIONS
 import biz.cesena.packride4.data.local.AppDatabase
 import biz.cesena.packride4.map.MBTilesServer
 import biz.cesena.packride4.map.ShortbreadStyle
@@ -63,6 +64,16 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             routingManager.isReady.collect { ready ->
                 _uiState.update { it.copy(isRoutingReady = ready) }
+            }
+        }
+        // Load any prebuilt routing graphs found on disk so isRoutingReady is set at startup.
+        viewModelScope.launch {
+            val routingDir = File(context.filesDir, "routing")
+            for (entry in AVAILABLE_REGIONS) {
+                val graphDir = File(routingDir, "graph-${entry.id}")
+                if (graphDir.exists() && graphDir.isDirectory) {
+                    routingManager.loadPrebuiltGraph(graphDir)
+                }
             }
         }
     }

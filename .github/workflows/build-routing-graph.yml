@@ -41,7 +41,7 @@ jobs:
           cat > graph-builder/build.gradle << 'EOF'
           plugins { id 'java'; id 'application' }
           repositories { mavenCentral() }
-          dependencies { implementation 'com.graphhopper:graphhopper-core:7.0' }
+          dependencies { implementation 'com.graphhopper:graphhopper-core:6.2' }
           application { mainClass = 'BuildGraph' }
           EOF
           cat > graph-builder/src/main/java/BuildGraph.java << 'JAVA'
