@@ -64,8 +64,11 @@ class MapManagerViewModel @Inject constructor(
         val (downloaded, progress, routingProgress, error, mobileWarning) = state
 
         val downloadedIds = downloaded.map { it.id }.toSet()
+        val routingDir = java.io.File(context.filesDir, "routing")
         val regions = AVAILABLE_REGIONS.distinctBy { it.id }.map { entry ->
             val entity = downloaded.find { it.id == entry.id }
+            val graphDir = java.io.File(routingDir, "graph-${entry.id}")
+            val graphOnDisk = graphDir.exists() && graphDir.isDirectory && (graphDir.listFiles()?.isNotEmpty() == true)
             MapRegionUi(
                 id = entry.id,
                 name = entry.name,
@@ -75,7 +78,7 @@ class MapManagerViewModel @Inject constructor(
                 downloadProgress = progress[entry.id],
                 hasRoutingPbf = entry.routingGraphUrl != null,
                 routingProgress = routingProgress[entry.id],
-                isRoutingReady = routingReady
+                isRoutingReady = routingReady && graphOnDisk
             )
         }
         MapManagerUiState(regions = regions, showMobileDataWarning = mobileWarning, errorMessage = error)
