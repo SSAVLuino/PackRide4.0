@@ -64,7 +64,7 @@ class MapManagerViewModel @Inject constructor(
         val (downloaded, progress, routingProgress, error, mobileWarning) = state
 
         val downloadedIds = downloaded.map { it.id }.toSet()
-        val regions = AVAILABLE_REGIONS.map { entry ->
+        val regions = AVAILABLE_REGIONS.distinctBy { it.id }.map { entry ->
             val entity = downloaded.find { it.id == entry.id }
             MapRegionUi(
                 id = entry.id,
