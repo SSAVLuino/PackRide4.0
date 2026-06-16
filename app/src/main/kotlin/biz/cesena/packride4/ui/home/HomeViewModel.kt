@@ -78,11 +78,12 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** Computes a test route from the last known GPS position to [destLat]/[destLon]. */
-    fun computeTestRoute(destLat: Double, destLon: Double) {
-        val from = _uiState.value.lastKnownPosition ?: return
+    /** Computes a route. If fromLat/fromLon are provided uses those, otherwise uses last GPS position. */
+    fun computeTestRoute(destLat: Double, destLon: Double, fromLat: Double? = null, fromLon: Double? = null) {
+        val origin = if (fromLat != null && fromLon != null) fromLat to fromLon
+                     else _uiState.value.lastKnownPosition?.let { it.latitude to it.longitude } ?: return
         viewModelScope.launch {
-            val result = routingManager.route(listOf(from.latitude to from.longitude, destLat to destLon))
+            val result = routingManager.route(listOf(origin, destLat to destLon))
             _uiState.update { it.copy(route = result) }
         }
     }
