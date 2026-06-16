@@ -34,12 +34,13 @@ data class RegionCatalogEntry(
 val AVAILABLE_REGIONS = listOf(
     RegionCatalogEntry(
         id = "italia-nord-ovest",
-        name = "Italia — Nord Ovest",
+        name = "Italia Nord-Ovest",
         country = "Italia",
         downloadUrl = "$GEOFABRIK/europe/italy/nord-ovest-shortbread-1.0.mbtiles",
         fileName = "italia-nord-ovest.mbtiles",
-        estimatedSizeMb = 731.0,
-        bbox = "6.6,43.8,9.2,46.5"
+        estimatedSizeMb = 300.0,
+        bbox = "6.6,43.8,12.5,46.7",
+        routingGraphUrl = "https://github.com/SSAVLuino/PackRide4.0/releases/download/routing-graph-italia-nord-ovest-v3/graph-italia-nord-ovest.zip"
     ),
     RegionCatalogEntry(
         id = "italia-nord-est",
@@ -86,16 +87,6 @@ val AVAILABLE_REGIONS = listOf(
         estimatedSizeMb = 400.0,
         bbox = "5.9,45.8,10.5,47.8",
         routingGraphUrl = "https://github.com/SSAVLuino/PackRide4.0/releases/download/routing-graph-svizzera-v3/graph-svizzera.zip"
-    ),
-    RegionCatalogEntry(
-        id = "italia-nord-ovest",
-        name = "Italia Nord-Ovest",
-        country = "Italia",
-        downloadUrl = "https://download.geofabrik.de/europe/italy/nord-ovest-shortbread-1.0.mbtiles",
-        fileName = "italia-nord-ovest.mbtiles",
-        estimatedSizeMb = 300.0,
-        bbox = "6.6,43.8,12.5,46.7",
-        routingGraphUrl = "https://github.com/SSAVLuino/PackRide4.0/releases/download/routing-graph-italia-nord-ovest-v3/graph-italia-nord-ovest.zip"
     ),
 )
 
