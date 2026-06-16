@@ -1,4 +1,4 @@
-# GraphHopper 7.0 import config for prebuilt offline routing graphs.
+# GraphHopper 6.2 import config for prebuilt offline routing graphs.
 # Must match the profile defined in RoutingManager.carProfile().
 graphhopper:
   profiles:
