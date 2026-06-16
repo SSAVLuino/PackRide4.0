@@ -258,7 +258,7 @@ fun HomeScreen(
             ExtendedFloatingActionButton(
                 onClick = {
                     if (uiState.route == null) {
-                        viewModel.computeTestRoute(destLat = 46.004, destLon = 8.951) // GPS -> Lugano
+                        viewModel.computeTestRoute(destLat = 45.464, destLon = 9.190) // GPS -> Milano
                     } else {
                         viewModel.clearRoute()
                     }
@@ -269,7 +269,7 @@ fun HomeScreen(
                     .padding(top = 64.dp),
                 containerColor = MaterialTheme.colorScheme.primaryContainer
             ) {
-                Text(if (uiState.route == null) "Test percorso → Lugano" else "Nascondi percorso")
+                Text(if (uiState.route == null) "Test percorso → Milano" else "Nascondi percorso")
             }
         }
 

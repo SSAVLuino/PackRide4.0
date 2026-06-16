@@ -84,6 +84,7 @@ class RoutingManager @Inject constructor() {
             DebugLog.log("routing: no graph loaded")
             return@withContext null
         }
+        DebugLog.log("routing: request from ${points.first()} to ${points.last()} (${hoppers.size} graphs)")
         // Try each loaded graph; use the first one that returns a valid route
         for ((key, gh) in hoppers) {
             try {
