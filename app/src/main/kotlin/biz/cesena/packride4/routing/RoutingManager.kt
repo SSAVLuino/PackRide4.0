@@ -3,6 +3,7 @@ package biz.cesena.packride4.routing
 import biz.cesena.packride4.debug.DebugLog
 import com.graphhopper.GHRequest
 import com.graphhopper.GraphHopper
+import com.graphhopper.GraphHopperConfig
 import com.graphhopper.config.Profile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,10 +45,11 @@ class RoutingManager @Inject constructor() {
         try {
             DebugLog.log("routing: loading prebuilt graph from ${graphDir.absolutePath}")
             hopper?.close()
-            val gh = GraphHopper()
-            gh.graphHopperLocation = graphDir.absolutePath
-            gh.setProfiles(carProfile())
-            gh.setMemoryMapped()
+            val config = GraphHopperConfig()
+            config.putObject("graph.dataaccess", "MMAP")
+            config.putObject("graph.location", graphDir.absolutePath)
+            config.setProfiles(listOf(carProfile()))
+            val gh = GraphHopper().init(config)
             if (!gh.load()) {
                 DebugLog.log("routing: prebuilt graph load FAILED: gh.load() returned false")
                 _isReady.value = false
