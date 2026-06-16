@@ -58,8 +58,9 @@ class RoutingManager @Inject constructor() {
             hopper = gh
             _isReady.value = true
             DebugLog.log("routing: graph ready")
-        } catch (e: Exception) {
-            DebugLog.log("routing: graph load FAILED: ${e.message}")
+        } catch (e: Throwable) {
+            android.util.Log.e("PackRideDebug", "routing: graph load FAILED", e)
+            DebugLog.log("routing: graph load FAILED: ${e::class.simpleName}: ${e.message}")
             _isReady.value = false
         }
     }
