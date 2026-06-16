@@ -58,7 +58,7 @@ jobs:
           }
           JAVA
           cd graph-builder
-          gradle -q run --args="../region.osm.pbf ../graph-${REGION_ID}"
+          gradle --stacktrace -q run --args="../region.osm.pbf ../graph-${REGION_ID}"
           cd ..
           ls -lh "graph-${REGION_ID}/"
 
