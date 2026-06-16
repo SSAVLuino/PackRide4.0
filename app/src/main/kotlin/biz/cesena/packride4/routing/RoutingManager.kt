@@ -47,6 +47,7 @@ class RoutingManager @Inject constructor() {
             val gh = GraphHopper()
             gh.graphHopperLocation = graphDir.absolutePath
             gh.setProfiles(carProfile())
+            gh.setMemoryMapped()
             if (!gh.load()) {
                 DebugLog.log("routing: prebuilt graph load FAILED: gh.load() returned false")
                 _isReady.value = false
