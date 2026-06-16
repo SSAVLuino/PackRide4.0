@@ -31,28 +31,35 @@ jobs:
           curl -L -o region.osm.pbf "${{ github.event.inputs.osm_url }}"
           ls -lh region.osm.pbf
 
-      - name: Download GraphHopper 7.0
-        run: |
-          curl -L -o graphhopper-web.jar \
-            https://repo1.maven.org/maven2/com/graphhopper/graphhopper-web-bundle/7.0/graphhopper-web-bundle-7.0.jar
-          ls -lh graphhopper-web.jar
-
-      - name: Build routing graph
+      - name: Build routing graph via Gradle
         run: |
           REGION_ID="${{ github.event.inputs.region_id }}"
-          mkdir -p "graph-${REGION_ID}"
-          cat > config.yml << 'EOF'
-          graphhopper:
-            profiles:
-              - name: car
-                vehicle: car
-                weighting: fastest
-            graph.elevation.provider: noop
+          mkdir -p graph-builder/src/main/java
+          cat > graph-builder/build.gradle << 'EOF'
+          plugins { id 'java'; id 'application' }
+          repositories { mavenCentral() }
+          dependencies { implementation 'com.graphhopper:graphhopper-core:7.0' }
+          application { mainClass = 'BuildGraph' }
           EOF
-          java -Ddw.graphhopper.datareader.file=region.osm.pbf \
-               -Ddw.graphhopper.graph.location="graph-${REGION_ID}" \
-               -jar graphhopper-web.jar \
-               import config.yml
+          cat > graph-builder/src/main/java/BuildGraph.java << 'JAVA'
+          import com.graphhopper.GraphHopper;
+          import com.graphhopper.config.Profile;
+          public class BuildGraph {
+              public static void main(String[] args) throws Exception {
+                  Profile profile = new Profile("car").setVehicle("car").setWeighting("fastest");
+                  GraphHopper gh = new GraphHopper();
+                  gh.setOSMFile(args[0]);
+                  gh.setGraphHopperLocation(args[1]);
+                  gh.setProfiles(profile);
+                  gh.setElevation(false);
+                  gh.importOrLoad();
+                  System.out.println("Graph built successfully.");
+              }
+          }
+          JAVA
+          cd graph-builder
+          gradle -q run --args="../region.osm.pbf ../graph-${REGION_ID}"
+          cd ..
           ls -lh "graph-${REGION_ID}/"
 
       - name: Zip graph
