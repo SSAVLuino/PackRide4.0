@@ -258,7 +258,7 @@ fun HomeScreen(
             ExtendedFloatingActionButton(
                 onClick = {
                     if (uiState.route == null) {
-                        viewModel.computeTestRoute(destLat = 46.004, destLon = 8.951, fromLat = 45.998, fromLon = 8.769) // Ponte Cremenaga -> Lugano
+                        viewModel.computeTestRoute(destLat = 46.004, destLon = 8.951) // GPS -> Lugano
                     } else {
                         viewModel.clearRoute()
                     }
