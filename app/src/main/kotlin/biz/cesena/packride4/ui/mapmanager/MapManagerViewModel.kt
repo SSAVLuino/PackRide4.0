@@ -119,7 +119,7 @@ class MapManagerViewModel @Inject constructor(
             val graphDir = java.io.File(context.filesDir, "routing/graph-$regionId")
             if (graphDir.exists()) {
                 graphDir.deleteRecursively()
-                routingManager.reset()
+                routingManager.reset(graphDir)
             }
         }
     }

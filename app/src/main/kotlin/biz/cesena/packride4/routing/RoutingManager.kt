@@ -27,11 +27,12 @@ data class RouteResult(
     val timeMillis: Long
 )
 
-/** Builds/loads an on-device GraphHopper routing graph from an OSM pbf and computes routes. */
+/** Manages one or more on-device GraphHopper routing graphs and computes routes. */
 @Singleton
 class RoutingManager @Inject constructor() {
 
-    private var hopper: GraphHopper? = null
+    // Map of graphDir.absolutePath -> loaded GraphHopper instance
+    private val hoppers = mutableMapOf<String, GraphHopper>()
 
     private val _isReady = MutableStateFlow(false)
     val isReady: StateFlow<Boolean> = _isReady.asStateFlow()
@@ -40,62 +41,72 @@ class RoutingManager @Inject constructor() {
         return Profile("car").setVehicle("car").setWeighting("fastest")
     }
 
-    /** Loads a prebuilt routing graph from [graphDir] (downloaded as a ready-made archive). */
+    /** Loads a prebuilt routing graph from [graphDir]. Multiple graphs can coexist. */
     suspend fun loadPrebuiltGraph(graphDir: File) = withContext(Dispatchers.IO) {
+        val key = graphDir.absolutePath
+        if (hoppers.containsKey(key)) {
+            DebugLog.log("routing: graph already loaded for $key, skipping")
+            return@withContext
+        }
         try {
-            DebugLog.log("routing: loading prebuilt graph from ${graphDir.absolutePath}")
-            hopper?.close()
+            DebugLog.log("routing: loading prebuilt graph from $key")
             val config = GraphHopperConfig()
             config.putObject("graph.dataaccess", "MMAP")
-            config.putObject("graph.location", graphDir.absolutePath)
-config.setProfiles(listOf(carProfile()))
+            config.putObject("graph.location", key)
+            config.setProfiles(listOf(carProfile()))
             val gh = GraphHopper().init(config)
             if (!gh.load()) {
                 DebugLog.log("routing: prebuilt graph load FAILED: gh.load() returned false")
-                _isReady.value = false
                 return@withContext
             }
-            hopper = gh
+            hoppers[key] = gh
             _isReady.value = true
-            DebugLog.log("routing: graph ready")
+            DebugLog.log("routing: graph ready (${hoppers.size} total)")
         } catch (e: Throwable) {
             android.util.Log.e("PackRideDebug", "routing: graph load FAILED", e)
             DebugLog.log("routing: graph load FAILED: ${e::class.simpleName}: ${e.message}")
-            _isReady.value = false
         }
     }
 
-    /** Unloads the current graph (if any) and marks routing as not ready. */
-    suspend fun reset() = withContext(Dispatchers.IO) {
-        hopper?.close()
-        hopper = null
-        _isReady.value = false
+    /** Unloads the graph at [graphDir] (or all graphs if null). */
+    suspend fun reset(graphDir: File? = null) = withContext(Dispatchers.IO) {
+        if (graphDir == null) {
+            hoppers.values.forEach { it.close() }
+            hoppers.clear()
+        } else {
+            hoppers.remove(graphDir.absolutePath)?.close()
+        }
+        _isReady.value = hoppers.isNotEmpty()
     }
 
     suspend fun route(points: List<Pair<Double, Double>>): RouteResult? = withContext(Dispatchers.IO) {
-        val gh = hopper ?: run {
+        if (hoppers.isEmpty()) {
             DebugLog.log("routing: no graph loaded")
             return@withContext null
         }
-        try {
-            val req = GHRequest()
-            points.forEach { (lat, lon) -> req.addPoint(com.graphhopper.util.shapes.GHPoint(lat, lon)) }
-            req.profile = "car"
-            val rsp = gh.route(req)
-            if (rsp.hasErrors()) {
-                DebugLog.log("routing: error: ${rsp.errors}")
-                return@withContext null
+        // Try each loaded graph; use the first one that returns a valid route
+        for ((key, gh) in hoppers) {
+            try {
+                val req = GHRequest()
+                points.forEach { (lat, lon) -> req.addPoint(com.graphhopper.util.shapes.GHPoint(lat, lon)) }
+                req.profile = "car"
+                val rsp = gh.route(req)
+                if (rsp.hasErrors()) {
+                    DebugLog.log("routing: graph $key failed: ${rsp.errors.first()::class.simpleName}")
+                    continue
+                }
+                val path = rsp.best
+                val routePoints = path.points.map { it.lat to it.lon }
+                val instructions = path.instructions.map {
+                    RouteInstruction(it.name, it.distance, it.time)
+                }
+                DebugLog.log("routing: route OK via $key, ${routePoints.size} pts, ${path.distance.toInt()}m")
+                return@withContext RouteResult(routePoints, instructions, path.distance, path.time)
+            } catch (e: Exception) {
+                DebugLog.log("routing: graph $key exception: ${e.message}")
             }
-            val path = rsp.best
-            val routePoints = path.points.map { it.lat to it.lon }
-            val instructions = path.instructions.map {
-                RouteInstruction(it.name, it.distance, it.time)
-            }
-            DebugLog.log("routing: route OK, ${routePoints.size} pts, ${path.distance.toInt()}m, ${instructions.size} instructions")
-            RouteResult(routePoints, instructions, path.distance, path.time)
-        } catch (e: Exception) {
-            DebugLog.log("routing: route FAILED: ${e.message}")
-            null
         }
+        DebugLog.log("routing: no graph could serve the route")
+        null
     }
 }
