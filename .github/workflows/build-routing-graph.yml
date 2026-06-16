@@ -35,6 +35,7 @@ jobs:
         run: |
           REGION_ID="${{ github.event.inputs.region_id }}"
           mkdir -p graph-builder/src/main/java
+          echo "rootProject.name = 'graph-builder'" > graph-builder/settings.gradle
           cat > graph-builder/build.gradle << 'EOF'
           plugins { id 'java'; id 'application' }
           repositories { mavenCentral() }
