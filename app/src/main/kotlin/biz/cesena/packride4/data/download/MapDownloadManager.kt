@@ -95,7 +95,7 @@ val AVAILABLE_REGIONS = listOf(
         fileName = "italia-nord-ovest.mbtiles",
         estimatedSizeMb = 300.0,
         bbox = "6.6,43.8,12.5,46.7",
-        routingGraphUrl = "https://github.com/SSAVLuino/PackRide4.0/releases/download/routing-graph-italia-nord-ovest-v1/graph-italia-nord-ovest.zip"
+        routingGraphUrl = "https://github.com/SSAVLuino/PackRide4.0/releases/download/routing-graph-italia-nord-ovest-v3/graph-italia-nord-ovest.zip"
     ),
 )
 
