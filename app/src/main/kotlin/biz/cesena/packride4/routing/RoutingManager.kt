@@ -48,6 +48,7 @@ class RoutingManager @Inject constructor() {
             val config = GraphHopperConfig()
             config.putObject("graph.dataaccess", "MMAP")
             config.putObject("graph.location", graphDir.absolutePath)
+            config.putObject("import.osm.ignored_highways", "")
             config.setProfiles(listOf(carProfile()))
             val gh = GraphHopper().init(config)
             if (!gh.load()) {
