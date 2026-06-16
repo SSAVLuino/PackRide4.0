@@ -85,7 +85,7 @@ val AVAILABLE_REGIONS = listOf(
         fileName = "svizzera.mbtiles",
         estimatedSizeMb = 400.0,
         bbox = "5.9,45.8,10.5,47.8",
-        routingGraphUrl = "https://github.com/SSAVLuino/PackRide4.0/releases/download/routing-graph-svizzera-v1/graph-svizzera.zip"
+        routingGraphUrl = "https://github.com/SSAVLuino/PackRide4.0/releases/download/routing-graph-svizzera-v2/graph-svizzera.zip"
     ),
 )
 

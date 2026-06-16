@@ -1,0 +1,75 @@
+name: Build Routing Graph
+
+on:
+  workflow_dispatch:
+    inputs:
+      region_id:
+        description: 'Region ID (e.g. svizzera, italia)'
+        required: true
+      osm_url:
+        description: 'URL of the .osm.pbf extract (from Geofabrik)'
+        required: true
+        default: 'https://download.geofabrik.de/europe/switzerland-latest.osm.pbf'
+      release_tag:
+        description: 'GitHub release tag for the output zip (e.g. routing-graph-svizzera-v2)'
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Download OSM extract
+        run: |
+          curl -L -o region.osm.pbf "${{ github.event.inputs.osm_url }}"
+          ls -lh region.osm.pbf
+
+      - name: Download GraphHopper 7.0
+        run: |
+          curl -L -o graphhopper-web.jar \
+            https://repo1.maven.org/maven2/com/graphhopper/graphhopper-web-bundle/7.0/graphhopper-web-bundle-7.0.jar
+          ls -lh graphhopper-web.jar
+
+      - name: Build routing graph
+        run: |
+          REGION_ID="${{ github.event.inputs.region_id }}"
+          mkdir -p "graph-${REGION_ID}"
+          cat > config.yml << 'EOF'
+          graphhopper:
+            profiles:
+              - name: car
+                vehicle: car
+                weighting: fastest
+            graph.elevation.provider: noop
+          EOF
+          java -Ddw.graphhopper.datareader.file=region.osm.pbf \
+               -Ddw.graphhopper.graph.location="graph-${REGION_ID}" \
+               -jar graphhopper-web.jar \
+               import config.yml
+          ls -lh "graph-${REGION_ID}/"
+
+      - name: Zip graph
+        run: |
+          REGION_ID="${{ github.event.inputs.region_id }}"
+          cd "graph-${REGION_ID}"
+          zip -r "../graph-${REGION_ID}.zip" .
+          cd ..
+          ls -lh "graph-${REGION_ID}.zip"
+
+      - name: Create GitHub Release and upload graph
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REGION_ID="${{ github.event.inputs.region_id }}"
+          TAG="${{ github.event.inputs.release_tag }}"
+          gh release create "$TAG" \
+            --title "Routing graph: ${REGION_ID} (${TAG})" \
+            --notes "Prebuilt GraphHopper 7.0 routing graph for ${REGION_ID} (car/fastest profile). Generated from ${{ github.event.inputs.osm_url }}." \
+            "graph-${REGION_ID}.zip"
