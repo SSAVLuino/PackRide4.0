@@ -1,5 +1,6 @@
 package biz.cesena.packride4.debug
 
+import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.text.SimpleDateFormat
@@ -17,6 +18,7 @@ object DebugLog {
     fun log(message: String) {
         val entry = "${timeFormat.format(Date())}  $message"
         _lines.value = (_lines.value + entry).takeLast(MAX_LINES)
+        Log.d("PackRideDebug", message)
     }
 
     fun clear() {
