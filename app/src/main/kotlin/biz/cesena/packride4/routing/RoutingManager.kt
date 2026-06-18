@@ -19,7 +19,8 @@ data class RouteInstruction(
     val text: String,
     val distanceMeters: Double,
     val timeMillis: Long,
-    val sign: Int = 0   // GraphHopper sign: -3 sharp-left … 3 sharp-right, 4 finish
+    val sign: Int = 0,      // GraphHopper sign: -3 sharp-left … 3 sharp-right, 4 finish
+    val modifier: String = "" // OSRM modifier for roundabout/fork/ramp variants
 )
 
 data class RouteResult(

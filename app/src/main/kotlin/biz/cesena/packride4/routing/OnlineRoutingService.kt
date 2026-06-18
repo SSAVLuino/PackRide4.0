@@ -121,7 +121,7 @@ class OnlineRoutingService @Inject constructor() {
                     val text = osrmStepText(type, modifier, streetName)
                     val stepDist = step.optDouble("distance", 0.0)
                     val stepTime = (step.optDouble("duration", 0.0) * 1000).toLong()
-                    instructions += RouteInstruction(text, stepDist, stepTime, sign)
+                    instructions += RouteInstruction(text, stepDist, stepTime, sign, modifier)
                 }
             }
             DebugLog.log("online-routing: OSRM ${instructions.size} istruzioni")

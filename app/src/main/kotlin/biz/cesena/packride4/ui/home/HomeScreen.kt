@@ -7,20 +7,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Straight
-import androidx.compose.material.icons.filled.TurnLeft
-import androidx.compose.material.icons.filled.TurnRight
-import androidx.compose.material.icons.filled.TurnSlightLeft
-import androidx.compose.material.icons.filled.TurnSlightRight
 import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.ui.res.painterResource
+import biz.cesena.packride4.ui.common.maneuverIcon
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -564,8 +561,8 @@ private fun RouteReadyPanel(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(signToIcon(instr.sign), null,
-                                modifier = Modifier.size(20.dp),
+                            Icon(painterResource(maneuverIcon(instr.sign, instr.modifier)), null,
+                                modifier = Modifier.size(24.dp),
                                 tint = MaterialTheme.colorScheme.primary)
                             Text(
                                 instr.text.ifBlank { "Prosegui" },
@@ -615,9 +612,9 @@ private fun NavigationBottomPanel(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Icon(
-                    imageVector = signToIcon(currentInstruction?.sign ?: 0),
+                    painter = painterResource(maneuverIcon(currentInstruction?.sign ?: 0, currentInstruction?.modifier ?: "")),
                     contentDescription = null,
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier.size(40.dp),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 Column(modifier = Modifier.weight(1f)) {
@@ -688,15 +685,6 @@ private fun NavStat(value: String, unit: String, tint: Color = Color.Unspecified
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-private fun signToIcon(sign: Int): ImageVector = when (sign) {
-    -3, -2 -> Icons.Default.TurnLeft
-    -1     -> Icons.Default.TurnSlightLeft
-    1      -> Icons.Default.TurnSlightRight
-    2, 3   -> Icons.Default.TurnRight
-    4      -> Icons.Default.Flag
-    else   -> Icons.Default.Straight
-}
 
 private fun formatDistance(meters: Double): String = when {
     meters >= 1000 -> "${"%.1f".format(meters / 1000)} km"

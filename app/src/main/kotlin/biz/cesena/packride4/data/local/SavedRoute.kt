@@ -41,7 +41,8 @@ data class SavedRoute(
                         .put("text", instr.text)
                         .put("distanceMeters", instr.distanceMeters)
                         .put("timeMillis", instr.timeMillis)
-                        .put("sign", instr.sign))
+                        .put("sign", instr.sign)
+                        .put("modifier", instr.modifier))
                 }
             }.toString()
 
@@ -53,7 +54,8 @@ data class SavedRoute(
                     text = o.getString("text"),
                     distanceMeters = o.getDouble("distanceMeters"),
                     timeMillis = o.getLong("timeMillis"),
-                    sign = o.getInt("sign")
+                    sign = o.getInt("sign"),
+                    modifier = o.optString("modifier", "")
                 )
             }
         }

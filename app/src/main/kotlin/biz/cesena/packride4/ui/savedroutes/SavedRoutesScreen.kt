@@ -6,20 +6,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Navigation
-import androidx.compose.material.icons.filled.Straight
-import androidx.compose.material.icons.filled.TurnLeft
-import androidx.compose.material.icons.filled.TurnRight
-import androidx.compose.material.icons.filled.TurnSlightLeft
-import androidx.compose.material.icons.filled.TurnSlightRight
+import androidx.compose.ui.res.painterResource
+import biz.cesena.packride4.ui.common.maneuverIcon
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -162,9 +158,9 @@ private fun SavedRouteItem(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Icon(
-                                imageVector = signToIcon(instr.sign),
+                                painter = painterResource(maneuverIcon(instr.sign, instr.modifier)),
                                 contentDescription = null,
-                                modifier = Modifier.size(18.dp),
+                                modifier = Modifier.size(24.dp),
                                 tint = MaterialTheme.colorScheme.primary
                             )
                             Text(
@@ -190,15 +186,6 @@ private fun SavedRouteItem(
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-private fun signToIcon(sign: Int): ImageVector = when (sign) {
-    -3, -2 -> Icons.Default.TurnLeft
-    -1     -> Icons.Default.TurnSlightLeft
-    1      -> Icons.Default.TurnSlightRight
-    2, 3   -> Icons.Default.TurnRight
-    4      -> Icons.Default.Flag
-    else   -> Icons.Default.Straight
-}
 
 private fun formatDistance(meters: Double): String = when {
     meters >= 1000 -> "${"%.1f".format(meters / 1000)} km"
