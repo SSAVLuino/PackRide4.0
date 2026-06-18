@@ -303,7 +303,6 @@ fun HomeScreen(
                     viewModel.clearSearch()
                 },
                 sheetState = sheetState,
-                windowInsets = WindowInsets(0)
             ) {
                 SearchSheet(
                     query = uiState.searchQuery,
