@@ -9,7 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.filled.FormatListBulleted
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Navigation
@@ -530,7 +530,7 @@ private fun RouteReadyPanel(
                 if (route.instructions.isNotEmpty()) {
                     TextButton(onClick = { showInstructions = !showInstructions }) {
                         Icon(
-                            if (showInstructions) Icons.Default.Close else Icons.Default.FormatListBulleted,
+                            if (showInstructions) Icons.Default.Close else Icons.AutoMirrored.Filled.FormatListBulleted,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp)
                         )
