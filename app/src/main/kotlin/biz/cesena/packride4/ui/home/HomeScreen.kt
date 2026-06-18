@@ -271,7 +271,10 @@ fun HomeScreen(
             uiState.route != null -> {
                 RouteReadyPanel(
                     route = uiState.route!!,
+                    destinationName = uiState.destinationName,
+                    routeSaved = uiState.routeSaved,
                     onStart = { viewModel.startNavigation() },
+                    onSave = { viewModel.saveRoute() },
                     onCancel = { viewModel.clearRoute() },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -461,10 +464,15 @@ private fun SearchSheet(
 @Composable
 private fun RouteReadyPanel(
     route: biz.cesena.packride4.routing.RouteResult,
+    destinationName: String,
+    routeSaved: Boolean,
     onStart: () -> Unit,
+    onSave: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showInstructions by remember { mutableStateOf(false) }
+
     Surface(
         modifier = modifier,
         color = MaterialTheme.colorScheme.surface,
@@ -474,30 +482,89 @@ private fun RouteReadyPanel(
             bottomEnd = androidx.compose.foundation.shape.CornerSize(0.dp)
         )
     ) {
-        Row(
-            modifier = Modifier
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    formatDistance(route.distanceMeters),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    formatDuration(route.timeMillis),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+        Column {
+            // Summary row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    if (destinationName.isNotBlank()) {
+                        Text(destinationName,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1)
+                    }
+                    Text(
+                        "${formatDistance(route.distanceMeters)}  ·  ${formatDuration(route.timeMillis)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                // Toggle instructions list
+                if (route.instructions.isNotEmpty()) {
+                    IconButton(onClick = { showInstructions = !showInstructions }) {
+                        Icon(
+                            if (showInstructions) Icons.Default.Close else Icons.Default.Search,
+                            contentDescription = "Istruzioni",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                // Save button
+                IconButton(onClick = onSave, enabled = !routeSaved) {
+                    Icon(
+                        Icons.Default.Flag,
+                        contentDescription = "Salva percorso",
+                        tint = if (routeSaved) MaterialTheme.colorScheme.primary
+                               else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                OutlinedButton(onClick = onCancel) { Text("Cancella") }
+                Button(onClick = onStart) {
+                    Icon(Icons.Default.Navigation, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Avvia")
+                }
             }
-            OutlinedButton(onClick = onCancel) { Text("Cancella") }
-            Button(onClick = onStart) {
-                Icon(Icons.Default.Navigation, null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Avvia")
+
+            // Instructions list (expandable)
+            if (showInstructions && route.instructions.isNotEmpty()) {
+                HorizontalDivider()
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 240.dp)
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                ) {
+                    items(route.instructions) { instr ->
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(signToIcon(instr.sign), null,
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.primary)
+                            Text(
+                                instr.text.ifBlank { "Prosegui" },
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Text(
+                                formatDistance(instr.distanceMeters),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                }
+            } else {
+                Spacer(Modifier.windowInsetsPadding(WindowInsets.navigationBars))
             }
         }
     }

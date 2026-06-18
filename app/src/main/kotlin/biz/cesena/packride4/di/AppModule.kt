@@ -26,4 +26,7 @@ object AppModule {
 
     @Provides
     fun provideMapRegionDao(db: AppDatabase): MapRegionDao = db.mapRegionDao()
+
+    @Provides
+    fun provideSavedRouteDao(db: AppDatabase): SavedRouteDao = db.savedRouteDao()
 }

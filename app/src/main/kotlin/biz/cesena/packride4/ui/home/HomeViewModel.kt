@@ -7,6 +7,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import biz.cesena.packride4.data.download.AVAILABLE_REGIONS
 import biz.cesena.packride4.data.local.AppDatabase
+import biz.cesena.packride4.data.local.SavedRoute
+import biz.cesena.packride4.data.local.SavedRouteDao
 import biz.cesena.packride4.debug.DebugLog
 import biz.cesena.packride4.map.MBTilesServer
 import biz.cesena.packride4.map.ShortbreadStyle
@@ -43,12 +45,18 @@ data class HomeUiState(
     val searchQuery: String = "",
     val searchResults: List<GeocodingResult> = emptyList(),
     val isSearchLoading: Boolean = false,
+    // Destination info (used when saving)
+    val destinationName: String = "",
+    val destinationLat: Double = 0.0,
+    val destinationLon: Double = 0.0,
+    val routeSaved: Boolean = false,
 )
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val db: AppDatabase,
+    private val savedRouteDao: SavedRouteDao,
     private val routingManager: RoutingManager,
     private val onlineRoutingService: OnlineRoutingService,
     private val geocodingService: GeocodingService,
@@ -113,7 +121,13 @@ class HomeViewModel @Inject constructor(
     }
 
     fun selectSearchResult(result: GeocodingResult) {
-        _uiState.update { it.copy(searchQuery = "", searchResults = emptyList(), isSearchLoading = false) }
+        _uiState.update { it.copy(
+            searchQuery = "", searchResults = emptyList(), isSearchLoading = false,
+            destinationName = result.name,
+            destinationLat = result.lat,
+            destinationLon = result.lon,
+            routeSaved = false,
+        )}
         computeRoute(result.lat, result.lon)
     }
 
@@ -139,8 +153,25 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun saveRoute() {
+        val state = _uiState.value
+        val route = state.route ?: return
+        viewModelScope.launch {
+            savedRouteDao.insert(SavedRoute(
+                name = state.destinationName.ifBlank { "Percorso" },
+                destinationLat = state.destinationLat,
+                destinationLon = state.destinationLon,
+                distanceMeters = route.distanceMeters,
+                durationMillis = route.timeMillis,
+                pointsJson = SavedRoute.serializePoints(route.points),
+                instructionsJson = SavedRoute.serializeInstructions(route.instructions),
+            ))
+            _uiState.update { it.copy(routeSaved = true) }
+        }
+    }
+
     fun clearRoute() {
-        _uiState.update { it.copy(route = null, isNavigating = false, currentInstructionIndex = 0) }
+        _uiState.update { it.copy(route = null, isNavigating = false, currentInstructionIndex = 0, routeSaved = false) }
     }
 
     fun startNavigation() {

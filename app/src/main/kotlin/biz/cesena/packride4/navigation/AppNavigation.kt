@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,11 +27,13 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import biz.cesena.packride4.ui.home.HomeScreen
 import biz.cesena.packride4.ui.mapmanager.MapManagerScreen
+import biz.cesena.packride4.ui.savedroutes.SavedRoutesScreen
 import biz.cesena.packride4.ui.theme.SidebarBackground
 
 sealed class Screen(val route: String) {
     object Home : Screen("home")
     object MapManager : Screen("map_manager")
+    object SavedRoutes : Screen("saved_routes")
 }
 
 private data class SidebarItem(
@@ -51,6 +54,7 @@ fun AppNavigation() {
     val sidebarItems = listOf(
         SidebarItem(Screen.Home, "Mappa", Icons.Default.Map),
         SidebarItem(Screen.MapManager, "Mappe offline", Icons.Default.Download),
+        SidebarItem(Screen.SavedRoutes, "Percorsi salvati", Icons.Default.Route),
     )
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -77,6 +81,9 @@ fun AppNavigation() {
             }
             composable(Screen.MapManager.route) {
                 MapManagerScreen()
+            }
+            composable(Screen.SavedRoutes.route) {
+                SavedRoutesScreen()
             }
         }
 

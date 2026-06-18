@@ -4,10 +4,11 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [MapRegion::class],
-    version = 1,
+    entities = [MapRegion::class, SavedRoute::class],
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun mapRegionDao(): MapRegionDao
+    abstract fun savedRouteDao(): SavedRouteDao
 }
