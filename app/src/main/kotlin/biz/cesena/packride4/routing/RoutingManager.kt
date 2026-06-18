@@ -1,5 +1,6 @@
 package biz.cesena.packride4.routing
 
+import biz.cesena.packride4.data.download.RegionCatalogEntry
 import biz.cesena.packride4.debug.DebugLog
 import com.graphhopper.GHRequest
 import com.graphhopper.GraphHopper
@@ -17,7 +18,8 @@ import javax.inject.Singleton
 data class RouteInstruction(
     val text: String,
     val distanceMeters: Double,
-    val timeMillis: Long
+    val timeMillis: Long,
+    val sign: Int = 0   // GraphHopper sign: -3 sharp-left … 3 sharp-right, 4 finish
 )
 
 data class RouteResult(
@@ -31,8 +33,10 @@ data class RouteResult(
 @Singleton
 class RoutingManager @Inject constructor() {
 
-    // Map of graphDir.absolutePath -> loaded GraphHopper instance
+    // graphDir.absolutePath -> GraphHopper instance
     private val hoppers = mutableMapOf<String, GraphHopper>()
+    // regionId -> graphDir.absolutePath (to support canRouteLocally checks)
+    private val regionToPath = mutableMapOf<String, String>()
 
     private val _isReady = MutableStateFlow(false)
     val isReady: StateFlow<Boolean> = _isReady.asStateFlow()
@@ -42,14 +46,14 @@ class RoutingManager @Inject constructor() {
     }
 
     /** Loads a prebuilt routing graph from [graphDir]. Multiple graphs can coexist. */
-    suspend fun loadPrebuiltGraph(graphDir: File) = withContext(Dispatchers.IO) {
+    suspend fun loadPrebuiltGraph(graphDir: File, regionId: String = graphDir.name) = withContext(Dispatchers.IO) {
         val key = graphDir.absolutePath
         if (hoppers.containsKey(key)) {
             DebugLog.log("routing: graph already loaded for $key, skipping")
             return@withContext
         }
         try {
-            DebugLog.log("routing: loading prebuilt graph from $key")
+            DebugLog.log("routing: loading prebuilt graph from $key (region=$regionId)")
             val config = GraphHopperConfig()
             config.putObject("graph.dataaccess", "MMAP")
             config.putObject("graph.location", key)
@@ -60,6 +64,7 @@ class RoutingManager @Inject constructor() {
                 return@withContext
             }
             hoppers[key] = gh
+            regionToPath[regionId] = key
             _isReady.value = true
             DebugLog.log("routing: graph ready (${hoppers.size} total)")
         } catch (e: Throwable) {
@@ -73,10 +78,27 @@ class RoutingManager @Inject constructor() {
         if (graphDir == null) {
             hoppers.values.forEach { it.close() }
             hoppers.clear()
+            regionToPath.clear()
         } else {
-            hoppers.remove(graphDir.absolutePath)?.close()
+            val key = graphDir.absolutePath
+            hoppers.remove(key)?.close()
+            regionToPath.entries.removeIf { it.value == key }
         }
         _isReady.value = hoppers.isNotEmpty()
+    }
+
+    /**
+     * Returns true if both [from] and [to] fall inside the bounding box of a single
+     * loaded region — meaning GraphHopper can serve the route entirely offline.
+     */
+    fun canRouteLocally(
+        fromLat: Double, fromLon: Double,
+        toLat: Double, toLon: Double,
+        regions: List<RegionCatalogEntry>
+    ): Boolean = regions.any { region ->
+        region.id in regionToPath &&
+        region.containsPoint(fromLat, fromLon) &&
+        region.containsPoint(toLat, toLon)
     }
 
     suspend fun route(points: List<Pair<Double, Double>>): RouteResult? = withContext(Dispatchers.IO) {
@@ -99,7 +121,7 @@ class RoutingManager @Inject constructor() {
                 val path = rsp.best
                 val routePoints = path.points.map { it.lat to it.lon }
                 val instructions = path.instructions.map {
-                    RouteInstruction(it.name, it.distance, it.time)
+                    RouteInstruction(it.name, it.distance, it.time, it.sign)
                 }
                 DebugLog.log("routing: route OK via $key, ${routePoints.size} pts, ${path.distance.toInt()}m")
                 return@withContext RouteResult(routePoints, instructions, path.distance, path.time)

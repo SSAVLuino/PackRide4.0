@@ -27,9 +27,15 @@ data class RegionCatalogEntry(
     val downloadUrl: String,
     val fileName: String,
     val estimatedSizeMb: Double,
-    val bbox: String,
+    val bbox: String,         // "minLon,minLat,maxLon,maxLat"
     val routingGraphUrl: String? = null
-)
+) {
+    fun containsPoint(lat: Double, lon: Double): Boolean {
+        val p = bbox.split(",").mapNotNull { it.trim().toDoubleOrNull() }
+        if (p.size < 4) return false
+        return lon >= p[0] && lat >= p[1] && lon <= p[2] && lat <= p[3]
+    }
+}
 
 val AVAILABLE_REGIONS = listOf(
     RegionCatalogEntry(
@@ -219,7 +225,7 @@ class MapDownloadManager @Inject constructor(
                 }
                 biz.cesena.packride4.debug.DebugLog.log("routing graph extracted to ${graphDir.absolutePath}")
 
-                routingManager.loadPrebuiltGraph(graphDir)
+                routingManager.loadPrebuiltGraph(graphDir, regionId)
                 if (!routingManager.isReady.value) {
                     setRoutingProgress(regionId, null)
                     _errorMessage.value = "Caricamento dati di navigazione per ${entry.name} non riuscito"

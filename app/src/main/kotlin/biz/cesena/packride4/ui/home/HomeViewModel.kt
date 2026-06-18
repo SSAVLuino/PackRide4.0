@@ -7,8 +7,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import biz.cesena.packride4.data.download.AVAILABLE_REGIONS
 import biz.cesena.packride4.data.local.AppDatabase
+import biz.cesena.packride4.debug.DebugLog
 import biz.cesena.packride4.map.MBTilesServer
 import biz.cesena.packride4.map.ShortbreadStyle
+import biz.cesena.packride4.routing.OnlineRoutingService
 import biz.cesena.packride4.routing.RouteResult
 import biz.cesena.packride4.routing.RoutingManager
 import com.google.android.gms.location.*
@@ -28,14 +30,19 @@ data class HomeUiState(
     val isFollowing: Boolean = false,
     val mapStyleJson: String = ShortbreadStyle.online,
     val isRoutingReady: Boolean = false,
-    val route: RouteResult? = null
+    val route: RouteResult? = null,
+    // Navigation state
+    val isNavigating: Boolean = false,
+    val currentInstructionIndex: Int = 0,
+    val speedKmh: Float = 0f,
 )
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val db: AppDatabase,
-    private val routingManager: RoutingManager
+    private val routingManager: RoutingManager,
+    private val onlineRoutingService: OnlineRoutingService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -52,7 +59,8 @@ class HomeViewModel @Inject constructor(
         override fun onLocationResult(result: LocationResult) {
             result.lastLocation?.let { loc ->
                 _uiState.update { it.copy(
-                    lastKnownPosition = GpsPosition(loc.latitude, loc.longitude, loc.accuracy)
+                    lastKnownPosition = GpsPosition(loc.latitude, loc.longitude, loc.accuracy),
+                    speedKmh = if (loc.hasSpeed()) loc.speed * 3.6f else it.speedKmh
                 )}
             }
         }
@@ -72,7 +80,7 @@ class HomeViewModel @Inject constructor(
             for (entry in AVAILABLE_REGIONS) {
                 val graphDir = File(routingDir, "graph-${entry.id}")
                 if (graphDir.exists() && graphDir.isDirectory) {
-                    routingManager.loadPrebuiltGraph(graphDir)
+                    routingManager.loadPrebuiltGraph(graphDir, entry.id)
                 }
             }
         }
@@ -80,16 +88,30 @@ class HomeViewModel @Inject constructor(
 
     /** Computes a route. If fromLat/fromLon are provided uses those, otherwise uses last GPS position. */
     fun computeTestRoute(destLat: Double, destLon: Double, fromLat: Double? = null, fromLon: Double? = null) {
-        val origin = if (fromLat != null && fromLon != null) fromLat to fromLon
-                     else _uiState.value.lastKnownPosition?.let { it.latitude to it.longitude } ?: return
+        val (oLat, oLon) = if (fromLat != null && fromLon != null) fromLat to fromLon
+                           else _uiState.value.lastKnownPosition?.let { it.latitude to it.longitude } ?: return
         viewModelScope.launch {
-            val result = routingManager.route(listOf(origin, destLat to destLon))
+            val result = if (routingManager.canRouteLocally(oLat, oLon, destLat, destLon, AVAILABLE_REGIONS)) {
+                DebugLog.log("routing: local graph covers both endpoints — using GraphHopper")
+                routingManager.route(listOf(oLat to oLon, destLat to destLon))
+            } else {
+                DebugLog.log("routing: cross-region or no local graph — using online routing")
+                onlineRoutingService.route(oLat, oLon, destLat, destLon)
+            }
             _uiState.update { it.copy(route = result) }
         }
     }
 
     fun clearRoute() {
-        _uiState.update { it.copy(route = null) }
+        _uiState.update { it.copy(route = null, isNavigating = false, currentInstructionIndex = 0) }
+    }
+
+    fun startNavigation() {
+        _uiState.update { it.copy(isNavigating = true, isFollowing = true, currentInstructionIndex = 0) }
+    }
+
+    fun stopNavigation() {
+        _uiState.update { it.copy(isNavigating = false, currentInstructionIndex = 0, route = null) }
     }
 
     private fun startMBTilesServer() {

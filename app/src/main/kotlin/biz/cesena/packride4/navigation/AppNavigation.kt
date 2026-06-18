@@ -7,10 +7,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -45,6 +46,7 @@ private val SIDEBAR_EXPANDED_WIDTH = 220.dp
 fun AppNavigation() {
     val navController = rememberNavController()
     var sidebarExpanded by remember { mutableStateOf(false) }
+    var showDebugLog by remember { mutableStateOf(false) }
 
     val sidebarItems = listOf(
         SidebarItem(Screen.Home, "Mappa", Icons.Default.Map),
@@ -122,7 +124,40 @@ fun AppNavigation() {
                         }
                     )
                 }
+
+                // Debug log (bottom of sidebar, debug builds only)
+                if (biz.cesena.packride4.BuildConfig.DEBUG) {
+                    Spacer(Modifier.weight(1f))
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(SIDEBAR_COLLAPSED_WIDTH)
+                            .clickable { showDebugLog = true },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (sidebarExpanded) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.BugReport, "Log debug",
+                                    tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(24.dp))
+                                Spacer(Modifier.width(14.dp))
+                                Text("Log debug", color = Color.White.copy(alpha = 0.7f),
+                                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
+                            }
+                        } else {
+                            Icon(Icons.Default.BugReport, "Log debug",
+                                tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(24.dp))
+                        }
+                    }
+                }
             }
+        }
+
+        if (showDebugLog) {
+            biz.cesena.packride4.ui.home.SidebarDebugLogDialog(onDismiss = { showDebugLog = false })
         }
     }
 }
