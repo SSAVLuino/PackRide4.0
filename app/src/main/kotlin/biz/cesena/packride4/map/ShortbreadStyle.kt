@@ -19,22 +19,11 @@ object ShortbreadStyle {
     // MapLibre's "asset://" URI scheme, which is bundled with the APK (no network call).
     private const val GLYPHS_URL = "asset://glyphs/{fontstack}/{range}.pbf"
 
-    /**
-     * Hybrid style: CartoDB raster tiles are always loaded as a fallback background.
-     * Local vector tiles (Shortbread) render on top where downloaded regions cover the area.
-     * In uncovered areas, CartoDB raster shows automatically — no white map.
-     */
     fun offline(tilesUrl: String = "http://localhost:8787/tiles/{z}/{x}/{y}.pbf"): String = """
     {
       "version": 8,
       "glyphs": "$GLYPHS_URL",
       "sources": {
-        "osm-raster": {
-          "type": "raster",
-          "tiles": ["https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"],
-          "tileSize": 256,
-          "attribution": "© OpenStreetMap contributors © CARTO"
-        },
         "sb": {
           "type": "vector",
           "tiles": ["$tilesUrl"],
@@ -43,9 +32,7 @@ object ShortbreadStyle {
         }
       },
       "layers": [
-        { "id": "bg", "type": "background", "paint": { "background-color": "#f5f3ef" } },
-        { "id": "osm-raster-fallback", "type": "raster", "source": "osm-raster",
-          "paint": { "raster-opacity": 1 } },
+        { "id": "bg",    "type": "background", "paint": { "background-color": "#f5f3ef" } },
         { "id": "land",  "type": "fill", "source": "sb", "source-layer": "land",
           "paint": { "fill-color": "#f5f3ef" } },
         { "id": "water", "type": "fill", "source": "sb", "source-layer": "water_polygons",

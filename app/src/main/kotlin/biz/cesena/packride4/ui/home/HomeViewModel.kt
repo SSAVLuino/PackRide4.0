@@ -9,6 +9,7 @@ import biz.cesena.packride4.data.download.AVAILABLE_REGIONS
 import biz.cesena.packride4.data.local.AppDatabase
 import biz.cesena.packride4.data.local.SavedRoute
 import biz.cesena.packride4.data.local.SavedRouteDao
+import biz.cesena.packride4.data.prefs.UserPreferences
 import biz.cesena.packride4.debug.DebugLog
 import biz.cesena.packride4.map.MBTilesServer
 import biz.cesena.packride4.map.ShortbreadStyle
@@ -60,6 +61,7 @@ class HomeViewModel @Inject constructor(
     private val routingManager: RoutingManager,
     private val onlineRoutingService: OnlineRoutingService,
     private val geocodingService: GeocodingService,
+    private val userPreferences: UserPreferences,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -190,12 +192,22 @@ class HomeViewModel @Inject constructor(
 
     private fun observeMapSource() {
         viewModelScope.launch {
-            db.mapRegionDao().getAll().collect { downloadedRegions ->
+            combine(
+                db.mapRegionDao().getAll(),
+                userPreferences.useOfflineMap
+            ) { downloadedRegions, useOffline ->
+                downloadedRegions to useOffline
+            }.collect { (downloadedRegions, useOffline) ->
                 val mapFiles = downloadedRegions.map { File(it.filePath) }.filter { it.exists() }
-                mbTilesServer.loadMaps(mapFiles)
+                val hasOffline = mapFiles.isNotEmpty()
+                if (useOffline && hasOffline) {
+                    mbTilesServer.loadMaps(mapFiles)
+                } else {
+                    mbTilesServer.loadMaps(emptyList())
+                }
                 _uiState.update { it.copy(
-                    hasOfflineMaps = mapFiles.isNotEmpty(),
-                    mapStyleJson = if (mapFiles.isNotEmpty()) ShortbreadStyle.offline() else ShortbreadStyle.online
+                    hasOfflineMaps = hasOffline,
+                    mapStyleJson = if (useOffline && hasOffline) ShortbreadStyle.offline() else ShortbreadStyle.online
                 )}
             }
         }
