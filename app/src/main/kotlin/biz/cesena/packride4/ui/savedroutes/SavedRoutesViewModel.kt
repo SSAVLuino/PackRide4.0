@@ -22,7 +22,7 @@ class SavedRoutesViewModel @Inject constructor(
     fun delete(route: SavedRoute) {
         viewModelScope.launch {
             dao.delete(route)
-            routeEventBus.notifyRouteDeleted(route.id)
+            routeEventBus.notifyRouteDeleted(route.id.toLong())
         }
     }
 }
