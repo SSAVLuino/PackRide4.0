@@ -1,15 +1,26 @@
 package biz.cesena.packride4.ui.savedroutes
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.Straight
+import androidx.compose.material.icons.filled.TurnLeft
+import androidx.compose.material.icons.filled.TurnRight
+import androidx.compose.material.icons.filled.TurnSlightLeft
+import androidx.compose.material.icons.filled.TurnSlightRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -29,7 +40,7 @@ fun SavedRoutesScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(start = 64.dp) // sidebar clearance
+            .padding(start = 64.dp)
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         Text(
@@ -65,37 +76,124 @@ private fun SavedRouteItem(
     onNavigate: () -> Unit,
     onDelete: () -> Unit
 ) {
+    var expanded by remember { mutableStateOf(false) }
+
     val dateStr = remember(route.savedAt) {
         SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ITALY).format(Date(route.savedAt))
     }
-    val distanceStr = if (route.distanceMeters >= 1000)
-        "${"%.1f".format(route.distanceMeters / 1000)} km"
-    else "${route.distanceMeters.roundToInt()} m"
-    val durationStr = run {
-        val min = (route.durationMillis / 60_000).toInt()
-        if (min >= 60) "${min / 60}h ${min % 60}m" else "${min}m"
+    val distanceStr = formatDistance(route.distanceMeters)
+    val durationStr = formatDuration(route.durationMillis)
+    val instructions = remember(route.instructionsJson) {
+        SavedRoute.deserializeInstructions(route.instructionsJson)
     }
 
-    ListItem(
-        headlineContent = {
-            Text(route.name, fontWeight = FontWeight.Medium, maxLines = 1)
-        },
-        supportingContent = {
-            Text("$distanceStr  ·  $durationStr  ·  $dateStr",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        },
-        trailingContent = {
-            Row {
-                IconButton(onClick = onNavigate) {
-                    Icon(Icons.Default.Navigation, "Naviga",
-                        tint = MaterialTheme.colorScheme.primary)
+    Column {
+        // ── Header row ─────────────────────────────────────────────────────────
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { if (instructions.isNotEmpty()) expanded = !expanded }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    route.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1
+                )
+                Text(
+                    "$distanceStr  ·  $durationStr  ·  $dateStr",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Expand toggle (only if instructions available)
+            if (instructions.isNotEmpty()) {
+                IconButton(onClick = { expanded = !expanded }) {
+                    Icon(
+                        if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (expanded) "Chiudi istruzioni" else "Mostra istruzioni",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, "Elimina",
-                        tint = MaterialTheme.colorScheme.error)
+            }
+
+            IconButton(onClick = onNavigate) {
+                Icon(Icons.Default.Navigation, "Naviga",
+                    tint = MaterialTheme.colorScheme.primary)
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Delete, "Elimina",
+                    tint = MaterialTheme.colorScheme.error)
+            }
+        }
+
+        // ── Instructions list (expandable) ────────────────────────────────────
+        AnimatedVisibility(visible = expanded) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
+            ) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                instructions.forEach { instr ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = signToIcon(instr.sign),
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = instr.text.ifBlank { "Prosegui" },
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Text(
+                            text = formatDistance(instr.distanceMeters),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
                 }
             }
         }
-    )
+    }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+private fun signToIcon(sign: Int): ImageVector = when (sign) {
+    -3, -2 -> Icons.Default.TurnLeft
+    -1     -> Icons.Default.TurnSlightLeft
+    1      -> Icons.Default.TurnSlightRight
+    2, 3   -> Icons.Default.TurnRight
+    4      -> Icons.Default.Flag
+    else   -> Icons.Default.Straight
+}
+
+private fun formatDistance(meters: Double): String = when {
+    meters >= 1000 -> "${"%.1f".format(meters / 1000)} km"
+    else           -> "${meters.roundToInt()} m"
+}
+
+private fun formatDuration(millis: Long): String {
+    val totalMin = (millis / 60_000).toInt()
+    val h = totalMin / 60
+    val m = totalMin % 60
+    return if (h > 0) "${h}h ${m}m" else "${m}m"
 }
