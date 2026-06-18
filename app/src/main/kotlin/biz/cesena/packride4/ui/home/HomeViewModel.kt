@@ -139,7 +139,6 @@ class HomeViewModel @Inject constructor(
             destinationName = result.name,
             destinationLat = result.lat,
             destinationLon = result.lon,
-            routeSaved = false,
             routeError = null,
         )}
         computeRoute(result.lat, result.lon)
