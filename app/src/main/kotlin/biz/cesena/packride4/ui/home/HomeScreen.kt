@@ -90,7 +90,7 @@ fun HomeScreen(
         }
     }
 
-    LaunchedEffect(uiState.mapStyleJson) {
+    LaunchedEffect(mapInstance, uiState.mapStyleJson) {
         mapInstance?.setStyle(Style.Builder().fromJson(uiState.mapStyleJson)) { style ->
             addMapLayers(style)
         }
@@ -354,28 +354,23 @@ fun HomeScreen(
     }
 }
 
-// ── Bottom panel: idle search bar (pill) ──────────────────────────────────────
+// ── Bottom panel: idle "Dove andiamo?" button ─────────────────────────────────
 
 @Composable
 private fun SearchBar(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Surface(
+    Button(
         onClick = onClick,
-        modifier = modifier,
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 6.dp,
-        shape = MaterialTheme.shapes.extraLarge
+        modifier = modifier.height(52.dp),
+        shape = MaterialTheme.shapes.extraLarge,
+        contentPadding = PaddingValues(horizontal = 24.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(Icons.Default.Search, contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Dove vuoi andare?",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        Icon(Icons.Default.Place, contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(10.dp))
+        Text(
+            "Dove andiamo?",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 

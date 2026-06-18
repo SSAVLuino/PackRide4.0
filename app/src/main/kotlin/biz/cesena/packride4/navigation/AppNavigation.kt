@@ -124,9 +124,14 @@ fun AppNavigation() {
                         isSelected = isSelected,
                         expanded = sidebarExpanded,
                         onClick = {
-                            navController.navigate(item.screen.route) {
-                                popUpTo(Screen.Home.route) { inclusive = item.screen == Screen.Home }
-                                launchSingleTop = true
+                            if (item.screen == Screen.Home) {
+                                // Pop back to the existing Home instance (preserves HomeViewModel state)
+                                navController.popBackStack(Screen.Home.route, inclusive = false)
+                            } else {
+                                navController.navigate(item.screen.route) {
+                                    popUpTo(Screen.Home.route) { inclusive = false }
+                                    launchSingleTop = true
+                                }
                             }
                         }
                     )
