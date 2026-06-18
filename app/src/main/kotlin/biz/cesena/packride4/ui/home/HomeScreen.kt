@@ -278,9 +278,7 @@ fun HomeScreen(
                 RouteReadyPanel(
                     route = uiState.route!!,
                     destinationName = uiState.destinationName,
-                    routeSaved = uiState.routeSaved,
                     onStart = { viewModel.startNavigation() },
-                    onSave = { viewModel.saveRoute() },
                     onCancel = { viewModel.clearRoute() },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -490,9 +488,7 @@ private fun SearchSheet(
 private fun RouteReadyPanel(
     route: biz.cesena.packride4.routing.RouteResult,
     destinationName: String,
-    routeSaved: Boolean,
     onStart: () -> Unit,
-    onSave: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -538,15 +534,6 @@ private fun RouteReadyPanel(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                }
-                // Save button
-                IconButton(onClick = onSave, enabled = !routeSaved) {
-                    Icon(
-                        Icons.Default.Flag,
-                        contentDescription = "Salva percorso",
-                        tint = if (routeSaved) MaterialTheme.colorScheme.primary
-                               else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
                 OutlinedButton(onClick = onCancel) { Text("Cancella") }
                 Button(onClick = onStart) {

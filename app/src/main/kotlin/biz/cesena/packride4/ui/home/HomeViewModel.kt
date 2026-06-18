@@ -9,6 +9,7 @@ import biz.cesena.packride4.data.download.AVAILABLE_REGIONS
 import biz.cesena.packride4.data.local.AppDatabase
 import biz.cesena.packride4.data.local.SavedRoute
 import biz.cesena.packride4.data.local.SavedRouteDao
+import biz.cesena.packride4.data.prefs.RouteEventBus
 import biz.cesena.packride4.data.prefs.UserPreferences
 import biz.cesena.packride4.debug.DebugLog
 import biz.cesena.packride4.map.MBTilesServer
@@ -46,11 +47,12 @@ data class HomeUiState(
     val searchQuery: String = "",
     val searchResults: List<GeocodingResult> = emptyList(),
     val isSearchLoading: Boolean = false,
-    // Destination info (used when saving)
+    // Destination info
     val destinationName: String = "",
     val destinationLat: Double = 0.0,
     val destinationLon: Double = 0.0,
-    val routeSaved: Boolean = false,
+    // ID of the auto-saved route entry (so delete events can clear the active route)
+    val savedRouteId: Long? = null,
     // Routing error feedback
     val routeError: String? = null,
     val isRouteCalculating: Boolean = false,
@@ -65,6 +67,7 @@ class HomeViewModel @Inject constructor(
     private val onlineRoutingService: OnlineRoutingService,
     private val geocodingService: GeocodingService,
     private val userPreferences: UserPreferences,
+    private val routeEventBus: RouteEventBus,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -92,6 +95,11 @@ class HomeViewModel @Inject constructor(
     init {
         startMBTilesServer()
         observeMapSource()
+        viewModelScope.launch {
+            routeEventBus.routeDeleted.collect { deletedId ->
+                if (_uiState.value.savedRouteId == deletedId) clearRoute()
+            }
+        }
         viewModelScope.launch {
             routingManager.isReady.collect { ready ->
                 _uiState.update { it.copy(isRoutingReady = ready) }
@@ -168,33 +176,39 @@ class HomeViewModel @Inject constructor(
                 DebugLog.log("routing: online (TomTom/OSRM)")
                 onlineRoutingService.route(oLat, oLon, destLat, destLon)
             }
-            _uiState.update { it.copy(
-                route = result,
-                isRouteCalculating = false,
-                routeError = if (result == null) "Impossibile calcolare il percorso" else null
-            )}
-        }
-    }
-
-    fun saveRoute() {
-        val state = _uiState.value
-        val route = state.route ?: return
-        viewModelScope.launch {
-            savedRouteDao.insert(SavedRoute(
-                name = state.destinationName.ifBlank { "Percorso" },
-                destinationLat = state.destinationLat,
-                destinationLon = state.destinationLon,
-                distanceMeters = route.distanceMeters,
-                durationMillis = route.timeMillis,
-                pointsJson = SavedRoute.serializePoints(route.points),
-                instructionsJson = SavedRoute.serializeInstructions(route.instructions),
-            ))
-            _uiState.update { it.copy(routeSaved = true) }
+            if (result != null) {
+                val state = _uiState.value
+                val savedId = savedRouteDao.insert(SavedRoute(
+                    name = state.destinationName.ifBlank { "Percorso" },
+                    destinationLat = destLat,
+                    destinationLon = destLon,
+                    distanceMeters = result.distanceMeters,
+                    durationMillis = result.timeMillis,
+                    pointsJson = SavedRoute.serializePoints(result.points),
+                    instructionsJson = SavedRoute.serializeInstructions(result.instructions),
+                ))
+                _uiState.update { it.copy(
+                    route = result,
+                    isRouteCalculating = false,
+                    routeError = null,
+                    savedRouteId = savedId,
+                )}
+            } else {
+                _uiState.update { it.copy(
+                    isRouteCalculating = false,
+                    routeError = "Impossibile calcolare il percorso",
+                )}
+            }
         }
     }
 
     fun clearRoute() {
-        _uiState.update { it.copy(route = null, isNavigating = false, currentInstructionIndex = 0, routeSaved = false) }
+        _uiState.update { it.copy(
+            route = null,
+            isNavigating = false,
+            currentInstructionIndex = 0,
+            savedRouteId = null,
+        )}
     }
 
     fun startNavigation() {
