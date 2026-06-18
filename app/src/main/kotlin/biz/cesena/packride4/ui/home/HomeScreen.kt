@@ -60,6 +60,7 @@ fun HomeScreen(
     )
 
     var mapInstance by remember { mutableStateOf<MapLibreMap?>(null) }
+    var initialZoomDone by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         MapLibre.getInstance(context)
@@ -122,14 +123,17 @@ fun HomeScreen(
         }
     }
 
-    // GPS dot + follow camera
+    // GPS dot + follow camera + initial zoom
     LaunchedEffect(uiState.lastKnownPosition, uiState.isFollowing) {
         val pos = uiState.lastKnownPosition ?: return@LaunchedEffect
         val map = mapInstance ?: return@LaunchedEffect
         (map.style?.getSourceAs<GeoJsonSource>("user-location"))?.setGeoJson(
             Feature.fromGeometry(Point.fromLngLat(pos.longitude, pos.latitude))
         )
-        if (uiState.isFollowing) {
+        if (!initialZoomDone) {
+            map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(pos.latitude, pos.longitude), 14.0))
+            initialZoomDone = true
+        } else if (uiState.isFollowing) {
             map.animateCamera(CameraUpdateFactory.newLatLng(LatLng(pos.latitude, pos.longitude)))
         }
     }
