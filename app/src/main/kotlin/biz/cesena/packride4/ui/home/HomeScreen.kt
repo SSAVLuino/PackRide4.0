@@ -561,7 +561,7 @@ private fun RouteReadyPanel(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(painterResource(maneuverIcon(instr.sign, instr.modifier)), null,
+                            Icon(painterResource(maneuverIcon(instr.sign, instr.modifier, instr.exitNumber)), null,
                                 modifier = Modifier.size(24.dp),
                                 tint = MaterialTheme.colorScheme.primary)
                             Text(
@@ -611,12 +611,32 @@ private fun NavigationBottomPanel(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Icon(
-                    painter = painterResource(maneuverIcon(currentInstruction?.sign ?: 0, currentInstruction?.modifier ?: "")),
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                // Maneuver icon + roundabout exit number badge
+                Box(contentAlignment = Alignment.BottomEnd) {
+                    Icon(
+                        painter = painterResource(maneuverIcon(currentInstruction?.sign ?: 0, currentInstruction?.modifier ?: "", currentInstruction?.exitNumber ?: 0)),
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    val exitNum = currentInstruction?.exitNumber ?: 0
+                    if (exitNum > 0) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = MaterialTheme.shapes.extraSmall,
+                            modifier = Modifier.size(16.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    exitNum.toString(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    fontSize = 9.sp
+                                )
+                            }
+                        }
+                    }
+                }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = currentInstruction?.text?.takeIf { it.isNotBlank() }
@@ -649,11 +669,32 @@ private fun NavigationBottomPanel(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                NavStat(
-                    value = "${uiState.speedKmh.roundToInt()}",
-                    unit = "km/h",
-                    tint = MaterialTheme.colorScheme.primary
-                )
+                // Speed + optional speed limit badge
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    NavStat(
+                        value = "${uiState.speedKmh.roundToInt()}",
+                        unit = "km/h",
+                        tint = if (currentInstruction?.speedLimitKmh?.let { it > 0 && uiState.speedKmh > it } == true)
+                            MaterialTheme.colorScheme.error
+                        else
+                            MaterialTheme.colorScheme.primary
+                    )
+                    val limit = currentInstruction?.speedLimitKmh ?: 0
+                    if (limit > 0) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = MaterialTheme.shapes.extraSmall
+                        ) {
+                            Text(
+                                "max $limit",
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                fontSize = 9.sp
+                            )
+                        }
+                    }
+                }
                 NavStat(
                     value = formatDistance(route.distanceMeters),
                     unit = "rimasti"

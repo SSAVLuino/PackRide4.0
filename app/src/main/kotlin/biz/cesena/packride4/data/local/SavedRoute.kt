@@ -42,7 +42,9 @@ data class SavedRoute(
                         .put("distanceMeters", instr.distanceMeters)
                         .put("timeMillis", instr.timeMillis)
                         .put("sign", instr.sign)
-                        .put("modifier", instr.modifier))
+                        .put("modifier", instr.modifier)
+                        .put("exitNumber", instr.exitNumber)
+                        .put("speedLimitKmh", instr.speedLimitKmh))
                 }
             }.toString()
 
@@ -55,7 +57,9 @@ data class SavedRoute(
                     distanceMeters = o.getDouble("distanceMeters"),
                     timeMillis = o.getLong("timeMillis"),
                     sign = o.getInt("sign"),
-                    modifier = o.optString("modifier", "")
+                    modifier = o.optString("modifier", ""),
+                    exitNumber = o.optInt("exitNumber", 0),
+                    speedLimitKmh = o.optInt("speedLimitKmh", 0),
                 )
             }
         }

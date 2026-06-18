@@ -19,8 +19,10 @@ data class RouteInstruction(
     val text: String,
     val distanceMeters: Double,
     val timeMillis: Long,
-    val sign: Int = 0,      // GraphHopper sign: -3 sharp-left … 3 sharp-right, 4 finish
-    val modifier: String = "" // OSRM modifier for roundabout/fork/ramp variants
+    val sign: Int = 0,        // GraphHopper sign: -3 sharp-left … 3 sharp-right, 4 finish, 6 roundabout
+    val modifier: String = "", // OSRM modifier for roundabout/fork/ramp variants
+    val exitNumber: Int = 0,  // roundabout exit number (1-8), 0 = unknown
+    val speedLimitKmh: Int = 0 // max speed for this segment (0 = unknown)
 )
 
 data class RouteResult(
@@ -114,6 +116,7 @@ class RoutingManager @Inject constructor() {
                 val req = GHRequest()
                 points.forEach { (lat, lon) -> req.addPoint(com.graphhopper.util.shapes.GHPoint(lat, lon)) }
                 req.profile = "car"
+                req.pathDetails = listOf("max_speed")
                 val rsp = gh.route(req)
                 if (rsp.hasErrors()) {
                     DebugLog.log("routing: graph $key failed: ${rsp.errors.first()::class.simpleName}")
@@ -121,8 +124,34 @@ class RoutingManager @Inject constructor() {
                 }
                 val path = rsp.best
                 val routePoints = path.points.map { it.lat to it.lon }
-                val instructions = path.instructions.map {
-                    RouteInstruction(it.name, it.distance, it.time, it.sign)
+
+                // Build per-point speed limit lookup from path details
+                val speedByPoint = mutableMapOf<Int, Int>()
+                path.pathDetails["max_speed"]?.forEach { detail ->
+                    val from = detail.first
+                    val to = detail.last
+                    val kmh = when (val v = detail.value) {
+                        is Number -> v.toInt()
+                        else -> 0
+                    }
+                    if (kmh > 0) for (i in from until to) speedByPoint[i] = kmh
+                }
+
+                // Map instructions — RoundaboutInstruction gives exit number
+                var pointIndex = 0
+                val instructions = path.instructions.mapIndexed { idx, ghInstr ->
+                    val exitNum = if (ghInstr is com.graphhopper.util.RoundaboutInstruction)
+                        ghInstr.exitNumber else 0
+                    val speed = speedByPoint[pointIndex] ?: 0
+                    pointIndex += ghInstr.points.size
+                    RouteInstruction(
+                        text = ghInstr.name,
+                        distanceMeters = ghInstr.distance,
+                        timeMillis = ghInstr.time,
+                        sign = ghInstr.sign,
+                        exitNumber = exitNum,
+                        speedLimitKmh = speed,
+                    )
                 }
                 DebugLog.log("routing: route OK via $key, ${routePoints.size} pts, ${path.distance.toInt()}m")
                 return@withContext RouteResult(routePoints, instructions, path.distance, path.time)
