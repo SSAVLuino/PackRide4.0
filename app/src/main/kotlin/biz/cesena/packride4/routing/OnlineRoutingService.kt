@@ -46,50 +46,53 @@ class OnlineRoutingService @Inject constructor() {
     private fun routeViaTomTom(
         fromLat: Double, fromLon: Double,
         toLat: Double, toLon: Double
-    ): RouteResult? = try {
-        val url = "https://api.tomtom.com/routing/1/calculateRoute/" +
-                "$fromLat,$fromLon:$toLat,$toLon/json?key=$tomTomKey&traffic=false&travelMode=car"
-        val json = JSONObject(fetchJson(url) ?: return null)
-        val route = json.getJSONArray("routes").getJSONObject(0)
-        val summary = route.getJSONObject("summary")
-        val distanceM = summary.getDouble("lengthInMeters")
-        val timeMs = summary.getLong("travelTimeInSeconds") * 1000L
-        val points = mutableListOf<Pair<Double, Double>>()
-        val legs = route.getJSONArray("legs")
-        for (i in 0 until legs.length()) {
-            val pts = legs.getJSONObject(i).getJSONArray("points")
-            for (j in 0 until pts.length()) {
-                val p = pts.getJSONObject(j)
-                points += p.getDouble("latitude") to p.getDouble("longitude")
+    ): RouteResult? {
+        return try {
+            val url = "https://api.tomtom.com/routing/1/calculateRoute/" +
+                    "$fromLat,$fromLon:$toLat,$toLon/json?key=$tomTomKey&traffic=false&travelMode=car"
+            val json = JSONObject(fetchJson(url) ?: return null)
+            val route = json.getJSONArray("routes").getJSONObject(0)
+            val summary = route.getJSONObject("summary")
+            val distanceM = summary.getDouble("lengthInMeters")
+            val timeMs = summary.getLong("travelTimeInSeconds") * 1000L
+            val points = mutableListOf<Pair<Double, Double>>()
+            val legs = route.getJSONArray("legs")
+            for (i in 0 until legs.length()) {
+                val pts = legs.getJSONObject(i).getJSONArray("points")
+                for (j in 0 until pts.length()) {
+                    val p = pts.getJSONObject(j)
+                    points += p.getDouble("latitude") to p.getDouble("longitude")
+                }
             }
+            RouteResult(points, emptyList(), distanceM, timeMs)
+        } catch (e: Exception) {
+            DebugLog.log("online-routing: TomTom exception: ${e::class.simpleName}: ${e.message}")
+            null
         }
-        RouteResult(points, emptyList(), distanceM, timeMs)
-    } catch (e: Exception) {
-        DebugLog.log("online-routing: TomTom exception: ${e::class.simpleName}: ${e.message}")
-        null
     }
 
     private fun routeViaOsrm(
         fromLat: Double, fromLon: Double,
         toLat: Double, toLon: Double
-    ): RouteResult? = try {
-        // OSRM takes lon,lat order
-        val url = "http://router.project-osrm.org/route/v1/driving/" +
-                "$fromLon,$fromLat;$toLon,$toLat?overview=full&geometries=geojson"
-        val json = JSONObject(fetchJson(url) ?: return null)
-        if (json.getString("code") != "Ok") return null
-        val route = json.getJSONArray("routes").getJSONObject(0)
-        val distanceM = route.getDouble("distance")
-        val timeMs = (route.getDouble("duration") * 1000).toLong()
-        val coords = route.getJSONObject("geometry").getJSONArray("coordinates")
-        val points = (0 until coords.length()).map { i ->
-            val c = coords.getJSONArray(i)
-            c.getDouble(1) to c.getDouble(0) // geojson is [lon, lat]
+    ): RouteResult? {
+        return try {
+            val url = "http://router.project-osrm.org/route/v1/driving/" +
+                    "$fromLon,$fromLat;$toLon,$toLat?overview=full&geometries=geojson"
+            val json = JSONObject(fetchJson(url) ?: return null)
+            if (json.getString("code") != "Ok") return null
+            val route = json.getJSONArray("routes").getJSONObject(0)
+            val distanceM = route.getDouble("distance")
+            val timeMs = (route.getDouble("duration") * 1000).toLong()
+            val coords = route.getJSONObject("geometry").getJSONArray("coordinates")
+            val points = (0 until coords.length()).map { i ->
+                val c = coords.getJSONArray(i)
+                c.getDouble(1) to c.getDouble(0)
+            }
+            RouteResult(points, emptyList(), distanceM, timeMs)
+        } catch (e: Exception) {
+            DebugLog.log("online-routing: OSRM exception: ${e::class.simpleName}: ${e.message}")
+            null
         }
-        RouteResult(points, emptyList(), distanceM, timeMs)
-    } catch (e: Exception) {
-        DebugLog.log("online-routing: OSRM exception: ${e::class.simpleName}: ${e.message}")
-        null
     }
 
     private fun fetchJson(urlString: String): String? {
