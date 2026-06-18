@@ -1,6 +1,5 @@
 package biz.cesena.packride4.ui.savedroutes
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -56,7 +55,7 @@ fun SavedRoutesScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            LazyColumn {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(routes, key = { it.id }) { route ->
                     SavedRouteItem(
                         route = route,
@@ -77,98 +76,113 @@ private fun SavedRouteItem(
     onDelete: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-
-    val dateStr = remember(route.savedAt) {
-        SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ITALY).format(Date(route.savedAt))
-    }
-    val distanceStr = formatDistance(route.distanceMeters)
-    val durationStr = formatDuration(route.durationMillis)
     val instructions = remember(route.instructionsJson) {
         SavedRoute.deserializeInstructions(route.instructionsJson)
     }
+    val dateStr = remember(route.savedAt) {
+        SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ITALY).format(Date(route.savedAt))
+    }
 
-    Column {
-        // ── Header row ─────────────────────────────────────────────────────────
+    Column(modifier = Modifier.fillMaxWidth()) {
+
+        // ── Header ──────────────────────────────────────────────────────────────
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { if (instructions.isNotEmpty()) expanded = !expanded }
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // Info testo (occupa tutto lo spazio disponibile)
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     route.name,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1
                 )
                 Text(
-                    "$distanceStr  ·  $durationStr  ·  $dateStr",
+                    "${formatDistance(route.distanceMeters)}  ·  ${formatDuration(route.durationMillis)}",
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    dateStr,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            // Expand toggle (only if instructions available)
-            if (instructions.isNotEmpty()) {
-                IconButton(onClick = { expanded = !expanded }) {
-                    Icon(
-                        if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = if (expanded) "Chiudi istruzioni" else "Mostra istruzioni",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
+            // Navigazione
             IconButton(onClick = onNavigate) {
-                Icon(Icons.Default.Navigation, "Naviga",
+                Icon(Icons.Default.Navigation, "Naviga verso destinazione",
                     tint = MaterialTheme.colorScheme.primary)
             }
+            // Elimina
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, "Elimina",
+                Icon(Icons.Default.Delete, "Elimina percorso",
                     tint = MaterialTheme.colorScheme.error)
             }
         }
 
-        // ── Instructions list (expandable) ────────────────────────────────────
-        AnimatedVisibility(visible = expanded) {
-            Column(
+        // ── Pulsante "Mostra istruzioni" ────────────────────────────────────────
+        if (instructions.isNotEmpty()) {
+            TextButton(
+                onClick = { expanded = !expanded },
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp)
+                    .padding(start = 8.dp, bottom = 4.dp)
+                    .height(32.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp)
             ) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                instructions.forEach { instr ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = signToIcon(instr.sign),
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = instr.text.ifBlank { "Prosegui" },
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Text(
-                            text = formatDistance(instr.distanceMeters),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                Icon(
+                    if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    if (expanded) "Nascondi istruzioni" else "Mostra ${instructions.size} istruzioni",
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
+        }
+
+        // ── Lista istruzioni (espandibile) ──────────────────────────────────────
+        if (expanded && instructions.isNotEmpty()) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column {
+                    instructions.forEach { instr ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = signToIcon(instr.sign),
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = instr.text.ifBlank { "Prosegui" },
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Text(
+                                text = formatDistance(instr.distanceMeters),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                         )
                     }
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
                 }
             }
         }
