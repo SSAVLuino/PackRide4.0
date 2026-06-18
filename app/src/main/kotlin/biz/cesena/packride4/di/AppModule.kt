@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import biz.cesena.packride4.data.local.AppDatabase
 import biz.cesena.packride4.data.local.MapRegionDao
+import biz.cesena.packride4.data.local.SavedRouteDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
