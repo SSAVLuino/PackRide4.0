@@ -51,6 +51,9 @@ data class HomeUiState(
     val destinationLat: Double = 0.0,
     val destinationLon: Double = 0.0,
     val routeSaved: Boolean = false,
+    // Routing error feedback
+    val routeError: String? = null,
+    val isRouteCalculating: Boolean = false,
 )
 
 @HiltViewModel
@@ -129,6 +132,7 @@ class HomeViewModel @Inject constructor(
             destinationLat = result.lat,
             destinationLon = result.lon,
             routeSaved = false,
+            routeError = null,
         )}
         computeRoute(result.lat, result.lon)
     }
@@ -141,17 +145,34 @@ class HomeViewModel @Inject constructor(
     // ── Routing ─────────────────────────────────────────────────────────────
 
     fun computeRoute(destLat: Double, destLon: Double) {
-        val pos = _uiState.value.lastKnownPosition ?: return
+        val pos = _uiState.value.lastKnownPosition
+        if (pos == null) {
+            _uiState.update { it.copy(routeError = "Posizione GPS non disponibile") }
+            return
+        }
         val (oLat, oLon) = pos.latitude to pos.longitude
+        _uiState.update { it.copy(isRouteCalculating = true, routeError = null) }
         viewModelScope.launch {
             val result = if (routingManager.canRouteLocally(oLat, oLon, destLat, destLon, AVAILABLE_REGIONS)) {
-                DebugLog.log("routing: local GraphHopper")
-                routingManager.route(listOf(oLat to oLon, destLat to destLon))
+                DebugLog.log("routing: trying local GraphHopper")
+                val local = routingManager.route(listOf(oLat to oLon, destLat to destLon))
+                if (local != null) {
+                    DebugLog.log("routing: local OK")
+                    local
+                } else {
+                    // Local graph exists but couldn't route (e.g. destination just outside coverage)
+                    DebugLog.log("routing: local failed, falling back to online")
+                    onlineRoutingService.route(oLat, oLon, destLat, destLon)
+                }
             } else {
                 DebugLog.log("routing: online (TomTom/OSRM)")
                 onlineRoutingService.route(oLat, oLon, destLat, destLon)
             }
-            _uiState.update { it.copy(route = result) }
+            _uiState.update { it.copy(
+                route = result,
+                isRouteCalculating = false,
+                routeError = if (result == null) "Impossibile calcolare il percorso" else null
+            )}
         }
     }
 

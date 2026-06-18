@@ -65,6 +65,12 @@ fun HomeScreen(
     val locationPermissions = rememberMultiplePermissionsState(
         listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
     )
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.routeError) {
+        val err = uiState.routeError ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(err, duration = SnackbarDuration.Short)
+    }
 
     var mapInstance by remember { mutableStateOf<MapLibreMap?>(null) }
     var initialZoomDone by remember { mutableStateOf(false) }
@@ -117,8 +123,8 @@ fun HomeScreen(
         }
     }
 
-    // Route line on map
-    LaunchedEffect(uiState.route) {
+    // Route line on map — key on mapInstance too so it redraws after style reload
+    LaunchedEffect(mapInstance, uiState.route) {
         val map = mapInstance ?: return@LaunchedEffect
         val source = map.style?.getSourceAs<GeoJsonSource>("route")
         val route = uiState.route
@@ -324,6 +330,31 @@ fun HomeScreen(
                 )
             }
         }
+
+        // ── Route calculating spinner ─────────────────────────────────────────
+        if (uiState.isRouteCalculating) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(64.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                shape = MaterialTheme.shapes.medium,
+                shadowElevation = 6.dp
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                }
+            }
+        }
+
+        // ── Snackbar for errors (route errors etc.) ───────────────────────────
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(bottom = bottomPanelDp + 8.dp)
+        )
 
         // ── GPS permission rationale ─────────────────────────────────────────
         if (!locationPermissions.allPermissionsGranted) {
