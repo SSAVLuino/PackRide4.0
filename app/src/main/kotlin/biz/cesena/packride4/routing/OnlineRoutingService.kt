@@ -49,12 +49,14 @@ class OnlineRoutingService @Inject constructor() {
     ): RouteResult? {
         return try {
             val url = "https://api.tomtom.com/routing/1/calculateRoute/" +
-                    "$fromLat,$fromLon:$toLat,$toLon/json?key=$tomTomKey&traffic=false&travelMode=car"
+                    "$fromLat,$fromLon:$toLat,$toLon/json" +
+                    "?key=$tomTomKey&traffic=false&travelMode=car&instructionsType=coded&language=it-IT"
             val json = JSONObject(fetchJson(url) ?: return null)
             val route = json.getJSONArray("routes").getJSONObject(0)
             val summary = route.getJSONObject("summary")
             val distanceM = summary.getDouble("lengthInMeters")
             val timeMs = summary.getLong("travelTimeInSeconds") * 1000L
+
             val points = mutableListOf<Pair<Double, Double>>()
             val legs = route.getJSONArray("legs")
             for (i in 0 until legs.length()) {
@@ -64,7 +66,23 @@ class OnlineRoutingService @Inject constructor() {
                     points += p.getDouble("latitude") to p.getDouble("longitude")
                 }
             }
-            RouteResult(points, emptyList(), distanceM, timeMs)
+
+            val instructions = mutableListOf<RouteInstruction>()
+            val guidance = route.optJSONObject("guidance")
+            val rawInstr = guidance?.optJSONArray("instructions")
+            if (rawInstr != null) {
+                for (i in 0 until rawInstr.length()) {
+                    val instr = rawInstr.getJSONObject(i)
+                    val maneuver = instr.optString("maneuver", "STRAIGHT")
+                    val sign = tomTomManeuverToSign(maneuver)
+                    val text = instr.optString("message", "").ifBlank { maneuverToText(maneuver) }
+                    val distM = instr.optDouble("routeOffsetInMeters", 0.0)
+                    val timeS = instr.optLong("travelTimeInSeconds", 0L)
+                    instructions += RouteInstruction(text, distM, timeS * 1000L, sign)
+                }
+            }
+            DebugLog.log("online-routing: TomTom ${instructions.size} istruzioni")
+            RouteResult(points, instructions, distanceM, timeMs)
         } catch (e: Exception) {
             DebugLog.log("online-routing: TomTom exception: ${e::class.simpleName}: ${e.message}")
             null
@@ -77,7 +95,7 @@ class OnlineRoutingService @Inject constructor() {
     ): RouteResult? {
         return try {
             val url = "http://router.project-osrm.org/route/v1/driving/" +
-                    "$fromLon,$fromLat;$toLon,$toLat?overview=full&geometries=geojson"
+                    "$fromLon,$fromLat;$toLon,$toLat?overview=full&geometries=geojson&steps=true"
             val json = JSONObject(fetchJson(url) ?: return null)
             if (json.getString("code") != "Ok") return null
             val route = json.getJSONArray("routes").getJSONObject(0)
@@ -88,10 +106,85 @@ class OnlineRoutingService @Inject constructor() {
                 val c = coords.getJSONArray(i)
                 c.getDouble(1) to c.getDouble(0)
             }
-            RouteResult(points, emptyList(), distanceM, timeMs)
+
+            val instructions = mutableListOf<RouteInstruction>()
+            val legs = route.getJSONArray("legs")
+            for (i in 0 until legs.length()) {
+                val steps = legs.getJSONObject(i).optJSONArray("steps") ?: continue
+                for (j in 0 until steps.length()) {
+                    val step = steps.getJSONObject(j)
+                    val maneuver = step.getJSONObject("maneuver")
+                    val type = maneuver.optString("type", "")
+                    val modifier = maneuver.optString("modifier", "straight")
+                    val sign = osrmToSign(type, modifier)
+                    val streetName = step.optString("name", "").ifBlank { "" }
+                    val text = osrmStepText(type, modifier, streetName)
+                    val stepDist = step.optDouble("distance", 0.0)
+                    val stepTime = (step.optDouble("duration", 0.0) * 1000).toLong()
+                    instructions += RouteInstruction(text, stepDist, stepTime, sign)
+                }
+            }
+            DebugLog.log("online-routing: OSRM ${instructions.size} istruzioni")
+            RouteResult(points, instructions, distanceM, timeMs)
         } catch (e: Exception) {
             DebugLog.log("online-routing: OSRM exception: ${e::class.simpleName}: ${e.message}")
             null
+        }
+    }
+
+    // ── TomTom maneuver helpers ───────────────────────────────────────────────
+
+    private fun tomTomManeuverToSign(maneuver: String): Int = when (maneuver) {
+        "TURN_SHARP_LEFT"  -> -3
+        "TURN_LEFT"        -> -2
+        "TURN_SLIGHT_LEFT" -> -1
+        "TURN_SLIGHT_RIGHT"-> 1
+        "TURN_RIGHT"       -> 2
+        "TURN_SHARP_RIGHT" -> 3
+        "ARRIVE", "ARRIVE_LEFT", "ARRIVE_RIGHT" -> 4
+        else               -> 0
+    }
+
+    private fun maneuverToText(maneuver: String): String = when (maneuver) {
+        "TURN_SHARP_LEFT"  -> "Svolta decisamente a sinistra"
+        "TURN_LEFT"        -> "Svolta a sinistra"
+        "TURN_SLIGHT_LEFT" -> "Tieniti a sinistra"
+        "TURN_SLIGHT_RIGHT"-> "Tieniti a destra"
+        "TURN_RIGHT"       -> "Svolta a destra"
+        "TURN_SHARP_RIGHT" -> "Svolta decisamente a destra"
+        "ARRIVE", "ARRIVE_LEFT", "ARRIVE_RIGHT" -> "Sei arrivato"
+        "STRAIGHT"         -> "Prosegui dritto"
+        "LOCATION_DEPARTURE" -> "Parti"
+        else               -> maneuver.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }
+    }
+
+    // ── OSRM step helpers ─────────────────────────────────────────────────────
+
+    private fun osrmToSign(type: String, modifier: String): Int = when {
+        type == "arrive"                        -> 4
+        type == "depart"                        -> 0
+        modifier == "sharp left"                -> -3
+        modifier == "left"                      -> -2
+        modifier == "slight left"               -> -1
+        modifier == "slight right"              -> 1
+        modifier == "right"                     -> 2
+        modifier == "sharp right"               -> 3
+        else                                    -> 0
+    }
+
+    private fun osrmStepText(type: String, modifier: String, street: String): String {
+        val via = if (street.isNotBlank()) " su $street" else ""
+        return when {
+            type == "arrive"        -> "Sei arrivato"
+            type == "depart"        -> "Parti$via"
+            modifier == "sharp left"  -> "Svolta decisamente a sinistra$via"
+            modifier == "left"        -> "Svolta a sinistra$via"
+            modifier == "slight left" -> "Tieniti a sinistra$via"
+            modifier == "straight"    -> "Prosegui dritto$via"
+            modifier == "slight right"-> "Tieniti a destra$via"
+            modifier == "right"       -> "Svolta a destra$via"
+            modifier == "sharp right" -> "Svolta decisamente a destra$via"
+            else                      -> "Prosegui$via"
         }
     }
 
