@@ -10,12 +10,16 @@ import biz.cesena.packride4.data.local.AppDatabase
 import biz.cesena.packride4.debug.DebugLog
 import biz.cesena.packride4.map.MBTilesServer
 import biz.cesena.packride4.map.ShortbreadStyle
+import biz.cesena.packride4.routing.GeocodingResult
+import biz.cesena.packride4.routing.GeocodingService
 import biz.cesena.packride4.routing.OnlineRoutingService
 import biz.cesena.packride4.routing.RouteResult
 import biz.cesena.packride4.routing.RoutingManager
 import com.google.android.gms.location.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
@@ -35,6 +39,10 @@ data class HomeUiState(
     val isNavigating: Boolean = false,
     val currentInstructionIndex: Int = 0,
     val speedKmh: Float = 0f,
+    // Search state
+    val searchQuery: String = "",
+    val searchResults: List<GeocodingResult> = emptyList(),
+    val isSearchLoading: Boolean = false,
 )
 
 @HiltViewModel
@@ -42,7 +50,8 @@ class HomeViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val db: AppDatabase,
     private val routingManager: RoutingManager,
-    private val onlineRoutingService: OnlineRoutingService
+    private val onlineRoutingService: OnlineRoutingService,
+    private val geocodingService: GeocodingService,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -50,6 +59,7 @@ class HomeViewModel @Inject constructor(
 
     private val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
     private val mbTilesServer = MBTilesServer(port = 8787)
+    private var searchJob: Job? = null
 
     private val locationRequest = LocationRequest.Builder(
         Priority.PRIORITY_HIGH_ACCURACY, 3_000L
@@ -74,7 +84,6 @@ class HomeViewModel @Inject constructor(
                 _uiState.update { it.copy(isRoutingReady = ready) }
             }
         }
-        // Load any prebuilt routing graphs found on disk so isRoutingReady is set at startup.
         viewModelScope.launch {
             val routingDir = File(context.filesDir, "routing")
             for (entry in AVAILABLE_REGIONS) {
@@ -86,16 +95,44 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** Computes a route. If fromLat/fromLon are provided uses those, otherwise uses last GPS position. */
-    fun computeTestRoute(destLat: Double, destLon: Double, fromLat: Double? = null, fromLon: Double? = null) {
-        val (oLat, oLon) = if (fromLat != null && fromLon != null) fromLat to fromLon
-                           else _uiState.value.lastKnownPosition?.let { it.latitude to it.longitude } ?: return
+    // ── Search / geocoding ──────────────────────────────────────────────────
+
+    fun onSearchQueryChange(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+        searchJob?.cancel()
+        if (query.length < 2) {
+            _uiState.update { it.copy(searchResults = emptyList(), isSearchLoading = false) }
+            return
+        }
+        _uiState.update { it.copy(isSearchLoading = true) }
+        searchJob = viewModelScope.launch {
+            delay(300) // debounce
+            val results = geocodingService.search(query)
+            _uiState.update { it.copy(searchResults = results, isSearchLoading = false) }
+        }
+    }
+
+    fun selectSearchResult(result: GeocodingResult) {
+        _uiState.update { it.copy(searchQuery = "", searchResults = emptyList(), isSearchLoading = false) }
+        computeRoute(result.lat, result.lon)
+    }
+
+    fun clearSearch() {
+        searchJob?.cancel()
+        _uiState.update { it.copy(searchQuery = "", searchResults = emptyList(), isSearchLoading = false) }
+    }
+
+    // ── Routing ─────────────────────────────────────────────────────────────
+
+    fun computeRoute(destLat: Double, destLon: Double) {
+        val pos = _uiState.value.lastKnownPosition ?: return
+        val (oLat, oLon) = pos.latitude to pos.longitude
         viewModelScope.launch {
             val result = if (routingManager.canRouteLocally(oLat, oLon, destLat, destLon, AVAILABLE_REGIONS)) {
-                DebugLog.log("routing: local graph covers both endpoints — using GraphHopper")
+                DebugLog.log("routing: local GraphHopper")
                 routingManager.route(listOf(oLat to oLon, destLat to destLon))
             } else {
-                DebugLog.log("routing: cross-region or no local graph — using online routing")
+                DebugLog.log("routing: online (TomTom/OSRM)")
                 onlineRoutingService.route(oLat, oLon, destLat, destLon)
             }
             _uiState.update { it.copy(route = result) }
@@ -114,6 +151,8 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(isNavigating = false, currentInstructionIndex = 0, route = null) }
     }
 
+    // ── Map / location ──────────────────────────────────────────────────────
+
     private fun startMBTilesServer() {
         runCatching { mbTilesServer.start() }
     }
@@ -121,16 +160,11 @@ class HomeViewModel @Inject constructor(
     private fun observeMapSource() {
         viewModelScope.launch {
             db.mapRegionDao().getAll().collect { downloadedRegions ->
-                val mapFiles = downloadedRegions
-                    .map { File(it.filePath) }
-                    .filter { it.exists() }
-                val hasOffline = mapFiles.isNotEmpty()
-
+                val mapFiles = downloadedRegions.map { File(it.filePath) }.filter { it.exists() }
                 mbTilesServer.loadMaps(mapFiles)
-
                 _uiState.update { it.copy(
-                    hasOfflineMaps = hasOffline,
-                    mapStyleJson = if (hasOffline) ShortbreadStyle.offline() else ShortbreadStyle.online
+                    hasOfflineMaps = mapFiles.isNotEmpty(),
+                    mapStyleJson = if (mapFiles.isNotEmpty()) ShortbreadStyle.offline() else ShortbreadStyle.online
                 )}
             }
         }
@@ -138,9 +172,7 @@ class HomeViewModel @Inject constructor(
 
     @SuppressLint("MissingPermission")
     fun startLocationUpdates() {
-        fusedLocationClient.requestLocationUpdates(
-            locationRequest, locationCallback, Looper.getMainLooper()
-        )
+        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
         _uiState.update { it.copy(isTracking = true) }
     }
 
