@@ -176,15 +176,22 @@ fun HomeScreen(
     }
 
     // Map click/long-click listeners for route editing
-    LaunchedEffect(mapInstance, uiState.isEditingRoute) {
-        val map = mapInstance ?: return@LaunchedEffect
-        if (uiState.isEditingRoute) {
-            map.addOnMapClickListener { latLng ->
-                viewModel.handleMapTap(latLng.latitude, latLng.longitude, map.cameraPosition.zoom)
-            }
-            map.addOnMapLongClickListener { latLng ->
-                viewModel.handleMapLongPress(latLng.latitude, latLng.longitude, map.cameraPosition.zoom)
-            }
+    DisposableEffect(mapInstance, uiState.isEditingRoute) {
+        val map = mapInstance ?: return@DisposableEffect onDispose {}
+        if (!uiState.isEditingRoute) return@DisposableEffect onDispose {}
+
+        val clickListener = org.maplibre.android.maps.MapLibreMap.OnMapClickListener { latLng ->
+            viewModel.handleMapTap(latLng.latitude, latLng.longitude, map.cameraPosition.zoom)
+        }
+        val longClickListener = org.maplibre.android.maps.MapLibreMap.OnMapLongClickListener { latLng ->
+            viewModel.handleMapLongPress(latLng.latitude, latLng.longitude, map.cameraPosition.zoom)
+        }
+        map.addOnMapClickListener(clickListener)
+        map.addOnMapLongClickListener(longClickListener)
+
+        onDispose {
+            map.removeOnMapClickListener(clickListener)
+            map.removeOnMapLongClickListener(longClickListener)
         }
     }
 

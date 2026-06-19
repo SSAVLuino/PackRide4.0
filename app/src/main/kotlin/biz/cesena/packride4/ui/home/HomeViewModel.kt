@@ -375,7 +375,7 @@ class HomeViewModel @Inject constructor(
     fun handleMapTap(lat: Double, lon: Double, zoom: Double = 14.0): Boolean {
         val state = _uiState.value
         if (!state.isEditingRoute || state.route == null) return false
-        val tapRadius = 150.0 / Math.pow(2.0, (zoom - 10.0).coerceAtLeast(0.0))
+        val tapRadius = 500.0 / Math.pow(2.0, (zoom - 10.0).coerceAtLeast(0.0))
 
         // Check if tapped near a waypoint marker
         for ((i, wp) in state.waypoints.withIndex()) {
