@@ -9,7 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.GpsFixed
@@ -59,7 +59,7 @@ fun RoutePlannerSheet(
                 title = { Text("Pianifica percorso") },
                 navigationIcon = {
                     IconButton(onClick = onClose) {
-                        Icon(Icons.Default.ArrowBack, "Chiudi")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Chiudi")
                     }
                 }
             )
