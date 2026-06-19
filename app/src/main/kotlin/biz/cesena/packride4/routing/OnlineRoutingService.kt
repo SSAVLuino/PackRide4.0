@@ -10,13 +10,6 @@ import java.net.URL
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Online routing: tries TomTom first (if API key configured), falls back to OSRM public demo.
- *
- * TomTom key → set TOMTOM_API_KEY in local.properties.
- * OSRM is rate-limited and for development/fallback only; replace with a self-hosted instance
- * or another provider for production.
- */
 @Singleton
 class OnlineRoutingService @Inject constructor() {
 
@@ -25,16 +18,21 @@ class OnlineRoutingService @Inject constructor() {
     suspend fun route(
         fromLat: Double, fromLon: Double,
         toLat: Double, toLon: Double
+    ): RouteResult? = routeMulti(listOf(fromLat to fromLon, toLat to toLon))
+
+    suspend fun routeMulti(
+        waypoints: List<Pair<Double, Double>>
     ): RouteResult? = withContext(Dispatchers.IO) {
+        if (waypoints.size < 2) return@withContext null
         if (tomTomKey.isNotEmpty()) {
-            val tomTomResult = routeViaTomTom(fromLat, fromLon, toLat, toLon)
+            val tomTomResult = routeViaTomTom(waypoints)
             if (tomTomResult != null) {
                 DebugLog.log("online-routing: TomTom OK, ${tomTomResult.distanceMeters.toInt()}m")
                 return@withContext tomTomResult
             }
             DebugLog.log("online-routing: TomTom failed, trying OSRM")
         }
-        val osrmResult = routeViaOsrm(fromLat, fromLon, toLat, toLon)
+        val osrmResult = routeViaOsrm(waypoints)
         if (osrmResult != null) {
             DebugLog.log("online-routing: OSRM OK, ${osrmResult.distanceMeters.toInt()}m")
         } else {
@@ -43,13 +41,11 @@ class OnlineRoutingService @Inject constructor() {
         osrmResult
     }
 
-    private fun routeViaTomTom(
-        fromLat: Double, fromLon: Double,
-        toLat: Double, toLon: Double
-    ): RouteResult? {
+    private fun routeViaTomTom(waypoints: List<Pair<Double, Double>>): RouteResult? {
         return try {
+            val coordsPath = waypoints.joinToString(":") { (lat, lon) -> "$lat,$lon" }
             val url = "https://api.tomtom.com/routing/1/calculateRoute/" +
-                    "$fromLat,$fromLon:$toLat,$toLon/json" +
+                    "$coordsPath/json" +
                     "?key=$tomTomKey&traffic=false&travelMode=car&instructionsType=coded&language=it-IT"
             val json = JSONObject(fetchJson(url) ?: return null)
             val route = json.getJSONArray("routes").getJSONObject(0)
@@ -89,13 +85,11 @@ class OnlineRoutingService @Inject constructor() {
         }
     }
 
-    private fun routeViaOsrm(
-        fromLat: Double, fromLon: Double,
-        toLat: Double, toLon: Double
-    ): RouteResult? {
+    private fun routeViaOsrm(waypoints: List<Pair<Double, Double>>): RouteResult? {
         return try {
+            val coordsStr = waypoints.joinToString(";") { (lat, lon) -> "$lon,$lat" }
             val url = "http://router.project-osrm.org/route/v1/driving/" +
-                    "$fromLon,$fromLat;$toLon,$toLat?overview=full&geometries=geojson&steps=true"
+                    "$coordsStr?overview=full&geometries=geojson&steps=true"
             val json = JSONObject(fetchJson(url) ?: return null)
             if (json.getString("code") != "Ok") return null
             val route = json.getJSONArray("routes").getJSONObject(0)

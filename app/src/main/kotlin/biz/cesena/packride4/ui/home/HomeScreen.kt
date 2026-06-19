@@ -2,19 +2,16 @@ package biz.cesena.packride4.ui.home
 
 import android.Manifest
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.ui.res.painterResource
 import biz.cesena.packride4.ui.common.maneuverIcon
@@ -22,22 +19,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import biz.cesena.packride4.debug.DebugLog
-import biz.cesena.packride4.routing.GeocodingResult
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
-import kotlinx.coroutines.launch
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
@@ -60,7 +51,6 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
-    val scope = rememberCoroutineScope()
 
     val locationPermissions = rememberMultiplePermissionsState(
         listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
@@ -74,8 +64,6 @@ fun HomeScreen(
 
     var mapInstance by remember { mutableStateOf<MapLibreMap?>(null) }
     var initialZoomDone by remember { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var showSearchSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         MapLibre.getInstance(context)
@@ -305,7 +293,7 @@ fun HomeScreen(
             // STATE 3 — Idle: search bar
             else -> {
                 SearchBar(
-                    onClick = { showSearchSheet = true },
+                    onClick = { viewModel.openRoutePlanner() },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
@@ -314,32 +302,25 @@ fun HomeScreen(
             }
         }
 
-        // ── Search bottom sheet ───────────────────────────────────────────────
-        if (showSearchSheet) {
-            ModalBottomSheet(
-                onDismissRequest = {
-                    showSearchSheet = false
-                    viewModel.clearSearch()
-                },
-                sheetState = sheetState,
+        // ── Route planner fullscreen ─────────────────────────────────────────
+        if (uiState.showRoutePlanner) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background
             ) {
-                SearchSheet(
-                    query = uiState.searchQuery,
-                    results = uiState.searchResults,
-                    isLoading = uiState.isSearchLoading,
-                    onQueryChange = { viewModel.onSearchQueryChange(it) },
-                    onResultClick = { result ->
-                        scope.launch { sheetState.hide() }.invokeOnCompletion {
-                            showSearchSheet = false
-                        }
-                        viewModel.selectSearchResult(result)
-                    },
-                    onClose = {
-                        scope.launch { sheetState.hide() }.invokeOnCompletion {
-                            showSearchSheet = false
-                            viewModel.clearSearch()
-                        }
-                    }
+                RoutePlannerSheet(
+                    waypoints = uiState.waypoints,
+                    editingIndex = uiState.plannerEditingIndex,
+                    searchQuery = uiState.plannerSearchQuery,
+                    searchResults = uiState.plannerSearchResults,
+                    searchLoading = uiState.plannerSearchLoading,
+                    onClose = { viewModel.closeRoutePlanner() },
+                    onAddWaypoint = { viewModel.addWaypoint() },
+                    onRemoveWaypoint = { viewModel.removeWaypoint(it) },
+                    onStartEditing = { viewModel.startEditingWaypoint(it) },
+                    onSearchChange = { viewModel.onPlannerSearchChange(it) },
+                    onSelectResult = { viewModel.selectPlannerResult(it) },
+                    onCalculate = { viewModel.computeRouteFromWaypoints() },
                 )
             }
         }
@@ -413,82 +394,6 @@ private fun SearchBar(onClick: () -> Unit, modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold
         )
-    }
-}
-
-// ── Search bottom sheet ────────────────────────────────────────────────────────
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SearchSheet(
-    query: String,
-    results: List<GeocodingResult>,
-    isLoading: Boolean,
-    onQueryChange: (String) -> Unit,
-    onResultClick: (GeocodingResult) -> Unit,
-    onClose: () -> Unit,
-) {
-    val focusRequester = remember { FocusRequester() }
-    val keyboard = LocalSoftwareKeyboardController.current
-
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-        keyboard?.show()
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(horizontal = 16.dp)
-    ) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRequester(focusRequester),
-            placeholder = { Text("Cerca indirizzo o luogo…") },
-            leadingIcon = { Icon(Icons.Default.Search, null) },
-            trailingIcon = {
-                if (query.isNotEmpty()) {
-                    IconButton(onClick = { onQueryChange("") }) {
-                        Icon(Icons.Default.Close, "Cancella")
-                    }
-                }
-            },
-            singleLine = true,
-            shape = MaterialTheme.shapes.extraLarge
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        if (isLoading) {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(8.dp))
-        }
-
-        LazyColumn {
-            items(results) { result ->
-                ListItem(
-                    headlineContent = { Text(result.name, maxLines = 1) },
-                    supportingContent = {
-                        Text(result.address,
-                            maxLines = 1,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    },
-                    leadingContent = {
-                        Icon(Icons.Default.Place, null,
-                            tint = MaterialTheme.colorScheme.primary)
-                    },
-                    modifier = Modifier.clickable { onResultClick(result) }
-                )
-                HorizontalDivider()
-            }
-        }
-
-        Spacer(Modifier.height(8.dp))
     }
 }
 

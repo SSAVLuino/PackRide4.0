@@ -31,6 +31,14 @@ import javax.inject.Inject
 
 data class GpsPosition(val latitude: Double, val longitude: Double, val accuracy: Float, val bearing: Float = 0f, val hasBearing: Boolean = false)
 
+data class RouteWaypoint(
+    val label: String = "",
+    val lat: Double = 0.0,
+    val lon: Double = 0.0,
+    val isGps: Boolean = false,
+    val isSet: Boolean = false,
+)
+
 data class HomeUiState(
     val lastKnownPosition: GpsPosition? = null,
     val hasOfflineMaps: Boolean = false,
@@ -43,14 +51,15 @@ data class HomeUiState(
     val isNavigating: Boolean = false,
     val currentInstructionIndex: Int = 0,
     val speedKmh: Float = 0f,
-    // Search state
-    val searchQuery: String = "",
-    val searchResults: List<GeocodingResult> = emptyList(),
-    val isSearchLoading: Boolean = false,
-    // Destination info
+    // Route planner state
+    val waypoints: List<RouteWaypoint> = emptyList(),
+    val showRoutePlanner: Boolean = false,
+    val plannerSearchQuery: String = "",
+    val plannerSearchResults: List<GeocodingResult> = emptyList(),
+    val plannerSearchLoading: Boolean = false,
+    val plannerEditingIndex: Int = -1,
+    // Destination info (for saved routes)
     val destinationName: String = "",
-    val destinationLat: Double = 0.0,
-    val destinationLon: Double = 0.0,
     // ID of the auto-saved route entry (so delete events can clear the active route)
     val savedRouteId: Long? = null,
     // Routing error feedback
@@ -117,71 +126,158 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    // ── Search / geocoding ──────────────────────────────────────────────────
+    // ── Route planner ──────────────────────────────────────────────────────
 
-    fun onSearchQueryChange(query: String) {
-        _uiState.update { it.copy(searchQuery = query) }
+    fun openRoutePlanner() {
+        val pos = _uiState.value.lastKnownPosition
+        val origin = if (pos != null) {
+            RouteWaypoint("Posizione GPS", pos.latitude, pos.longitude, isGps = true, isSet = true)
+        } else {
+            RouteWaypoint("Posizione GPS", isGps = true, isSet = false)
+        }
+        _uiState.update { it.copy(
+            showRoutePlanner = true,
+            waypoints = listOf(origin, RouteWaypoint()),
+            plannerEditingIndex = -1,
+            plannerSearchQuery = "",
+            plannerSearchResults = emptyList(),
+        )}
+    }
+
+    fun closeRoutePlanner() {
+        searchJob?.cancel()
+        _uiState.update { it.copy(
+            showRoutePlanner = false,
+            plannerEditingIndex = -1,
+            plannerSearchQuery = "",
+            plannerSearchResults = emptyList(),
+        )}
+    }
+
+    fun addWaypoint() {
+        _uiState.update { state ->
+            val wps = state.waypoints.toMutableList()
+            wps.add(wps.size - 1, RouteWaypoint())
+            state.copy(waypoints = wps)
+        }
+    }
+
+    fun removeWaypoint(index: Int) {
+        _uiState.update { state ->
+            if (state.waypoints.size <= 2) return@update state
+            val wps = state.waypoints.toMutableList()
+            wps.removeAt(index)
+            state.copy(
+                waypoints = wps,
+                plannerEditingIndex = if (state.plannerEditingIndex == index) -1 else state.plannerEditingIndex,
+            )
+        }
+    }
+
+    fun startEditingWaypoint(index: Int) {
+        searchJob?.cancel()
+        _uiState.update { it.copy(
+            plannerEditingIndex = index,
+            plannerSearchQuery = "",
+            plannerSearchResults = emptyList(),
+            plannerSearchLoading = false,
+        )}
+    }
+
+    fun onPlannerSearchChange(query: String) {
+        _uiState.update { it.copy(plannerSearchQuery = query) }
         searchJob?.cancel()
         if (query.length < 2) {
-            _uiState.update { it.copy(searchResults = emptyList(), isSearchLoading = false) }
+            _uiState.update { it.copy(plannerSearchResults = emptyList(), plannerSearchLoading = false) }
             return
         }
-        _uiState.update { it.copy(isSearchLoading = true) }
+        _uiState.update { it.copy(plannerSearchLoading = true) }
         searchJob = viewModelScope.launch {
-            delay(300) // debounce
+            delay(300)
             val results = geocodingService.search(query)
-            _uiState.update { it.copy(searchResults = results, isSearchLoading = false) }
+            _uiState.update { it.copy(plannerSearchResults = results, plannerSearchLoading = false) }
         }
     }
 
-    fun selectSearchResult(result: GeocodingResult) {
-        _uiState.update { it.copy(
-            searchQuery = "", searchResults = emptyList(), isSearchLoading = false,
-            destinationName = result.name,
-            destinationLat = result.lat,
-            destinationLon = result.lon,
-            routeError = null,
-        )}
-        computeRoute(result.lat, result.lon)
+    fun selectPlannerResult(result: GeocodingResult) {
+        val idx = _uiState.value.plannerEditingIndex
+        if (idx < 0) return
+        _uiState.update { state ->
+            val wps = state.waypoints.toMutableList()
+            wps[idx] = RouteWaypoint(result.name, result.lat, result.lon, isGps = false, isSet = true)
+            state.copy(
+                waypoints = wps,
+                plannerEditingIndex = -1,
+                plannerSearchQuery = "",
+                plannerSearchResults = emptyList(),
+            )
+        }
     }
 
-    fun clearSearch() {
-        searchJob?.cancel()
-        _uiState.update { it.copy(searchQuery = "", searchResults = emptyList(), isSearchLoading = false) }
+    fun updateWaypointPosition(index: Int, lat: Double, lon: Double) {
+        _uiState.update { state ->
+            val wps = state.waypoints.toMutableList()
+            val old = wps[index]
+            wps[index] = old.copy(lat = lat, lon = lon, isSet = true, isGps = false,
+                label = if (old.isGps) "Posizione personalizzata" else old.label)
+            state.copy(waypoints = wps)
+        }
     }
 
-    // ── Routing ─────────────────────────────────────────────────────────────
-
-    fun computeRoute(destLat: Double, destLon: Double) {
-        val pos = _uiState.value.lastKnownPosition
-        if (pos == null) {
-            _uiState.update { it.copy(routeError = "Posizione GPS non disponibile") }
+    fun computeRouteFromWaypoints() {
+        val state = _uiState.value
+        val setWaypoints = state.waypoints.filter { it.isSet }
+        if (setWaypoints.size < 2) {
+            _uiState.update { it.copy(routeError = "Inserisci almeno partenza e destinazione") }
             return
         }
-        val (oLat, oLon) = pos.latitude to pos.longitude
-        _uiState.update { it.copy(isRouteCalculating = true, routeError = null) }
+
+        // Update origin from GPS if it's still GPS-tagged
+        val wps = state.waypoints.toMutableList()
+        val origin = wps[0]
+        if (origin.isGps) {
+            val pos = state.lastKnownPosition
+            if (pos != null) {
+                wps[0] = origin.copy(lat = pos.latitude, lon = pos.longitude, isSet = true)
+            } else {
+                _uiState.update { it.copy(routeError = "Posizione GPS non disponibile") }
+                return
+            }
+        }
+
+        val points = wps.filter { it.isSet }.map { it.lat to it.lon }
+        val destName = wps.last().label.ifBlank { "Percorso" }
+
+        _uiState.update { it.copy(
+            isRouteCalculating = true,
+            routeError = null,
+            showRoutePlanner = false,
+            destinationName = destName,
+            waypoints = wps,
+        )}
+
         viewModelScope.launch {
-            val result = if (routingManager.canRouteLocally(oLat, oLon, destLat, destLon, AVAILABLE_REGIONS)) {
-                DebugLog.log("routing: trying local GraphHopper")
-                val local = routingManager.route(listOf(oLat to oLon, destLat to destLon))
+            val first = points.first()
+            val last = points.last()
+            val result = if (routingManager.canRouteLocally(first.first, first.second, last.first, last.second, AVAILABLE_REGIONS)) {
+                DebugLog.log("routing: trying local GraphHopper with ${points.size} waypoints")
+                val local = routingManager.route(points)
                 if (local != null) {
                     DebugLog.log("routing: local OK")
                     local
                 } else {
-                    // Local graph exists but couldn't route (e.g. destination just outside coverage)
                     DebugLog.log("routing: local failed, falling back to online")
-                    onlineRoutingService.route(oLat, oLon, destLat, destLon)
+                    onlineRoutingService.routeMulti(points)
                 }
             } else {
-                DebugLog.log("routing: online (TomTom/OSRM)")
-                onlineRoutingService.route(oLat, oLon, destLat, destLon)
+                DebugLog.log("routing: online with ${points.size} waypoints")
+                onlineRoutingService.routeMulti(points)
             }
             if (result != null) {
-                val state = _uiState.value
                 val savedId = savedRouteDao.insert(SavedRoute(
-                    name = state.destinationName.ifBlank { "Percorso" },
-                    destinationLat = destLat,
-                    destinationLon = destLon,
+                    name = destName,
+                    destinationLat = last.first,
+                    destinationLon = last.second,
                     distanceMeters = result.distanceMeters,
                     durationMillis = result.timeMillis,
                     pointsJson = SavedRoute.serializePoints(result.points),
@@ -200,6 +296,23 @@ class HomeViewModel @Inject constructor(
                 )}
             }
         }
+    }
+
+    // ── Legacy routing (from saved routes) ──────────────────────────────────
+
+    fun computeRoute(destLat: Double, destLon: Double) {
+        val pos = _uiState.value.lastKnownPosition
+        if (pos == null) {
+            _uiState.update { it.copy(routeError = "Posizione GPS non disponibile") }
+            return
+        }
+        _uiState.update { it.copy(
+            waypoints = listOf(
+                RouteWaypoint("Posizione GPS", pos.latitude, pos.longitude, isGps = true, isSet = true),
+                RouteWaypoint(_uiState.value.destinationName, destLat, destLon, isSet = true),
+            )
+        )}
+        computeRouteFromWaypoints()
     }
 
     fun clearRoute() {
@@ -229,8 +342,6 @@ class HomeViewModel @Inject constructor(
 
         val idx = state.currentInstructionIndex
 
-        // Build cumulative waypoint positions from instruction distances along the route polyline
-        // Each instruction covers a segment of distanceMeters; find the waypoint at the end of each segment
         val waypointDistances = mutableListOf<Double>()
         var cumulative = 0.0
         for (instr in instructions) {
@@ -238,16 +349,13 @@ class HomeViewModel @Inject constructor(
             waypointDistances.add(cumulative)
         }
 
-        // Find the closest point on the route polyline and measure distance along it
         val distanceAlongRoute = distanceAlongPolyline(lat, lon, route.points)
 
-        // Find which instruction we should be on
         var newIdx = idx
         while (newIdx < instructions.size - 1 && distanceAlongRoute >= waypointDistances[newIdx] - 30.0) {
             newIdx++
         }
 
-        // Check arrival: close to the last point of the route
         val lastPoint = route.points.lastOrNull()
         val distToEnd = if (lastPoint != null) haversineMeters(lat, lon, lastPoint.first, lastPoint.second) else Double.MAX_VALUE
 
