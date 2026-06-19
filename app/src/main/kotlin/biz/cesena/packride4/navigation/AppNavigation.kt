@@ -50,6 +50,7 @@ private val SIDEBAR_EXPANDED_WIDTH = 220.dp
 fun AppNavigation() {
     val navController = rememberNavController()
     var sidebarExpanded by remember { mutableStateOf(false) }
+    var hideSidebar by remember { mutableStateOf(false) }
 
     val sidebarItems = listOf(
         SidebarItem(Screen.Home, "Mappa", Icons.Default.Map),
@@ -77,7 +78,7 @@ fun AppNavigation() {
                 .padding(start = if (currentRoute != Screen.Home.route) SIDEBAR_COLLAPSED_WIDTH else 0.dp)
         ) {
             composable(Screen.Home.route) {
-                HomeScreen()
+                HomeScreen(onFullscreenOverlayChanged = { hideSidebar = it })
             }
             composable(Screen.MapManager.route) {
                 MapManagerScreen()
@@ -98,7 +99,7 @@ fun AppNavigation() {
         }
 
         // ── Collapsible sidebar (left overlay) ──
-        Box(
+        if (!hideSidebar) Box(
             modifier = Modifier
                 .fillMaxHeight()
                 .width(sidebarWidth)
