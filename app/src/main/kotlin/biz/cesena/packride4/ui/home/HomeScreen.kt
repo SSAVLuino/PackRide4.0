@@ -140,9 +140,9 @@ fun HomeScreen(
     LaunchedEffect(uiState.lastKnownPosition, uiState.isFollowing) {
         val pos = uiState.lastKnownPosition ?: return@LaunchedEffect
         val map = mapInstance ?: return@LaunchedEffect
-        (map.style?.getSourceAs<GeoJsonSource>("user-location"))?.setGeoJson(
-            Feature.fromGeometry(Point.fromLngLat(pos.longitude, pos.latitude))
-        )
+        val feature = Feature.fromGeometry(Point.fromLngLat(pos.longitude, pos.latitude))
+        if (pos.hasBearing) feature.addNumberProperty("bearing", pos.bearing.toDouble())
+        (map.style?.getSourceAs<GeoJsonSource>("user-location"))?.setGeoJson(feature)
         if (!initialZoomDone) {
             map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(pos.latitude, pos.longitude), 14.0))
             initialZoomDone = true
@@ -763,13 +763,43 @@ private fun DebugLogDialog(onDismiss: () -> Unit) {
 // ── Map layer setup ──────────────────────────────────────────────────────────
 
 private fun addMapLayers(style: Style) {
+    if (style.getImage("user-bearing-arrow") == null) {
+        val size = 48
+        val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bmp)
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.parseColor("#1a73e8")
+            style = android.graphics.Paint.Style.FILL
+        }
+        val path = android.graphics.Path().apply {
+            moveTo(size / 2f, 0f)
+            lineTo(size * 0.8f, size * 0.7f)
+            lineTo(size / 2f, size * 0.5f)
+            lineTo(size * 0.2f, size * 0.7f)
+            close()
+        }
+        canvas.drawPath(path, paint)
+        style.addImage("user-bearing-arrow", bmp)
+    }
     if (style.getSource("user-location") == null) style.addSource(GeoJsonSource("user-location"))
     if (style.getLayer("user-location") == null) {
         style.addLayer(CircleLayer("user-location", "user-location").withProperties(
             PropertyFactory.circleRadius(7f),
             PropertyFactory.circleColor("#1a73e8"),
             PropertyFactory.circleStrokeWidth(2f),
-            PropertyFactory.circleStrokeColor("#ffffff")
+            PropertyFactory.circleStrokeColor("#ffffff"),
+            PropertyFactory.circlePitchAlignment(org.maplibre.android.style.layers.Property.CIRCLE_PITCH_ALIGNMENT_MAP)
+        ))
+    }
+    if (style.getLayer("user-bearing") == null) {
+        style.addLayer(org.maplibre.android.style.layers.SymbolLayer("user-bearing", "user-location").withProperties(
+            PropertyFactory.iconImage("user-bearing-arrow"),
+            PropertyFactory.iconSize(1f),
+            PropertyFactory.iconRotate(org.maplibre.android.style.expressions.Expression.get("bearing")),
+            PropertyFactory.iconRotationAlignment(org.maplibre.android.style.layers.Property.ICON_ROTATION_ALIGNMENT_MAP),
+            PropertyFactory.iconAllowOverlap(true),
+            PropertyFactory.iconIgnorePlacement(true),
+            PropertyFactory.iconOffset(floatArrayOf(0f, -14f))
         ))
     }
     if (style.getSource("route") == null) style.addSource(GeoJsonSource("route"))

@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
 
-data class GpsPosition(val latitude: Double, val longitude: Double, val accuracy: Float)
+data class GpsPosition(val latitude: Double, val longitude: Double, val accuracy: Float, val bearing: Float = 0f, val hasBearing: Boolean = false)
 
 data class HomeUiState(
     val lastKnownPosition: GpsPosition? = null,
@@ -85,9 +85,10 @@ class HomeViewModel @Inject constructor(
         override fun onLocationResult(result: LocationResult) {
             result.lastLocation?.let { loc ->
                 _uiState.update { it.copy(
-                    lastKnownPosition = GpsPosition(loc.latitude, loc.longitude, loc.accuracy),
+                    lastKnownPosition = GpsPosition(loc.latitude, loc.longitude, loc.accuracy, loc.bearing, loc.hasBearing()),
                     speedKmh = if (loc.hasSpeed()) loc.speed * 3.6f else it.speedKmh
                 )}
+                if (_uiState.value.isNavigating) advanceNavigation(loc.latitude, loc.longitude)
             }
         }
     }
@@ -216,6 +217,101 @@ class HomeViewModel @Inject constructor(
 
     fun stopNavigation() {
         _uiState.update { it.copy(isNavigating = false, currentInstructionIndex = 0, route = null) }
+    }
+
+    // ── Navigation advancement ────────────────────────────────────────────
+
+    private fun advanceNavigation(lat: Double, lon: Double) {
+        val state = _uiState.value
+        val route = state.route ?: return
+        val instructions = route.instructions
+        if (instructions.isEmpty()) return
+
+        val idx = state.currentInstructionIndex
+
+        // Build cumulative waypoint positions from instruction distances along the route polyline
+        // Each instruction covers a segment of distanceMeters; find the waypoint at the end of each segment
+        val waypointDistances = mutableListOf<Double>()
+        var cumulative = 0.0
+        for (instr in instructions) {
+            cumulative += instr.distanceMeters
+            waypointDistances.add(cumulative)
+        }
+
+        // Find the closest point on the route polyline and measure distance along it
+        val distanceAlongRoute = distanceAlongPolyline(lat, lon, route.points)
+
+        // Find which instruction we should be on
+        var newIdx = idx
+        while (newIdx < instructions.size - 1 && distanceAlongRoute >= waypointDistances[newIdx] - 30.0) {
+            newIdx++
+        }
+
+        // Check arrival: close to the last point of the route
+        val lastPoint = route.points.lastOrNull()
+        val distToEnd = if (lastPoint != null) haversineMeters(lat, lon, lastPoint.first, lastPoint.second) else Double.MAX_VALUE
+
+        if (distToEnd < 30.0) {
+            _uiState.update { it.copy(isNavigating = false, currentInstructionIndex = 0, route = null) }
+            return
+        }
+
+        if (newIdx != idx) {
+            val remainingDist = (route.distanceMeters - distanceAlongRoute).coerceAtLeast(0.0)
+            val remainingRatio = if (route.distanceMeters > 0) remainingDist / route.distanceMeters else 0.0
+            val remainingTime = (route.timeMillis * remainingRatio).toLong()
+            _uiState.update { it.copy(
+                currentInstructionIndex = newIdx,
+                route = route.copy(distanceMeters = remainingDist, timeMillis = remainingTime)
+            )}
+        }
+    }
+
+    private fun distanceAlongPolyline(lat: Double, lon: Double, points: List<Pair<Double, Double>>): Double {
+        if (points.size < 2) return 0.0
+        var bestDist = Double.MAX_VALUE
+        var bestSegment = 0
+        var bestFraction = 0.0
+
+        for (i in 0 until points.size - 1) {
+            val (aLat, aLon) = points[i]
+            val (bLat, bLon) = points[i + 1]
+            val (dist, frac) = pointToSegmentDistance(lat, lon, aLat, aLon, bLat, bLon)
+            if (dist < bestDist) {
+                bestDist = dist
+                bestSegment = i
+                bestFraction = frac
+            }
+        }
+
+        var along = 0.0
+        for (i in 0 until bestSegment) {
+            along += haversineMeters(points[i].first, points[i].second, points[i + 1].first, points[i + 1].second)
+        }
+        along += haversineMeters(points[bestSegment].first, points[bestSegment].second,
+            points[bestSegment + 1].first, points[bestSegment + 1].second) * bestFraction
+        return along
+    }
+
+    private fun pointToSegmentDistance(pLat: Double, pLon: Double, aLat: Double, aLon: Double, bLat: Double, bLon: Double): Pair<Double, Double> {
+        val dx = bLon - aLon
+        val dy = bLat - aLat
+        if (dx == 0.0 && dy == 0.0) return haversineMeters(pLat, pLon, aLat, aLon) to 0.0
+        val t = ((pLon - aLon) * dx + (pLat - aLat) * dy) / (dx * dx + dy * dy)
+        val clamped = t.coerceIn(0.0, 1.0)
+        val projLat = aLat + clamped * dy
+        val projLon = aLon + clamped * dx
+        return haversineMeters(pLat, pLon, projLat, projLon) to clamped
+    }
+
+    private fun haversineMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val r = 6_371_000.0
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = kotlin.math.sin(dLat / 2).let { it * it } +
+                kotlin.math.cos(Math.toRadians(lat1)) * kotlin.math.cos(Math.toRadians(lat2)) *
+                kotlin.math.sin(dLon / 2).let { it * it }
+        return r * 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
     }
 
     // ── Map / location ──────────────────────────────────────────────────────
