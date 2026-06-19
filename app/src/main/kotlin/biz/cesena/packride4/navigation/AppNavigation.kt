@@ -7,10 +7,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
@@ -52,12 +50,10 @@ private val SIDEBAR_EXPANDED_WIDTH = 220.dp
 fun AppNavigation() {
     val navController = rememberNavController()
     var sidebarExpanded by remember { mutableStateOf(false) }
-    var showDebugLog by remember { mutableStateOf(false) }
 
     val sidebarItems = listOf(
         SidebarItem(Screen.Home, "Mappa", Icons.Default.Map),
-        SidebarItem(Screen.MapManager, "Mappe offline", Icons.Default.Download),
-        SidebarItem(Screen.SavedRoutes, "Percorsi salvati", Icons.Default.Route),
+        SidebarItem(Screen.SavedRoutes, "Percorsi", Icons.Default.Route),
         SidebarItem(Screen.Settings, "Impostazioni", Icons.Default.Settings),
     )
 
@@ -72,7 +68,7 @@ fun AppNavigation() {
 
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // ── Content (NavHost fills all space; left padding reserves room for sidebar except on map) ──
+        // ── Content ──
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
@@ -90,7 +86,14 @@ fun AppNavigation() {
                 SavedRoutesScreen()
             }
             composable(Screen.Settings.route) {
-                SettingsScreen()
+                SettingsScreen(
+                    onOpenMapManager = {
+                        navController.navigate(Screen.MapManager.route) {
+                            popUpTo(Screen.Home.route) { inclusive = false }
+                            launchSingleTop = true
+                        }
+                    }
+                )
             }
         }
 
@@ -130,14 +133,14 @@ fun AppNavigation() {
 
                 // Nav items
                 sidebarItems.forEach { item ->
-                    val isSelected = currentRoute == item.screen.route
+                    val isSelected = currentRoute == item.screen.route ||
+                            (item.screen == Screen.Settings && currentRoute == Screen.MapManager.route)
                     SidebarNavItem(
                         item = item,
                         isSelected = isSelected,
                         expanded = sidebarExpanded,
                         onClick = {
                             if (item.screen == Screen.Home) {
-                                // Pop back to the existing Home instance (preserves HomeViewModel state)
                                 navController.popBackStack(Screen.Home.route, inclusive = false)
                             } else {
                                 navController.navigate(item.screen.route) {
@@ -148,40 +151,7 @@ fun AppNavigation() {
                         }
                     )
                 }
-
-                // Debug log (bottom of sidebar, debug builds only)
-                if (biz.cesena.packride4.BuildConfig.DEBUG) {
-                    Spacer(Modifier.weight(1f))
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(SIDEBAR_COLLAPSED_WIDTH)
-                            .clickable { showDebugLog = true },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (sidebarExpanded) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.BugReport, "Log debug",
-                                    tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(24.dp))
-                                Spacer(Modifier.width(14.dp))
-                                Text("Log debug", color = Color.White.copy(alpha = 0.7f),
-                                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
-                            }
-                        } else {
-                            Icon(Icons.Default.BugReport, "Log debug",
-                                tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(24.dp))
-                        }
-                    }
-                }
             }
-        }
-
-        if (showDebugLog) {
-            biz.cesena.packride4.ui.home.SidebarDebugLogDialog(onDismiss = { showDebugLog = false })
         }
     }
 }
