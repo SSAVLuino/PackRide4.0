@@ -305,6 +305,16 @@ class HomeViewModel @Inject constructor(
 
     // ── Map route editing (Phase 2) ─────────────────────────────────────────
 
+    fun removeSelectedWaypoint() {
+        val state = _uiState.value
+        val idx = state.selectedWaypointIndex
+        if (idx <= 0 || idx >= state.waypoints.size - 1) return
+        val wps = state.waypoints.toMutableList()
+        wps.removeAt(idx)
+        _uiState.update { it.copy(waypoints = wps, selectedWaypointIndex = -1) }
+        recalculateRoute()
+    }
+
     fun selectWaypointOnMap(index: Int) {
         _uiState.update { it.copy(selectedWaypointIndex = if (it.selectedWaypointIndex == index) -1 else index) }
     }

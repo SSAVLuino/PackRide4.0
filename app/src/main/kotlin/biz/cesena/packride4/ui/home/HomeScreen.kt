@@ -315,8 +315,20 @@ fun HomeScreen(
                         else
                             "Tocca un pin per spostarlo · Premi a lungo sul percorso per aggiungere una tappa",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.weight(1f)
                     )
+                    if (uiState.selectedWaypointIndex > 0 &&
+                        uiState.selectedWaypointIndex < uiState.waypoints.size - 1) {
+                        IconButton(
+                            onClick = { viewModel.removeSelectedWaypoint() },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Default.Close, "Elimina tappa",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp))
+                        }
+                    }
                 }
             }
         }
