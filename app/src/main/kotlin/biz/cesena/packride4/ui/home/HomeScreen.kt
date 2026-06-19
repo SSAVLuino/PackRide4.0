@@ -233,7 +233,12 @@ fun HomeScreen(
                             map.uiSettings.setCompassMargins(0, statusPx, 0, 0)
                             addMapLayers(style)
                         }
-                        map.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(42.5, 12.5), 5.5))
+                        val saved = viewModel.savedPosition
+                        if (saved != null) {
+                            map.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(saved.first, saved.second), 14.0))
+                        } else {
+                            map.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(42.5, 12.5), 5.5))
+                        }
                     }
                     mapViewRef = mapView
                 }

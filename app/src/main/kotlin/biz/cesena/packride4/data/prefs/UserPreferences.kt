@@ -22,7 +22,23 @@ class UserPreferences @Inject constructor(
         _useOfflineMap.value = value
     }
 
+    fun getLastPosition(): Pair<Double, Double>? {
+        val lat = prefs.getFloat(KEY_LAST_LAT, Float.MIN_VALUE)
+        val lon = prefs.getFloat(KEY_LAST_LON, Float.MIN_VALUE)
+        if (lat == Float.MIN_VALUE || lon == Float.MIN_VALUE) return null
+        return lat.toDouble() to lon.toDouble()
+    }
+
+    fun saveLastPosition(lat: Double, lon: Double) {
+        prefs.edit()
+            .putFloat(KEY_LAST_LAT, lat.toFloat())
+            .putFloat(KEY_LAST_LON, lon.toFloat())
+            .apply()
+    }
+
     companion object {
         private const val KEY_USE_OFFLINE_MAP = "use_offline_map"
+        private const val KEY_LAST_LAT = "last_lat"
+        private const val KEY_LAST_LON = "last_lon"
     }
 }

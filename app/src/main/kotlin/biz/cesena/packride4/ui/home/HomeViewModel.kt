@@ -82,6 +82,8 @@ class HomeViewModel @Inject constructor(
     private val routeEventBus: RouteEventBus,
 ) : ViewModel() {
 
+    val savedPosition: Pair<Double, Double>? = userPreferences.getLastPosition()
+
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
@@ -100,6 +102,7 @@ class HomeViewModel @Inject constructor(
                     lastKnownPosition = GpsPosition(loc.latitude, loc.longitude, loc.accuracy, loc.bearing, loc.hasBearing()),
                     speedKmh = if (loc.hasSpeed()) loc.speed * 3.6f else it.speedKmh
                 )}
+                userPreferences.saveLastPosition(loc.latitude, loc.longitude)
                 if (_uiState.value.isNavigating) advanceNavigation(loc.latitude, loc.longitude)
             }
         }
