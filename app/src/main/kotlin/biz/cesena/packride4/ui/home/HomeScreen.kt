@@ -846,7 +846,7 @@ private fun addMapLayers(style: Style) {
             PropertyFactory.iconRotationAlignment(org.maplibre.android.style.layers.Property.ICON_ROTATION_ALIGNMENT_MAP),
             PropertyFactory.iconAllowOverlap(true),
             PropertyFactory.iconIgnorePlacement(true),
-            PropertyFactory.iconOffset(floatArrayOf(0f, -14f))
+            PropertyFactory.iconOffset(arrayOf(0f, -14f))
         ))
     }
 
