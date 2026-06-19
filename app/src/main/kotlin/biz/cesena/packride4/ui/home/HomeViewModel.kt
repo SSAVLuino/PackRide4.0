@@ -58,6 +58,9 @@ data class HomeUiState(
     val plannerSearchResults: List<GeocodingResult> = emptyList(),
     val plannerSearchLoading: Boolean = false,
     val plannerEditingIndex: Int = -1,
+    // Map editing state (Phase 2)
+    val isEditingRoute: Boolean = false,
+    val selectedWaypointIndex: Int = -1,
     // Destination info (for saved routes)
     val destinationName: String = "",
     // ID of the auto-saved route entry (so delete events can clear the active route)
@@ -288,12 +291,157 @@ class HomeViewModel @Inject constructor(
                     isRouteCalculating = false,
                     routeError = null,
                     savedRouteId = savedId,
+                    isEditingRoute = true,
+                    selectedWaypointIndex = -1,
                 )}
             } else {
                 _uiState.update { it.copy(
                     isRouteCalculating = false,
                     routeError = "Impossibile calcolare il percorso",
                 )}
+            }
+        }
+    }
+
+    // ── Map route editing (Phase 2) ─────────────────────────────────────────
+
+    fun selectWaypointOnMap(index: Int) {
+        _uiState.update { it.copy(selectedWaypointIndex = if (it.selectedWaypointIndex == index) -1 else index) }
+    }
+
+    fun moveSelectedWaypoint(lat: Double, lon: Double) {
+        val state = _uiState.value
+        val idx = state.selectedWaypointIndex
+        if (idx < 0 || idx >= state.waypoints.size) return
+        val wps = state.waypoints.toMutableList()
+        val old = wps[idx]
+        wps[idx] = old.copy(lat = lat, lon = lon, isSet = true, isGps = false,
+            label = if (old.label.isBlank() || old.isGps) "Punto sulla mappa" else old.label)
+        _uiState.update { it.copy(waypoints = wps, selectedWaypointIndex = -1) }
+        recalculateRoute()
+    }
+
+    fun addWaypointFromLongPress(lat: Double, lon: Double) {
+        val state = _uiState.value
+        val route = state.route ?: return
+        val wps = state.waypoints.toMutableList()
+
+        // Find which segment of waypoints this point is closest to
+        val setWps = wps.filter { it.isSet }
+        if (setWps.size < 2) return
+
+        var bestSegment = 0
+        var bestDist = Double.MAX_VALUE
+        for (i in 0 until setWps.size - 1) {
+            val midLat = (setWps[i].lat + setWps[i + 1].lat) / 2
+            val midLon = (setWps[i].lon + setWps[i + 1].lon) / 2
+            val d = haversineMeters(lat, lon, midLat, midLon)
+            if (d < bestDist) {
+                bestDist = d
+                bestSegment = i
+            }
+        }
+
+        // Find actual index in the full waypoints list for insertion
+        var count = -1
+        var insertIdx = wps.size - 1
+        for (i in wps.indices) {
+            if (wps[i].isSet) count++
+            if (count == bestSegment) {
+                insertIdx = i + 1
+                break
+            }
+        }
+
+        val newWp = RouteWaypoint("Tappa sulla mappa", lat, lon, isGps = false, isSet = true)
+        wps.add(insertIdx, newWp)
+        _uiState.update { it.copy(waypoints = wps) }
+        recalculateRoute()
+    }
+
+    fun handleMapTap(lat: Double, lon: Double): Boolean {
+        val state = _uiState.value
+        if (!state.isEditingRoute || state.route == null) return false
+
+        // Check if tapped near a waypoint marker
+        for ((i, wp) in state.waypoints.withIndex()) {
+            if (!wp.isSet) continue
+            if (haversineMeters(lat, lon, wp.lat, wp.lon) < 50.0) {
+                selectWaypointOnMap(i)
+                return true
+            }
+        }
+
+        // If a waypoint is selected, move it here
+        if (state.selectedWaypointIndex >= 0) {
+            moveSelectedWaypoint(lat, lon)
+            return true
+        }
+
+        return false
+    }
+
+    fun handleMapLongPress(lat: Double, lon: Double): Boolean {
+        val state = _uiState.value
+        if (!state.isEditingRoute || state.route == null) return false
+
+        // Check if long press is near the route polyline
+        val route = state.route ?: return false
+        val points = route.points
+        if (points.size < 2) return false
+
+        var minDist = Double.MAX_VALUE
+        for (i in 0 until points.size - 1) {
+            val (aLat, aLon) = points[i]
+            val (bLat, bLon) = points[i + 1]
+            val (dist, _) = pointToSegmentDistance(lat, lon, aLat, aLon, bLat, bLon)
+            if (dist < minDist) minDist = dist
+        }
+
+        if (minDist < 100.0) {
+            addWaypointFromLongPress(lat, lon)
+            return true
+        }
+        return false
+    }
+
+    private fun recalculateRoute() {
+        val state = _uiState.value
+        val setWps = state.waypoints.filter { it.isSet }
+        if (setWps.size < 2) return
+
+        val points = setWps.map { it.lat to it.lon }
+        val destName = state.destinationName
+
+        _uiState.update { it.copy(isRouteCalculating = true, routeError = null) }
+        viewModelScope.launch {
+            val first = points.first()
+            val last = points.last()
+            val result = if (routingManager.canRouteLocally(first.first, first.second, last.first, last.second, AVAILABLE_REGIONS)) {
+                val local = routingManager.route(points)
+                local ?: onlineRoutingService.routeMulti(points)
+            } else {
+                onlineRoutingService.routeMulti(points)
+            }
+            if (result != null) {
+                val savedId = savedRouteDao.insert(SavedRoute(
+                    name = destName.ifBlank { "Percorso" },
+                    destinationLat = last.first,
+                    destinationLon = last.second,
+                    distanceMeters = result.distanceMeters,
+                    durationMillis = result.timeMillis,
+                    pointsJson = SavedRoute.serializePoints(result.points),
+                    instructionsJson = SavedRoute.serializeInstructions(result.instructions),
+                ))
+                _uiState.update { it.copy(
+                    route = result,
+                    isRouteCalculating = false,
+                    savedRouteId = savedId,
+                    isEditingRoute = true,
+                    selectedWaypointIndex = -1,
+                )}
+            } else {
+                _uiState.update { it.copy(isRouteCalculating = false, routeError = "Impossibile ricalcolare il percorso") }
             }
         }
     }
@@ -321,11 +469,13 @@ class HomeViewModel @Inject constructor(
             isNavigating = false,
             currentInstructionIndex = 0,
             savedRouteId = null,
+            isEditingRoute = false,
+            selectedWaypointIndex = -1,
         )}
     }
 
     fun startNavigation() {
-        _uiState.update { it.copy(isNavigating = true, isFollowing = true, currentInstructionIndex = 0) }
+        _uiState.update { it.copy(isNavigating = true, isFollowing = true, currentInstructionIndex = 0, isEditingRoute = false, selectedWaypointIndex = -1) }
     }
 
     fun stopNavigation() {

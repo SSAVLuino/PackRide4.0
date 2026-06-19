@@ -8,10 +8,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.ui.res.painterResource
 import biz.cesena.packride4.ui.common.maneuverIcon
@@ -39,6 +41,8 @@ import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
+import org.maplibre.geojson.FeatureCollection
+import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
 import kotlin.math.roundToInt
 
@@ -114,15 +118,69 @@ fun HomeScreen(
     // Route line on map
     LaunchedEffect(mapInstance, uiState.route) {
         val map = mapInstance ?: return@LaunchedEffect
-        val source = map.style?.getSourceAs<GeoJsonSource>("route")
+        val style = map.style ?: return@LaunchedEffect
+        val routeSource = style.getSourceAs<GeoJsonSource>("route")
         val route = uiState.route
         if (route == null) {
-            source?.setGeoJson(org.maplibre.geojson.FeatureCollection.fromFeatures(emptyArray()))
+            routeSource?.setGeoJson(FeatureCollection.fromFeatures(emptyArray()))
         } else {
-            val line = org.maplibre.geojson.LineString.fromLngLats(
+            val line = LineString.fromLngLats(
                 route.points.map { (lat, lon) -> Point.fromLngLat(lon, lat) }
             )
-            source?.setGeoJson(Feature.fromGeometry(line))
+            routeSource?.setGeoJson(Feature.fromGeometry(line))
+        }
+    }
+
+    // Waypoint markers + desired-path line on map
+    LaunchedEffect(mapInstance, uiState.waypoints, uiState.selectedWaypointIndex, uiState.isEditingRoute) {
+        val map = mapInstance ?: return@LaunchedEffect
+        val style = map.style ?: return@LaunchedEffect
+
+        val waypointSource = style.getSourceAs<GeoJsonSource>("waypoint-markers")
+        val desiredSource = style.getSourceAs<GeoJsonSource>("desired-path")
+
+        val wps = uiState.waypoints.filter { it.isSet }
+        if (wps.isEmpty() || !uiState.isEditingRoute) {
+            waypointSource?.setGeoJson(FeatureCollection.fromFeatures(emptyArray()))
+            desiredSource?.setGeoJson(FeatureCollection.fromFeatures(emptyArray()))
+            return@LaunchedEffect
+        }
+
+        // Waypoint marker features with type property for styling
+        val features = wps.mapIndexed { i, wp ->
+            val f = Feature.fromGeometry(Point.fromLngLat(wp.lon, wp.lat))
+            val type = when {
+                i == 0 -> "origin"
+                i == wps.size - 1 -> "destination"
+                else -> "intermediate"
+            }
+            f.addStringProperty("wp-type", type)
+            f.addNumberProperty("wp-index", i.toDouble())
+            f.addBooleanProperty("selected", uiState.selectedWaypointIndex >= 0 &&
+                    uiState.waypoints.filter { it.isSet }.indexOf(wps[i]) == uiState.selectedWaypointIndex)
+            f
+        }
+        waypointSource?.setGeoJson(FeatureCollection.fromFeatures(features))
+
+        // Desired-path: straight lines between waypoints
+        if (wps.size >= 2) {
+            val linePoints = wps.map { Point.fromLngLat(it.lon, it.lat) }
+            desiredSource?.setGeoJson(Feature.fromGeometry(LineString.fromLngLats(linePoints)))
+        } else {
+            desiredSource?.setGeoJson(FeatureCollection.fromFeatures(emptyArray()))
+        }
+    }
+
+    // Map click/long-click listeners for route editing
+    LaunchedEffect(mapInstance, uiState.isEditingRoute) {
+        val map = mapInstance ?: return@LaunchedEffect
+        if (uiState.isEditingRoute) {
+            map.addOnMapClickListener { latLng ->
+                viewModel.handleMapTap(latLng.latitude, latLng.longitude)
+            }
+            map.addOnMapLongClickListener { latLng ->
+                viewModel.handleMapLongPress(latLng.latitude, latLng.longitude)
+            }
         }
     }
 
@@ -150,7 +208,7 @@ fun HomeScreen(
 
     // Height of the bottom overlay so the GPS FAB stays above it
     val bottomPanelDp = when {
-        uiState.isNavigating -> 80.dp   // only instruction banner now
+        uiState.isNavigating -> 80.dp
         uiState.route != null -> 80.dp
         else -> 64.dp
     }
@@ -226,6 +284,34 @@ fun HomeScreen(
                     Text("Nessuna mappa offline",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer)
+                }
+            }
+        }
+
+        // ── Route editing hint (top, when editing route on map) ──────────────
+        if (uiState.isEditingRoute && uiState.route != null && !uiState.isNavigating) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = safeTop + 8.dp, start = SIDEBAR_WIDTH + 12.dp, end = 12.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer,
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.TouchApp, null, modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                    Text(
+                        text = if (uiState.selectedWaypointIndex >= 0)
+                            "Tocca la mappa per spostare il punto"
+                        else
+                            "Tocca un pin per spostarlo · Premi a lungo sul percorso per aggiungere una tappa",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
                 }
             }
         }
@@ -519,7 +605,6 @@ private fun NavigationInstructionBanner(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Maneuver icon + roundabout exit badge
             Box(contentAlignment = Alignment.BottomEnd) {
                 Icon(
                     painter = painterResource(maneuverIcon(currentInstruction?.sign ?: 0, currentInstruction?.modifier ?: "", currentInstruction?.exitNumber ?: 0)),
@@ -587,7 +672,6 @@ private fun NavigationStatsOverlay(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Speed + speed limit
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 val overSpeed = currentInstruction?.speedLimitKmh?.let { it > 0 && uiState.speedKmh > it } == true
                 NavStat(
@@ -668,13 +752,14 @@ private fun DebugLogDialog(onDismiss: () -> Unit) {
 // ── Map layer setup ──────────────────────────────────────────────────────────
 
 private fun addMapLayers(style: Style) {
+    // ── User bearing arrow icon ──
     if (style.getImage("user-bearing-arrow") == null) {
         val size = 48
         val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bmp)
         val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.parseColor("#1a73e8")
-            style = android.graphics.Paint.Style.FILL
+            this.style = android.graphics.Paint.Style.FILL
         }
         val path = android.graphics.Path().apply {
             moveTo(size / 2f, 0f)
@@ -686,7 +771,64 @@ private fun addMapLayers(style: Style) {
         canvas.drawPath(path, paint)
         style.addImage("user-bearing-arrow", bmp)
     }
+
+    // ── Waypoint pin icons ──
+    fun createPinBitmap(colorHex: String): android.graphics.Bitmap {
+        val w = 32; val h = 44
+        val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bmp)
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.parseColor(colorHex)
+            this.style = android.graphics.Paint.Style.FILL
+        }
+        // Pin body (circle + triangle)
+        canvas.drawCircle(w / 2f, 14f, 12f, paint)
+        val tri = android.graphics.Path().apply {
+            moveTo(w / 2f - 8f, 20f)
+            lineTo(w / 2f + 8f, 20f)
+            lineTo(w / 2f, h.toFloat())
+            close()
+        }
+        canvas.drawPath(tri, paint)
+        // White center dot
+        paint.color = android.graphics.Color.WHITE
+        canvas.drawCircle(w / 2f, 14f, 5f, paint)
+        return bmp
+    }
+    if (style.getImage("pin-origin") == null) style.addImage("pin-origin", createPinBitmap("#1a73e8"))
+    if (style.getImage("pin-destination") == null) style.addImage("pin-destination", createPinBitmap("#d93025"))
+    if (style.getImage("pin-intermediate") == null) style.addImage("pin-intermediate", createPinBitmap("#f9a825"))
+
+    // ── Sources ──
     if (style.getSource("user-location") == null) style.addSource(GeoJsonSource("user-location"))
+    if (style.getSource("route") == null) style.addSource(GeoJsonSource("route"))
+    if (style.getSource("desired-path") == null) style.addSource(GeoJsonSource("desired-path"))
+    if (style.getSource("waypoint-markers") == null) style.addSource(GeoJsonSource("waypoint-markers"))
+
+    // ── Desired-path layer (thin dashed gray line between waypoints) ──
+    if (style.getLayer("desired-path") == null) {
+        style.addLayer(
+            org.maplibre.android.style.layers.LineLayer("desired-path", "desired-path").withProperties(
+                PropertyFactory.lineColor("#888888"),
+                PropertyFactory.lineWidth(2f),
+                PropertyFactory.lineOpacity(0.6f),
+                PropertyFactory.lineDasharray(arrayOf(4f, 4f))
+            )
+        )
+    }
+
+    // ── Route line layer ──
+    if (style.getLayer("route") == null) {
+        style.addLayerAbove(
+            org.maplibre.android.style.layers.LineLayer("route", "route").withProperties(
+                PropertyFactory.lineColor("#1a73e8"),
+                PropertyFactory.lineWidth(5f),
+                PropertyFactory.lineOpacity(0.85f)
+            ), "desired-path"
+        )
+    }
+
+    // ── User location layers ──
     if (style.getLayer("user-location") == null) {
         style.addLayer(CircleLayer("user-location", "user-location").withProperties(
             PropertyFactory.circleRadius(7f),
@@ -707,14 +849,26 @@ private fun addMapLayers(style: Style) {
             PropertyFactory.iconOffset(floatArrayOf(0f, -14f))
         ))
     }
-    if (style.getSource("route") == null) style.addSource(GeoJsonSource("route"))
-    if (style.getLayer("route") == null) {
-        style.addLayerBelow(
-            org.maplibre.android.style.layers.LineLayer("route", "route").withProperties(
-                PropertyFactory.lineColor("#1a73e8"),
-                PropertyFactory.lineWidth(5f),
-                PropertyFactory.lineOpacity(0.85f)
-            ), "user-location"
+
+    // ── Waypoint marker layer ──
+    if (style.getLayer("waypoint-markers") == null) {
+        val iconExpr = org.maplibre.android.style.expressions.Expression.match(
+            org.maplibre.android.style.expressions.Expression.get("wp-type"),
+            org.maplibre.android.style.expressions.Expression.literal("pin-intermediate"),
+            org.maplibre.android.style.expressions.Expression.stop("origin", org.maplibre.android.style.expressions.Expression.literal("pin-origin")),
+            org.maplibre.android.style.expressions.Expression.stop("destination", org.maplibre.android.style.expressions.Expression.literal("pin-destination")),
         )
+        val sizeExpr = org.maplibre.android.style.expressions.Expression.switchCase(
+            org.maplibre.android.style.expressions.Expression.get("selected"),
+            org.maplibre.android.style.expressions.Expression.literal(1.4f),
+            org.maplibre.android.style.expressions.Expression.literal(1.0f)
+        )
+        style.addLayer(org.maplibre.android.style.layers.SymbolLayer("waypoint-markers", "waypoint-markers").withProperties(
+            PropertyFactory.iconImage(iconExpr),
+            PropertyFactory.iconSize(sizeExpr),
+            PropertyFactory.iconAnchor(org.maplibre.android.style.layers.Property.ICON_ANCHOR_BOTTOM),
+            PropertyFactory.iconAllowOverlap(true),
+            PropertyFactory.iconIgnorePlacement(true),
+        ))
     }
 }
