@@ -25,6 +25,7 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SavedRoutesScreen(
     onNavigateTo: (lat: Double, lon: Double, name: String) -> Unit = { _, _, _ -> },
@@ -32,33 +33,31 @@ fun SavedRoutesScreen(
 ) {
     val routes by viewModel.routes.collectAsState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(start = 64.dp)
-            .windowInsetsPadding(WindowInsets.statusBars)
-    ) {
-        Text(
-            "Percorsi salvati",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
-        )
-
-        if (routes.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Nessun percorso salvato",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        } else {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(routes, key = { it.id }) { route ->
-                    SavedRouteItem(
-                        route = route,
-                        onNavigate = { onNavigateTo(route.destinationLat, route.destinationLon, route.name) },
-                        onDelete = { viewModel.delete(route) }
-                    )
-                    HorizontalDivider()
+    Scaffold(
+        topBar = {
+            TopAppBar(title = { Text("Percorsi salvati") })
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            if (routes.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Nessun percorso salvato",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(routes, key = { it.id }) { route ->
+                        SavedRouteItem(
+                            route = route,
+                            onNavigate = { onNavigateTo(route.destinationLat, route.destinationLon, route.name) },
+                            onDelete = { viewModel.delete(route) }
+                        )
+                        HorizontalDivider()
+                    }
                 }
             }
         }
@@ -88,7 +87,6 @@ private fun SavedRouteItem(
                 .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Info testo (occupa tutto lo spazio disponibile)
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     route.name,
@@ -108,12 +106,10 @@ private fun SavedRouteItem(
                 )
             }
 
-            // Navigazione
             IconButton(onClick = onNavigate) {
                 Icon(Icons.Default.Navigation, "Naviga verso destinazione",
                     tint = MaterialTheme.colorScheme.primary)
             }
-            // Elimina
             IconButton(onClick = onDelete) {
                 Icon(Icons.Default.Delete, "Elimina percorso",
                     tint = MaterialTheme.colorScheme.error)

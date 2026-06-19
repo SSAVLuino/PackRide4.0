@@ -103,7 +103,12 @@ fun AppNavigation() {
                 .clip(RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp))
                 .background(SidebarBackground)
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.systemBars)
+                    .windowInsetsPadding(WindowInsets.displayCutout)
+            ) {
 
                 // Toggle button at top
                 Box(

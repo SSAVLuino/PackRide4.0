@@ -51,6 +51,8 @@ import org.maplibre.geojson.Feature
 import org.maplibre.geojson.Point
 import kotlin.math.roundToInt
 
+private val SIDEBAR_WIDTH = 64.dp
+
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -121,7 +123,7 @@ fun HomeScreen(
         }
     }
 
-    // Route line on map — key on mapInstance too so it redraws after style reload
+    // Route line on map
     LaunchedEffect(mapInstance, uiState.route) {
         val map = mapInstance ?: return@LaunchedEffect
         val source = map.style?.getSourceAs<GeoJsonSource>("route")
@@ -151,11 +153,18 @@ fun HomeScreen(
         }
     }
 
+    // Safe area insets
+    val safeTop = maxOf(
+        WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
+        WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()
+    )
+    val safeBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
     // Height of the bottom overlay so the GPS FAB stays above it
     val bottomPanelDp = when {
-        uiState.isNavigating -> 120.dp
+        uiState.isNavigating -> 80.dp   // only instruction banner now
         uiState.route != null -> 80.dp
-        else -> 72.dp
+        else -> 64.dp
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -183,22 +192,21 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // ── Status bar scrim — makes time/signal readable over the map ───────
+        // ── Status bar scrim ────────────────────────────────────────────────
         Spacer(
             modifier = Modifier
                 .fillMaxWidth()
-                .windowInsetsTopHeight(WindowInsets.statusBars)
+                .height(safeTop)
                 .background(Color.Black.copy(alpha = 0.40f))
                 .align(Alignment.TopStart)
         )
 
-        // ── WEB chip (top-right, below status bar) ───────────────────────────
+        // ── WEB chip (top-right, below safe area) ───────────────────────────
         if (!uiState.mapStyleJson.contains("localhost")) {
             Surface(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(end = 12.dp, top = 8.dp),
+                    .padding(top = safeTop + 8.dp, end = 12.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f),
                 shape = MaterialTheme.shapes.small
             ) {
@@ -211,13 +219,12 @@ fun HomeScreen(
             }
         }
 
-        // ── Offline maps warning (top-center, below status bar) ──────────────
+        // ── Offline maps warning (top-center, below safe area) ──────────────
         if (!uiState.hasOfflineMaps && uiState.mapStyleJson.contains("localhost")) {
             Surface(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(top = 8.dp, start = 76.dp, end = 12.dp),
+                    .padding(top = safeTop + 8.dp, start = SIDEBAR_WIDTH + 12.dp, end = 12.dp),
                 color = MaterialTheme.colorScheme.secondaryContainer,
                 shape = MaterialTheme.shapes.medium
             ) {
@@ -235,13 +242,22 @@ fun HomeScreen(
             }
         }
 
+        // ── Navigation stats overlay (left side, on the map) ────────────────
+        if (uiState.isNavigating && uiState.route != null) {
+            NavigationStatsOverlay(
+                uiState = uiState,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = SIDEBAR_WIDTH + 8.dp)
+            )
+        }
+
         // ── GPS follow FAB (bottom-right, above bottom panel) ────────────────
         FloatingActionButton(
             onClick = { viewModel.toggleFollow() },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(end = 16.dp, bottom = bottomPanelDp + 12.dp),
+                .padding(end = 16.dp, bottom = bottomPanelDp + safeBottom + 12.dp),
             containerColor = if (uiState.isFollowing)
                 MaterialTheme.colorScheme.primary
             else
@@ -260,14 +276,15 @@ fun HomeScreen(
         // ── Bottom overlay (depends on state) ────────────────────────────────
         when {
 
-            // STATE 1 — Navigating
+            // STATE 1 — Navigating: only instruction banner at bottom
             uiState.isNavigating && uiState.route != null -> {
-                NavigationBottomPanel(
+                NavigationInstructionBanner(
                     uiState = uiState,
                     onStop = { viewModel.stopNavigation() },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
+                        .padding(bottom = safeBottom)
                 )
             }
 
@@ -281,6 +298,7 @@ fun HomeScreen(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
+                        .padding(bottom = safeBottom)
                 )
             }
 
@@ -291,8 +309,7 @@ fun HomeScreen(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .windowInsetsPadding(WindowInsets.navigationBars)
-                        .padding(start = 76.dp, end = 16.dp, bottom = 12.dp)
+                        .padding(start = SIDEBAR_WIDTH + 12.dp, end = 16.dp, bottom = safeBottom + 12.dp)
                 )
             }
         }
@@ -343,13 +360,12 @@ fun HomeScreen(
             }
         }
 
-        // ── Snackbar for errors (route errors etc.) ───────────────────────────
+        // ── Snackbar for errors ──────────────────────────────────────────────
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(bottom = bottomPanelDp + 8.dp)
+                .padding(bottom = bottomPanelDp + safeBottom + 8.dp)
         )
 
         // ── GPS permission rationale ─────────────────────────────────────────
@@ -357,8 +373,7 @@ fun HomeScreen(
             Surface(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(16.dp),
+                    .padding(bottom = safeBottom + 16.dp, start = 16.dp, end = 16.dp),
                 color = MaterialTheme.colorScheme.errorContainer,
                 shape = MaterialTheme.shapes.medium
             ) {
@@ -427,7 +442,6 @@ private fun SearchSheet(
             .navigationBarsPadding()
             .padding(horizontal = 16.dp)
     ) {
-        // Search field
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
@@ -449,13 +463,11 @@ private fun SearchSheet(
 
         Spacer(Modifier.height(8.dp))
 
-        // Loading
         if (isLoading) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(8.dp))
         }
 
-        // Results
         LazyColumn {
             items(results) { result ->
                 ListItem(
@@ -502,7 +514,6 @@ private fun RouteReadyPanel(
         )
     ) {
         Column {
-            // Summary row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -523,7 +534,6 @@ private fun RouteReadyPanel(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                // Toggle instructions list
                 if (route.instructions.isNotEmpty()) {
                     TextButton(onClick = { showInstructions = !showInstructions }) {
                         Icon(
@@ -546,14 +556,12 @@ private fun RouteReadyPanel(
                 }
             }
 
-            // Instructions list (expandable)
             if (showInstructions && route.instructions.isNotEmpty()) {
                 HorizontalDivider()
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(max = 240.dp)
-                        .windowInsetsPadding(WindowInsets.navigationBars)
                 ) {
                     items(route.instructions) { instr ->
                         Row(
@@ -578,136 +586,128 @@ private fun RouteReadyPanel(
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
                 }
-            } else {
-                Spacer(Modifier.windowInsetsPadding(WindowInsets.navigationBars))
             }
         }
     }
 }
 
-// ── Bottom panel: active navigation (instruction + speed/distance/ETA) ────────
+// ── Navigation instruction banner (bottom, during navigation) ────────────────
 
 @Composable
-private fun NavigationBottomPanel(
+private fun NavigationInstructionBanner(
     uiState: HomeUiState,
     onStop: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val route = uiState.route ?: return
-    val instructions = route.instructions
-    val currentInstruction = instructions.getOrNull(uiState.currentInstructionIndex)
+    val currentInstruction = route.instructions.getOrNull(uiState.currentInstructionIndex)
 
-    Column(modifier = modifier) {
-
-        // Instruction banner
-        Surface(
-            color = MaterialTheme.colorScheme.primaryContainer,
-            shadowElevation = 8.dp
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.primaryContainer,
+        shadowElevation = 8.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Maneuver icon + roundabout exit number badge
-                Box(contentAlignment = Alignment.BottomEnd) {
-                    Icon(
-                        painter = painterResource(maneuverIcon(currentInstruction?.sign ?: 0, currentInstruction?.modifier ?: "", currentInstruction?.exitNumber ?: 0)),
-                        contentDescription = null,
-                        modifier = Modifier.size(40.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    val exitNum = currentInstruction?.exitNumber ?: 0
-                    if (exitNum > 0) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = MaterialTheme.shapes.extraSmall,
-                            modifier = Modifier.size(16.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    exitNum.toString(),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    fontSize = 9.sp
-                                )
-                            }
+            // Maneuver icon + roundabout exit badge
+            Box(contentAlignment = Alignment.BottomEnd) {
+                Icon(
+                    painter = painterResource(maneuverIcon(currentInstruction?.sign ?: 0, currentInstruction?.modifier ?: "", currentInstruction?.exitNumber ?: 0)),
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                val exitNum = currentInstruction?.exitNumber ?: 0
+                if (exitNum > 0) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = MaterialTheme.shapes.extraSmall,
+                        modifier = Modifier.size(16.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(exitNum.toString(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                fontSize = 9.sp)
                         }
                     }
                 }
-                Column(modifier = Modifier.weight(1f)) {
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = currentInstruction?.text?.takeIf { it.isNotBlank() } ?: "Segui il percorso",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    maxLines = 1
+                )
+                if ((currentInstruction?.distanceMeters ?: 0.0) > 0) {
                     Text(
-                        text = currentInstruction?.text?.takeIf { it.isNotBlank() }
-                            ?: "Segui il percorso",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        maxLines = 1
+                        text = "tra ${formatDistance(currentInstruction!!.distanceMeters)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                     )
-                    if ((currentInstruction?.distanceMeters ?: 0.0) > 0) {
+                }
+            }
+            IconButton(onClick = onStop) {
+                Icon(Icons.Default.Close, "Stop navigazione",
+                    tint = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}
+
+// ── Navigation stats overlay (left side, on the map) ─────────────────────────
+
+@Composable
+private fun NavigationStatsOverlay(
+    uiState: HomeUiState,
+    modifier: Modifier = Modifier
+) {
+    val route = uiState.route ?: return
+    val currentInstruction = route.instructions.getOrNull(uiState.currentInstructionIndex)
+
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+        shape = MaterialTheme.shapes.medium,
+        shadowElevation = 4.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Speed + speed limit
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                val overSpeed = currentInstruction?.speedLimitKmh?.let { it > 0 && uiState.speedKmh > it } == true
+                NavStat(
+                    value = "${uiState.speedKmh.roundToInt()}",
+                    unit = "km/h",
+                    tint = if (overSpeed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                )
+                val limit = currentInstruction?.speedLimitKmh ?: 0
+                if (limit > 0) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shape = MaterialTheme.shapes.extraSmall
+                    ) {
                         Text(
-                            text = "tra ${formatDistance(currentInstruction!!.distanceMeters)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            "max $limit",
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontSize = 9.sp
                         )
                     }
                 }
             }
-        }
-
-        // Speed / distance remaining / ETA
-        Surface(
-            color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 4.dp
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(horizontal = 24.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Speed + optional speed limit badge
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    NavStat(
-                        value = "${uiState.speedKmh.roundToInt()}",
-                        unit = "km/h",
-                        tint = if (currentInstruction?.speedLimitKmh?.let { it > 0 && uiState.speedKmh > it } == true)
-                            MaterialTheme.colorScheme.error
-                        else
-                            MaterialTheme.colorScheme.primary
-                    )
-                    val limit = currentInstruction?.speedLimitKmh ?: 0
-                    if (limit > 0) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.errorContainer,
-                            shape = MaterialTheme.shapes.extraSmall
-                        ) {
-                            Text(
-                                "max $limit",
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                fontSize = 9.sp
-                            )
-                        }
-                    }
-                }
-                NavStat(
-                    value = formatDistance(route.distanceMeters),
-                    unit = "rimasti"
-                )
-                NavStat(
-                    value = formatDuration(route.timeMillis),
-                    unit = "arrivo"
-                )
-                IconButton(onClick = onStop) {
-                    Icon(Icons.Default.Close, "Stop navigazione",
-                        tint = MaterialTheme.colorScheme.error)
-                }
-            }
+            NavStat(value = formatDistance(route.distanceMeters), unit = "rimasti")
+            NavStat(value = formatDuration(route.timeMillis), unit = "arrivo")
         }
     }
 }
