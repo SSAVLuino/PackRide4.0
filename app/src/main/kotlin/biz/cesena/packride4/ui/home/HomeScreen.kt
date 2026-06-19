@@ -779,7 +779,7 @@ private fun addMapLayers(style: Style) {
 
     // ── Waypoint pin icons ──
     fun createPinBitmap(colorHex: String): android.graphics.Bitmap {
-        val density = context.resources.displayMetrics.density
+        val density = android.content.res.Resources.getSystem().displayMetrics.density
         val w = (32 * density).toInt(); val h = (44 * density).toInt()
         val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bmp)
