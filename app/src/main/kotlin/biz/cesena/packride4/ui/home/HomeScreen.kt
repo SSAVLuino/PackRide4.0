@@ -783,7 +783,7 @@ private fun DebugLogDialog(onDismiss: () -> Unit) {
 private fun addMapLayers(style: Style) {
     // ── User bearing arrow icon ──
     if (style.getImage("user-bearing-arrow") == null) {
-        val size = 48
+        val size = 96
         val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bmp)
         val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
