@@ -37,7 +37,6 @@ import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
-import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
@@ -846,15 +845,6 @@ private fun addMapLayers(style: Style) {
     }
 
     // ── User location layers ──
-    if (style.getLayer("user-location") == null) {
-        style.addLayer(CircleLayer("user-location", "user-location").withProperties(
-            PropertyFactory.circleRadius(7f),
-            PropertyFactory.circleColor("#1a73e8"),
-            PropertyFactory.circleStrokeWidth(2f),
-            PropertyFactory.circleStrokeColor("#ffffff"),
-            PropertyFactory.circlePitchAlignment(org.maplibre.android.style.layers.Property.CIRCLE_PITCH_ALIGNMENT_MAP)
-        ))
-    }
     if (style.getLayer("user-bearing") == null) {
         style.addLayer(org.maplibre.android.style.layers.SymbolLayer("user-bearing", "user-location").withProperties(
             PropertyFactory.iconImage("user-bearing-arrow"),
@@ -863,7 +853,6 @@ private fun addMapLayers(style: Style) {
             PropertyFactory.iconRotationAlignment(org.maplibre.android.style.layers.Property.ICON_ROTATION_ALIGNMENT_MAP),
             PropertyFactory.iconAllowOverlap(true),
             PropertyFactory.iconIgnorePlacement(true),
-            PropertyFactory.iconOffset(arrayOf(0f, -14f))
         ))
     }
 
