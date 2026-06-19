@@ -110,15 +110,17 @@ fun AppNavigation() {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.systemBars)
+                    .windowInsetsPadding(WindowInsets.statusBars)
                     .windowInsetsPadding(WindowInsets.displayCutout)
+                    .windowInsetsPadding(WindowInsets.navigationBars),
+                verticalArrangement = Arrangement.Top
             ) {
 
                 // Toggle button at top
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(SIDEBAR_COLLAPSED_WIDTH)
+                        .height(48.dp)
                         .clickable { sidebarExpanded = !sidebarExpanded },
                     contentAlignment = Alignment.Center
                 ) {
@@ -172,7 +174,7 @@ private fun SidebarNavItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(SIDEBAR_COLLAPSED_WIDTH)
+            .height(48.dp)
             .background(bgColor)
             .clickable(onClick = onClick)
             .padding(horizontal = 18.dp),
