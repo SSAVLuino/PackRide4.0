@@ -359,14 +359,15 @@ class HomeViewModel @Inject constructor(
         recalculateRoute()
     }
 
-    fun handleMapTap(lat: Double, lon: Double): Boolean {
+    fun handleMapTap(lat: Double, lon: Double, zoom: Double = 14.0): Boolean {
         val state = _uiState.value
         if (!state.isEditingRoute || state.route == null) return false
+        val tapRadius = 150.0 / Math.pow(2.0, (zoom - 10.0).coerceAtLeast(0.0))
 
         // Check if tapped near a waypoint marker
         for ((i, wp) in state.waypoints.withIndex()) {
             if (!wp.isSet) continue
-            if (haversineMeters(lat, lon, wp.lat, wp.lon) < 50.0) {
+            if (haversineMeters(lat, lon, wp.lat, wp.lon) < tapRadius) {
                 selectWaypointOnMap(i)
                 return true
             }
@@ -381,7 +382,7 @@ class HomeViewModel @Inject constructor(
         return false
     }
 
-    fun handleMapLongPress(lat: Double, lon: Double): Boolean {
+    fun handleMapLongPress(lat: Double, lon: Double, zoom: Double = 14.0): Boolean {
         val state = _uiState.value
         if (!state.isEditingRoute || state.route == null) return false
 
@@ -398,7 +399,8 @@ class HomeViewModel @Inject constructor(
             if (dist < minDist) minDist = dist
         }
 
-        if (minDist < 100.0) {
+        val longPressRadius = 200.0 / Math.pow(2.0, (zoom - 10.0).coerceAtLeast(0.0))
+        if (minDist < longPressRadius) {
             addWaypointFromLongPress(lat, lon)
             return true
         }

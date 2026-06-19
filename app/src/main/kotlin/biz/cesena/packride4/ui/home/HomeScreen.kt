@@ -181,10 +181,10 @@ fun HomeScreen(
         val map = mapInstance ?: return@LaunchedEffect
         if (uiState.isEditingRoute) {
             map.addOnMapClickListener { latLng ->
-                viewModel.handleMapTap(latLng.latitude, latLng.longitude)
+                viewModel.handleMapTap(latLng.latitude, latLng.longitude, map.cameraPosition.zoom)
             }
             map.addOnMapLongClickListener { latLng ->
-                viewModel.handleMapLongPress(latLng.latitude, latLng.longitude)
+                viewModel.handleMapLongPress(latLng.latitude, latLng.longitude, map.cameraPosition.zoom)
             }
         }
     }
@@ -779,25 +779,25 @@ private fun addMapLayers(style: Style) {
 
     // ── Waypoint pin icons ──
     fun createPinBitmap(colorHex: String): android.graphics.Bitmap {
-        val w = 32; val h = 44
+        val density = context.resources.displayMetrics.density
+        val w = (32 * density).toInt(); val h = (44 * density).toInt()
         val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bmp)
         val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.parseColor(colorHex)
             this.style = android.graphics.Paint.Style.FILL
         }
-        // Pin body (circle + triangle)
-        canvas.drawCircle(w / 2f, 14f, 12f, paint)
+        val cx = w / 2f; val r = 12f * density; val tipY = h.toFloat()
+        canvas.drawCircle(cx, r + 2f * density, r, paint)
         val tri = android.graphics.Path().apply {
-            moveTo(w / 2f - 8f, 20f)
-            lineTo(w / 2f + 8f, 20f)
-            lineTo(w / 2f, h.toFloat())
+            moveTo(cx - 8f * density, r + 8f * density)
+            lineTo(cx + 8f * density, r + 8f * density)
+            lineTo(cx, tipY)
             close()
         }
         canvas.drawPath(tri, paint)
-        // White center dot
         paint.color = android.graphics.Color.WHITE
-        canvas.drawCircle(w / 2f, 14f, 5f, paint)
+        canvas.drawCircle(cx, r + 2f * density, 5f * density, paint)
         return bmp
     }
     if (style.getImage("pin-origin") == null) style.addImage("pin-origin", createPinBitmap("#1a73e8"))
@@ -865,7 +865,7 @@ private fun addMapLayers(style: Style) {
         )
         val sizeExpr = org.maplibre.android.style.expressions.Expression.switchCase(
             org.maplibre.android.style.expressions.Expression.get("selected"),
-            org.maplibre.android.style.expressions.Expression.literal(1.4f),
+            org.maplibre.android.style.expressions.Expression.literal(1.3f),
             org.maplibre.android.style.expressions.Expression.literal(1.0f)
         )
         style.addLayer(org.maplibre.android.style.layers.SymbolLayer("waypoint-markers", "waypoint-markers").withProperties(
