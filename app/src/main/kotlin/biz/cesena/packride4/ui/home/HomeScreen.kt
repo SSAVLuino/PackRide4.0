@@ -151,6 +151,7 @@ fun HomeScreen(
         }
 
         // Waypoint marker features with type property for styling
+        val setIndices = uiState.waypoints.mapIndexedNotNull { i, wp -> if (wp.isSet) i else null }
         val features = wps.mapIndexed { i, wp ->
             val f = Feature.fromGeometry(Point.fromLngLat(wp.lon, wp.lat))
             val type = when {
@@ -159,9 +160,8 @@ fun HomeScreen(
                 else -> "intermediate"
             }
             f.addStringProperty("wp-type", type)
-            f.addNumberProperty("wp-index", i.toDouble())
-            f.addBooleanProperty("selected", uiState.selectedWaypointIndex >= 0 &&
-                    uiState.waypoints.filter { it.isSet }.indexOf(wps[i]) == uiState.selectedWaypointIndex)
+            f.addNumberProperty("wp-index", setIndices[i].toDouble())
+            f.addBooleanProperty("selected", setIndices[i] == uiState.selectedWaypointIndex)
             f
         }
         waypointSource?.setGeoJson(FeatureCollection.fromFeatures(features))
