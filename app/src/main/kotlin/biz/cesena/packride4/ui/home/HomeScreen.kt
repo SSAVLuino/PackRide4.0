@@ -210,13 +210,16 @@ fun HomeScreen(
         }
     }
 
-    // Safe area insets
+    // ── Usable area padding (accounts for system bars, cutout, sidebar) ──
     val safeTop = maxOf(
         WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
         WindowInsets.displayCutout.asPaddingValues().calculateTopPadding()
     )
     val safeBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val safeEnd = WindowInsets.navigationBars.asPaddingValues().calculateEndPadding(androidx.compose.ui.unit.LayoutDirection.Ltr)
+    val contentStart = SIDEBAR_WIDTH + 12.dp
+    val contentEnd = 16.dp + safeEnd
+    val contentTop = safeTop + 8.dp
 
     // Height of the bottom overlay so the GPS FAB stays above it
     val bottomPanelDp = when {
@@ -269,7 +272,7 @@ fun HomeScreen(
             Surface(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(top = safeTop + 8.dp, end = 12.dp + safeEnd),
+                    .padding(top = contentTop, end = contentEnd),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f),
                 shape = MaterialTheme.shapes.small
             ) {
@@ -287,7 +290,7 @@ fun HomeScreen(
             Surface(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = safeTop + 8.dp, start = SIDEBAR_WIDTH + 12.dp, end = 12.dp + safeEnd),
+                    .padding(top = contentTop, start = contentStart, end = contentEnd),
                 color = MaterialTheme.colorScheme.secondaryContainer,
                 shape = MaterialTheme.shapes.medium
             ) {
@@ -310,7 +313,7 @@ fun HomeScreen(
             Surface(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = safeTop + 8.dp, start = SIDEBAR_WIDTH + 12.dp, end = 12.dp + safeEnd),
+                    .padding(top = contentTop, start = contentStart, end = contentEnd),
                 color = MaterialTheme.colorScheme.tertiaryContainer,
                 shape = MaterialTheme.shapes.medium
             ) {
@@ -351,7 +354,7 @@ fun HomeScreen(
                 uiState = uiState,
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .padding(start = SIDEBAR_WIDTH + 8.dp)
+                    .padding(start = contentStart)
             )
         }
 
@@ -360,7 +363,7 @@ fun HomeScreen(
             onClick = { viewModel.toggleFollow() },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 16.dp + safeEnd, bottom = bottomPanelDp + safeBottom + 12.dp),
+                .padding(end = contentEnd, bottom = bottomPanelDp + safeBottom + 12.dp),
             containerColor = if (uiState.isFollowing)
                 MaterialTheme.colorScheme.primary
             else
@@ -387,7 +390,7 @@ fun HomeScreen(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .padding(bottom = safeBottom)
+                        .padding(start = contentStart, end = contentEnd, bottom = safeBottom)
                 )
             }
 
@@ -401,7 +404,7 @@ fun HomeScreen(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .padding(bottom = safeBottom)
+                        .padding(start = contentStart, end = contentEnd, bottom = safeBottom)
                 )
             }
 
@@ -412,7 +415,7 @@ fun HomeScreen(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .padding(start = SIDEBAR_WIDTH + 12.dp, end = 16.dp + safeEnd, bottom = safeBottom + 12.dp)
+                        .padding(start = contentStart, end = contentEnd, bottom = safeBottom + 12.dp)
                 )
             }
         }
@@ -469,7 +472,7 @@ fun HomeScreen(
             Surface(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = safeBottom + 16.dp, start = 16.dp, end = 16.dp + safeEnd),
+                    .padding(bottom = safeBottom + 16.dp, start = contentStart, end = contentEnd),
                 color = MaterialTheme.colorScheme.errorContainer,
                 shape = MaterialTheme.shapes.medium
             ) {
