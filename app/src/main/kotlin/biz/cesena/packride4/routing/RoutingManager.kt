@@ -143,7 +143,7 @@ class RoutingManager @Inject constructor() {
                     val exitNum = if (ghInstr is com.graphhopper.util.RoundaboutInstruction)
                         ghInstr.exitNumber else 0
                     val speed = speedByPoint[pointIndex] ?: 0
-                    pointIndex += ghInstr.points.size
+                    pointIndex += ghInstr.points.size()
                     RouteInstruction(
                         text = ghInstr.name,
                         distanceMeters = ghInstr.distance,
