@@ -542,6 +542,21 @@ class HomeViewModel @Inject constructor(
                 else -> null
             }
             if (result != null) {
+                val existingId = _uiState.value.savedRouteId
+                val destName = _uiState.value.destinationName.ifBlank { "Percorso" }
+                val last = points.last()
+                if (existingId != null) {
+                    savedRouteDao.update(SavedRoute(
+                        id = existingId.toInt(),
+                        name = destName,
+                        destinationLat = last.first,
+                        destinationLon = last.second,
+                        distanceMeters = result.distanceMeters,
+                        durationMillis = result.timeMillis,
+                        pointsJson = SavedRoute.serializePoints(result.points),
+                        instructionsJson = SavedRoute.serializeInstructions(result.instructions),
+                    ))
+                }
                 _uiState.update { it.copy(route = result, isRouteCalculating = false, isEditingRoute = true, selectedWaypointIndex = -1) }
             } else {
                 _uiState.update { it.copy(isRouteCalculating = false, routeError = "Errore con $engine") }
