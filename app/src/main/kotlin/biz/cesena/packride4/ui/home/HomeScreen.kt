@@ -367,39 +367,37 @@ fun HomeScreen(
             )
         }
 
-        // ── Speed limit sign (right side, above GPS FAB) ────────────────────
-        if (uiState.isNavigating && uiState.route != null) {
-            val currentInstruction = uiState.route!!.instructions.getOrNull(uiState.currentInstructionIndex)
-            val limit = currentInstruction?.speedLimitKmh ?: 0
-            if (limit > 0) {
-                SpeedLimitSign(
-                    limit = limit,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = contentEnd, bottom = bottomPanelDp + safeBottom + 80.dp)
-                )
-            }
-        }
-
-        // ── GPS follow FAB (bottom-right, above bottom panel) ────────────────
-        FloatingActionButton(
-            onClick = { viewModel.toggleFollow() },
+        // ── GPS FAB + speed limit (right side, stacked) ─────────────────────
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = contentEnd, bottom = bottomPanelDp + safeBottom + 12.dp),
-            containerColor = if (uiState.isFollowing)
-                MaterialTheme.colorScheme.primary
-            else
-                MaterialTheme.colorScheme.surfaceVariant
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
-                if (uiState.isFollowing) Icons.Default.GpsFixed else Icons.Default.MyLocation,
-                contentDescription = "Segui GPS",
-                tint = if (uiState.isFollowing)
-                    MaterialTheme.colorScheme.onPrimary
+            if (uiState.isNavigating && uiState.route != null) {
+                val currentInstruction = uiState.route!!.instructions.getOrNull(uiState.currentInstructionIndex)
+                val limit = currentInstruction?.speedLimitKmh ?: 0
+                if (limit > 0) {
+                    SpeedLimitSign(limit = limit)
+                }
+            }
+            FloatingActionButton(
+                onClick = { viewModel.toggleFollow() },
+                containerColor = if (uiState.isFollowing)
+                    MaterialTheme.colorScheme.primary
                 else
-                    MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                    MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Icon(
+                    if (uiState.isFollowing) Icons.Default.GpsFixed else Icons.Default.MyLocation,
+                    contentDescription = "Segui GPS",
+                    tint = if (uiState.isFollowing)
+                        MaterialTheme.colorScheme.onPrimary
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
 
         // ── Bottom overlay (depends on state) ────────────────────────────────
@@ -679,23 +677,23 @@ private fun NavigationStatsBar(
         NavStatItem(value = formatDuration(route.timeMillis), unit = "arrivo"),
     )
 
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    Column(
+        modifier = modifier.width(IntrinsicSize.Min),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         stats.forEach { stat ->
             Surface(
-                modifier = Modifier.weight(1f),
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                 shape = MaterialTheme.shapes.medium,
                 shadowElevation = 4.dp
             ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(stat.value,
-                        fontSize = 20.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = if (stat.tint == Color.Unspecified) MaterialTheme.colorScheme.onSurface else stat.tint,
                         maxLines = 1)
