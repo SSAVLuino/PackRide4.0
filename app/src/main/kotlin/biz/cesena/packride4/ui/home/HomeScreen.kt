@@ -1,8 +1,10 @@
 package biz.cesena.packride4.ui.home
 
 import android.Manifest
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -355,14 +357,28 @@ fun HomeScreen(
             }
         }
 
-        // ── Navigation stats overlay (left side, on the map) ────────────────
+        // ── Navigation stats (top, 3 blocks) ───────────────────────────────
         if (uiState.isNavigating && uiState.route != null) {
-            NavigationStatsOverlay(
+            NavigationStatsBar(
                 uiState = uiState,
                 modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .padding(start = contentStart)
+                    .align(Alignment.TopStart)
+                    .padding(top = contentTop, start = contentStart, end = contentEnd)
             )
+        }
+
+        // ── Speed limit sign (right side, above GPS FAB) ────────────────────
+        if (uiState.isNavigating && uiState.route != null) {
+            val currentInstruction = uiState.route!!.instructions.getOrNull(uiState.currentInstructionIndex)
+            val limit = currentInstruction?.speedLimitKmh ?: 0
+            if (limit > 0) {
+                SpeedLimitSign(
+                    limit = limit,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = contentEnd, bottom = bottomPanelDp + safeBottom + 80.dp)
+                )
+            }
         }
 
         // ── GPS follow FAB (bottom-right, above bottom panel) ────────────────
@@ -643,63 +659,73 @@ private fun NavigationInstructionBanner(
 // ── Navigation stats overlay (left side, on the map) ─────────────────────────
 
 @Composable
-private fun NavigationStatsOverlay(
+data class NavStatItem(val value: String, val unit: String, val tint: Color = Color.Unspecified)
+
+@Composable
+private fun NavigationStatsBar(
     uiState: HomeUiState,
     modifier: Modifier = Modifier
 ) {
     val route = uiState.route ?: return
     val currentInstruction = route.instructions.getOrNull(uiState.currentInstructionIndex)
+    val overSpeed = currentInstruction?.speedLimitKmh?.let { it > 0 && uiState.speedKmh > it } == true
 
-    Surface(
-        modifier = modifier,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-        shape = MaterialTheme.shapes.medium,
-        shadowElevation = 4.dp
+    val stats = listOf(
+        NavStatItem(
+            value = "${uiState.speedKmh.roundToInt()}",
+            unit = "km/h",
+            tint = if (overSpeed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+        ),
+        NavStatItem(value = formatDistance(route.distanceMeters), unit = "rimasti"),
+        NavStatItem(value = formatDuration(route.timeMillis), unit = "arrivo"),
+    )
+
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                val overSpeed = currentInstruction?.speedLimitKmh?.let { it > 0 && uiState.speedKmh > it } == true
-                NavStat(
-                    value = "${uiState.speedKmh.roundToInt()}",
-                    unit = "km/h",
-                    tint = if (overSpeed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                )
-                val limit = currentInstruction?.speedLimitKmh ?: 0
-                if (limit > 0) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.errorContainer,
-                        shape = MaterialTheme.shapes.extraSmall
-                    ) {
-                        Text(
-                            "max $limit",
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            fontSize = 9.sp
-                        )
-                    }
+        stats.forEach { stat ->
+            Surface(
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                shape = MaterialTheme.shapes.medium,
+                shadowElevation = 4.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(stat.value,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (stat.tint == Color.Unspecified) MaterialTheme.colorScheme.onSurface else stat.tint,
+                        maxLines = 1)
+                    Text(stat.unit,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            NavStat(value = formatDistance(route.distanceMeters), unit = "rimasti")
-            NavStat(value = formatDuration(route.timeMillis), unit = "arrivo")
         }
     }
 }
 
 @Composable
-private fun NavStat(value: String, unit: String, tint: Color = Color.Unspecified) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = if (tint == Color.Unspecified) MaterialTheme.colorScheme.onSurface else tint)
-        Text(unit,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun SpeedLimitSign(limit: Int, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.size(48.dp),
+        shape = CircleShape,
+        color = Color.White,
+        shadowElevation = 4.dp,
+        border = BorderStroke(3.dp, Color.Red)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                "$limit",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
+            )
+        }
     }
 }
 
