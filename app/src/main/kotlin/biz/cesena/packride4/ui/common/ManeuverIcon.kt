@@ -31,7 +31,7 @@ fun maneuverIcon(sign: Int, modifier: String = "", exitNumber: Int = 0, turnAngl
 
 @DrawableRes
 fun roundaboutIcon(modifier: String = "", exitNumber: Int = 0, turnAngle: Double = Double.NaN): Int {
-    if (!turnAngle.isNaN()) {
+    if (!turnAngle.isNaN() && turnAngle != 0.0) {
         val a = turnAngle
         return when {
             a < -120 -> R.drawable.direction_roundabout_sharp_left
