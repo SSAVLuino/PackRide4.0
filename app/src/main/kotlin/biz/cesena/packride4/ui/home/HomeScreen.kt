@@ -521,8 +521,6 @@ private fun RouteReadyPanel(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showInstructions by remember { mutableStateOf(false) }
-
     Surface(
         modifier = modifier,
         color = MaterialTheme.colorScheme.surface,
@@ -532,79 +530,31 @@ private fun RouteReadyPanel(
             bottomEnd = androidx.compose.foundation.shape.CornerSize(0.dp)
         )
     ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    if (destinationName.isNotBlank()) {
-                        Text(destinationName,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1)
-                    }
-                    Text(
-                        "${formatDistance(route.distanceMeters)}  ·  ${formatDuration(route.timeMillis)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                if (destinationName.isNotBlank()) {
+                    Text(destinationName,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1)
                 }
-                if (route.instructions.isNotEmpty()) {
-                    TextButton(onClick = { showInstructions = !showInstructions }) {
-                        Icon(
-                            if (showInstructions) Icons.Default.Close else Icons.AutoMirrored.Filled.FormatListBulleted,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            if (showInstructions) "Chiudi" else "${route.instructions.size} tappe",
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                    }
-                }
-                OutlinedButton(onClick = onCancel) { Text("Cancella") }
-                Button(onClick = onStart) {
-                    Icon(Icons.Default.Navigation, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Avvia")
-                }
+                Text(
+                    "${formatDistance(route.distanceMeters)}  ·  ${formatDuration(route.timeMillis)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-
-            if (showInstructions && route.instructions.isNotEmpty()) {
-                HorizontalDivider()
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 240.dp)
-                ) {
-                    items(route.instructions) { instr ->
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(painterResource(maneuverIcon(instr.sign, instr.modifier, instr.exitNumber)), null,
-                                modifier = Modifier.size(24.dp),
-                                tint = MaterialTheme.colorScheme.primary)
-                            Text(
-                                instr.text.ifBlank { "Prosegui" },
-                                modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            Text(
-                                formatDistance(instr.distanceMeters),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    }
-                }
+            OutlinedButton(onClick = onCancel) { Text("Cancella") }
+            Button(onClick = onStart) {
+                Icon(Icons.Default.Navigation, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Avvia")
             }
         }
     }
