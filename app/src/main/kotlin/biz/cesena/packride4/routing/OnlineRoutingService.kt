@@ -74,7 +74,9 @@ class OnlineRoutingService @Inject constructor() {
                     val text = instr.optString("message", "").ifBlank { maneuverToText(maneuver) }
                     val distM = instr.optDouble("routeOffsetInMeters", 0.0)
                     val timeS = instr.optLong("travelTimeInSeconds", 0L)
-                    instructions += RouteInstruction(text, distM, timeS * 1000L, sign)
+                    val modifier = if (sign == 6) tomTomRoundaboutModifier(maneuver) else ""
+                    val exitNum = if (sign == 6) instr.optInt("roundaboutExitNumber", 0) else 0
+                    instructions += RouteInstruction(text, distM, timeS * 1000L, sign, modifier, exitNum)
                 }
             }
             DebugLog.log("online-routing: TomTom ${instructions.size} istruzioni")
@@ -109,13 +111,14 @@ class OnlineRoutingService @Inject constructor() {
                     val step = steps.getJSONObject(j)
                     val maneuver = step.getJSONObject("maneuver")
                     val type = maneuver.optString("type", "")
-                    val modifier = maneuver.optString("modifier", "straight")
-                    val sign = osrmToSign(type, modifier)
+                    val mod = maneuver.optString("modifier", "straight")
+                    val sign = osrmToSign(type, mod)
                     val streetName = step.optString("name", "").ifBlank { "" }
-                    val text = osrmStepText(type, modifier, streetName)
+                    val text = osrmStepText(type, mod, streetName)
                     val stepDist = step.optDouble("distance", 0.0)
                     val stepTime = (step.optDouble("duration", 0.0) * 1000).toLong()
-                    instructions += RouteInstruction(text, stepDist, stepTime, sign, modifier)
+                    val exitNum = if (sign == 6) maneuver.optInt("exit", 0) else 0
+                    instructions += RouteInstruction(text, stepDist, stepTime, sign, mod, exitNum)
                 }
             }
             DebugLog.log("online-routing: OSRM ${instructions.size} istruzioni")
@@ -128,15 +131,27 @@ class OnlineRoutingService @Inject constructor() {
 
     // ── TomTom maneuver helpers ───────────────────────────────────────────────
 
-    private fun tomTomManeuverToSign(maneuver: String): Int = when (maneuver) {
-        "TURN_SHARP_LEFT"  -> -3
-        "TURN_LEFT"        -> -2
-        "TURN_SLIGHT_LEFT" -> -1
-        "TURN_SLIGHT_RIGHT"-> 1
-        "TURN_RIGHT"       -> 2
-        "TURN_SHARP_RIGHT" -> 3
-        "ARRIVE", "ARRIVE_LEFT", "ARRIVE_RIGHT" -> 4
+    private fun tomTomManeuverToSign(maneuver: String): Int = when {
+        maneuver == "TURN_SHARP_LEFT"  -> -3
+        maneuver == "TURN_LEFT"        -> -2
+        maneuver == "TURN_SLIGHT_LEFT" -> -1
+        maneuver == "TURN_SLIGHT_RIGHT"-> 1
+        maneuver == "TURN_RIGHT"       -> 2
+        maneuver == "TURN_SHARP_RIGHT" -> 3
+        maneuver in listOf("ARRIVE", "ARRIVE_LEFT", "ARRIVE_RIGHT") -> 4
+        maneuver.startsWith("ROUNDABOUT") -> 6
         else               -> 0
+    }
+
+    private fun tomTomRoundaboutModifier(maneuver: String): String = when (maneuver) {
+        "ROUNDABOUT_SHARP_LEFT"  -> "sharp left"
+        "ROUNDABOUT_LEFT"        -> "left"
+        "ROUNDABOUT_SLIGHT_LEFT" -> "slight left"
+        "ROUNDABOUT_STRAIGHT"    -> "straight"
+        "ROUNDABOUT_SLIGHT_RIGHT"-> "slight right"
+        "ROUNDABOUT_RIGHT"       -> "right"
+        "ROUNDABOUT_SHARP_RIGHT" -> "sharp right"
+        else                     -> ""
     }
 
     private fun maneuverToText(maneuver: String): String = when (maneuver) {
@@ -157,6 +172,7 @@ class OnlineRoutingService @Inject constructor() {
     private fun osrmToSign(type: String, modifier: String): Int = when {
         type == "arrive"                        -> 4
         type == "depart"                        -> 0
+        type == "roundabout" || type == "rotary" -> 6
         modifier == "sharp left"                -> -3
         modifier == "left"                      -> -2
         modifier == "slight left"               -> -1
