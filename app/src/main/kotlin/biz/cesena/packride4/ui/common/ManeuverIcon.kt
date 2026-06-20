@@ -31,15 +31,19 @@ fun maneuverIcon(sign: Int, modifier: String = "", exitNumber: Int = 0, turnAngl
 
 @DrawableRes
 fun roundaboutIcon(modifier: String = "", exitNumber: Int = 0, turnAngle: Double = Double.NaN): Int {
+    // turnAngle is in degrees. The absolute value indicates how far around the
+    // roundabout you go: ~90° = first exit (right), ~180° = straight, ~270° = left.
+    // The sign just indicates rotation direction (negative = counterclockwise = Italy).
     if (!turnAngle.isNaN() && turnAngle != 0.0) {
+        val a = Math.abs(turnAngle)
         return when {
-            turnAngle < -120 -> R.drawable.direction_roundabout_sharp_left
-            turnAngle < -60  -> R.drawable.direction_roundabout_left
-            turnAngle < -20  -> R.drawable.direction_roundabout_slight_left
-            turnAngle < 20   -> R.drawable.direction_roundabout_straight
-            turnAngle < 60   -> R.drawable.direction_roundabout_slight_right
-            turnAngle < 120  -> R.drawable.direction_roundabout_right
-            else             -> R.drawable.direction_roundabout_sharp_right
+            a < 50   -> R.drawable.direction_roundabout_slight_right
+            a < 110  -> R.drawable.direction_roundabout_right
+            a < 150  -> R.drawable.direction_roundabout_sharp_right
+            a < 210  -> R.drawable.direction_roundabout_straight
+            a < 250  -> R.drawable.direction_roundabout_sharp_left
+            a < 310  -> R.drawable.direction_roundabout_left
+            else     -> R.drawable.direction_roundabout_slight_left
         }
     }
 
