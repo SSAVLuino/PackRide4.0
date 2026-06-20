@@ -166,7 +166,7 @@ class RoutingManager @Inject constructor() {
                     )
                 }
                 DebugLog.log("routing: route OK via $key, ${routePoints.size} pts, ${path.distance.toInt()}m")
-                val destLabel = waypoints.last().let { "${it.first},${it.second}" }
+                val destLabel = points.last().let { "${it.first},${it.second}" }
                 val dumpJson = JSONObject().apply {
                     put("engine", "graphhopper")
                     put("distance", path.distance)
