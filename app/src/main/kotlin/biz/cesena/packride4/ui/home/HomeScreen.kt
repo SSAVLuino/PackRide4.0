@@ -32,6 +32,7 @@ import biz.cesena.packride4.debug.DebugLog
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import org.maplibre.android.MapLibre
+import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
@@ -196,7 +197,7 @@ fun HomeScreen(
     }
 
     // GPS dot + follow camera + initial zoom
-    LaunchedEffect(uiState.lastKnownPosition, uiState.isFollowing) {
+    LaunchedEffect(uiState.lastKnownPosition, uiState.isFollowing, uiState.isNavigating) {
         val pos = uiState.lastKnownPosition ?: return@LaunchedEffect
         val map = mapInstance ?: return@LaunchedEffect
         val feature = Feature.fromGeometry(Point.fromLngLat(pos.longitude, pos.latitude))
@@ -205,6 +206,16 @@ fun HomeScreen(
         if (!initialZoomDone) {
             map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(pos.latitude, pos.longitude), 14.0))
             initialZoomDone = true
+        } else if (uiState.isFollowing && uiState.isNavigating) {
+            val bearing = if (pos.hasBearing) pos.bearing.toDouble() else map.cameraPosition.bearing
+            map.animateCamera(CameraUpdateFactory.newCameraPosition(
+                CameraPosition.Builder()
+                    .target(LatLng(pos.latitude, pos.longitude))
+                    .zoom(17.0)
+                    .tilt(45.0)
+                    .bearing(bearing)
+                    .build()
+            ))
         } else if (uiState.isFollowing) {
             map.animateCamera(CameraUpdateFactory.newLatLng(LatLng(pos.latitude, pos.longitude)))
         }
