@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import biz.cesena.packride4.data.local.SavedRoute
+import biz.cesena.packride4.debug.DebugLog
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -53,7 +54,11 @@ fun SavedRoutesScreen(
                     items(routes, key = { it.id }) { route ->
                         SavedRouteItem(
                             route = route,
-                            onNavigate = { viewModel.loadRoute(route); onGoToMap() },
+                            onNavigate = {
+                                DebugLog.log("SavedRoutesScreen: navigate clicked for route id=${route.id}")
+                                viewModel.loadRoute(route)
+                                onGoToMap()
+                            },
                             onDelete = { viewModel.delete(route) }
                         )
                         HorizontalDivider()
