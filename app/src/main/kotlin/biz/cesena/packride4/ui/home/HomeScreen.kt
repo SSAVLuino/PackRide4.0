@@ -240,6 +240,7 @@ fun HomeScreen(
                         map.setStyle(Style.Builder().fromJson(uiState.mapStyleJson)) { style ->
                             map.uiSettings.isCompassEnabled = true
                             map.uiSettings.isRotateGesturesEnabled = true
+                            map.uiSettings.isTiltGesturesEnabled = true
                             val statusPx = (ctx.resources.displayMetrics.density * 56).toInt()
                             map.uiSettings.setCompassMargins(0, statusPx, 0, 0)
                             addMapLayers(style)
