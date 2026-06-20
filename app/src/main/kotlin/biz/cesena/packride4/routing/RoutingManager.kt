@@ -153,7 +153,7 @@ class RoutingManager @Inject constructor() {
                     val speed = speedByPoint[pointIndex] ?: 0
                     pointIndex += ghInstr.points.size()
                     RouteInstruction(
-                        text = ghInstr.name,
+                        text = ghInstructionText(ghInstr.sign, ghInstr.name, exitNum),
                         distanceMeters = ghInstr.distance,
                         timeMillis = ghInstr.time,
                         sign = ghInstr.sign,
@@ -170,5 +170,25 @@ class RoutingManager @Inject constructor() {
         }
         DebugLog.log("routing: no graph could serve the route")
         null
+    }
+
+    private fun ghInstructionText(sign: Int, streetName: String, exitNumber: Int): String {
+        val via = if (streetName.isNotBlank()) " su $streetName" else ""
+        return when (sign) {
+            -7   -> "Tieniti a sinistra$via"
+            -3   -> "Svolta decisamente a sinistra$via"
+            -2   -> "Svolta a sinistra$via"
+            -1   -> "Tieniti leggermente a sinistra$via"
+            0    -> "Prosegui dritto$via"
+            1    -> "Tieniti leggermente a destra$via"
+            2    -> "Svolta a destra$via"
+            3    -> "Svolta decisamente a destra$via"
+            4    -> "Sei arrivato"
+            5    -> "Sei arrivato (a destinazione intermedia)"
+            6    -> if (exitNumber > 0) "Alla rotonda prendi la $exitNumber° uscita$via"
+                    else "Alla rotonda$via"
+            7    -> "Tieniti a destra$via"
+            else -> "Prosegui$via"
+        }
     }
 }
