@@ -118,7 +118,9 @@ class HomeViewModel @Inject constructor(
         }
         viewModelScope.launch {
             routeEventBus.loadRoute.collect { event ->
+                DebugLog.log("HomeVM: received loadRoute event id=${event.id} name=${event.name}")
                 val saved = savedRouteDao.getById(event.id.toInt())
+                DebugLog.log("HomeVM: getById result=${saved != null}")
                 if (saved != null) {
                     val points = SavedRoute.deserializePoints(saved.pointsJson)
                     val instructions = SavedRoute.deserializeInstructions(saved.instructionsJson)

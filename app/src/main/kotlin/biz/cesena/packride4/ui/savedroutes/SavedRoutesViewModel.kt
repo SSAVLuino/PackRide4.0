@@ -27,6 +27,7 @@ class SavedRoutesViewModel @Inject constructor(
     }
 
     fun loadRoute(route: SavedRoute) {
+        biz.cesena.packride4.debug.DebugLog.log("SavedRoutesVM: loadRoute id=${route.id} name=${route.name}")
         routeEventBus.notifyLoadRoute(route.id.toLong(), route.destinationLat, route.destinationLon, route.name)
     }
 }

@@ -13,7 +13,7 @@ class RouteEventBus @Inject constructor() {
     private val _routeDeleted = MutableSharedFlow<Long>(extraBufferCapacity = 1)
     val routeDeleted: SharedFlow<Long> = _routeDeleted.asSharedFlow()
 
-    private val _loadRoute = MutableSharedFlow<LoadRouteEvent>(extraBufferCapacity = 1)
+    private val _loadRoute = MutableSharedFlow<LoadRouteEvent>(replay = 1, extraBufferCapacity = 1)
     val loadRoute: SharedFlow<LoadRouteEvent> = _loadRoute.asSharedFlow()
 
     fun notifyRouteDeleted(id: Long) {
