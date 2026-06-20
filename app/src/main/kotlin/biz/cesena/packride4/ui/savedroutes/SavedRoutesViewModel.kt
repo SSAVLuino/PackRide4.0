@@ -25,4 +25,8 @@ class SavedRoutesViewModel @Inject constructor(
             routeEventBus.notifyRouteDeleted(route.id.toLong())
         }
     }
+
+    fun loadRoute(route: SavedRoute) {
+        routeEventBus.notifyLoadRoute(route.id.toLong(), route.destinationLat, route.destinationLon, route.name)
+    }
 }

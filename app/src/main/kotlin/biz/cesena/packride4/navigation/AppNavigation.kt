@@ -84,7 +84,11 @@ fun AppNavigation() {
                 MapManagerScreen()
             }
             composable(Screen.SavedRoutes.route) {
-                SavedRoutesScreen()
+                SavedRoutesScreen(
+                    onGoToMap = {
+                        navController.popBackStack(Screen.Home.route, inclusive = false)
+                    }
+                )
             }
             composable(Screen.Settings.route) {
                 SettingsScreen(

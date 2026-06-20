@@ -8,6 +8,9 @@ interface SavedRouteDao {
     @Query("SELECT * FROM saved_routes ORDER BY savedAt DESC")
     fun getAll(): Flow<List<SavedRoute>>
 
+    @Query("SELECT * FROM saved_routes WHERE id = :id")
+    suspend fun getById(id: Int): SavedRoute?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(route: SavedRoute): Long
 

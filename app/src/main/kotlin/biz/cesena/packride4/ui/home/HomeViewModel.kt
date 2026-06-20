@@ -117,6 +117,39 @@ class HomeViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            routeEventBus.loadRoute.collect { event ->
+                val saved = savedRouteDao.getById(event.id.toInt())
+                if (saved != null) {
+                    val points = SavedRoute.deserializePoints(saved.pointsJson)
+                    val instructions = SavedRoute.deserializeInstructions(saved.instructionsJson)
+                    val result = biz.cesena.packride4.routing.RouteResult(
+                        points = points,
+                        instructions = instructions,
+                        distanceMeters = saved.distanceMeters,
+                        timeMillis = saved.durationMillis,
+                    )
+                    val pos = _uiState.value.lastKnownPosition
+                    val origin = if (pos != null) {
+                        RouteWaypoint("Posizione GPS", pos.latitude, pos.longitude, isGps = true, isSet = true)
+                    } else {
+                        RouteWaypoint("Posizione GPS", isGps = true, isSet = false)
+                    }
+                    _uiState.update { it.copy(
+                        route = result,
+                        destinationName = saved.name,
+                        savedRouteId = saved.id.toLong(),
+                        isEditingRoute = true,
+                        selectedWaypointIndex = -1,
+                        showRoutePlanner = false,
+                        waypoints = listOf(
+                            origin,
+                            RouteWaypoint(saved.name, saved.destinationLat, saved.destinationLon, isSet = true),
+                        ),
+                    )}
+                }
+            }
+        }
+        viewModelScope.launch {
             routingManager.isReady.collect { ready ->
                 _uiState.update { it.copy(isRoutingReady = ready) }
             }

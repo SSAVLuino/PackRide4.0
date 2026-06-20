@@ -28,7 +28,7 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SavedRoutesScreen(
-    onNavigateTo: (lat: Double, lon: Double, name: String) -> Unit = { _, _, _ -> },
+    onGoToMap: () -> Unit = {},
     viewModel: SavedRoutesViewModel = hiltViewModel()
 ) {
     val routes by viewModel.routes.collectAsState()
@@ -53,7 +53,7 @@ fun SavedRoutesScreen(
                     items(routes, key = { it.id }) { route ->
                         SavedRouteItem(
                             route = route,
-                            onNavigate = { onNavigateTo(route.destinationLat, route.destinationLon, route.name) },
+                            onNavigate = { viewModel.loadRoute(route); onGoToMap() },
                             onDelete = { viewModel.delete(route) }
                         )
                         HorizontalDivider()
