@@ -308,8 +308,9 @@ fun HomeScreen(
             }
         }
 
-        // ── Route editing hint (top, when editing route on map) ──────────────
-        if (uiState.isEditingRoute && uiState.route != null && !uiState.isNavigating) {
+        // ── Delete selected waypoint (top, only when intermediate waypoint selected) ──
+        if (uiState.isEditingRoute && uiState.selectedWaypointIndex > 0 &&
+            uiState.selectedWaypointIndex < uiState.waypoints.size - 1) {
             Surface(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -325,24 +326,18 @@ fun HomeScreen(
                     Icon(Icons.Default.TouchApp, null, modifier = Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.onTertiaryContainer)
                     Text(
-                        text = if (uiState.selectedWaypointIndex >= 0)
-                            "Tocca la mappa per spostare il punto"
-                        else
-                            "Tocca un pin per spostarlo · Premi a lungo sul percorso per aggiungere una tappa",
+                        text = "Tocca la mappa per spostare · ",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onTertiaryContainer,
                         modifier = Modifier.weight(1f)
                     )
-                    if (uiState.selectedWaypointIndex > 0 &&
-                        uiState.selectedWaypointIndex < uiState.waypoints.size - 1) {
-                        IconButton(
-                            onClick = { viewModel.removeSelectedWaypoint() },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(Icons.Default.Close, "Elimina tappa",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(20.dp))
-                        }
+                    IconButton(
+                        onClick = { viewModel.removeSelectedWaypoint() },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(Icons.Default.Close, "Elimina tappa",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp))
                     }
                 }
             }

@@ -4,25 +4,18 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DragHandle
-import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -95,7 +88,7 @@ fun RoutePlannerSheet(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // ── Waypoint list ────────────────────────────────────────────────
+            // ── Waypoint list (skip index 0 = GPS start) ────────────────────
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -103,61 +96,64 @@ fun RoutePlannerSheet(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 waypoints.forEachIndexed { index, wp ->
-                    val isFirst = index == 0
+                    if (index == 0) return@forEachIndexed
+
                     val isLast = index == waypoints.size - 1
-                    val isIntermediate = !isFirst && !isLast
-                    val label = when {
-                        isFirst -> "Partenza"
-                        isLast -> "Destinazione"
-                        else -> "Tappa ${index}"
-                    }
-                    val icon = when {
-                        isFirst && wp.isGps -> Icons.Default.GpsFixed
-                        isFirst -> Icons.Default.Place
-                        else -> Icons.Default.Place
-                    }
+                    val isIntermediate = !isLast
+                    val label = if (isLast) "Destinazione" else "Tappa $index"
                     val iconTint = when {
-                        isFirst -> MaterialTheme.colorScheme.primary
                         isLast -> MaterialTheme.colorScheme.error
                         else -> MaterialTheme.colorScheme.tertiary
                     }
 
                     if (editingIndex == index) {
-                        // Editing mode: search field
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = onSearchChange,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .focusRequester(focusRequester),
-                            placeholder = { Text("Cerca $label…") },
-                            leadingIcon = { Icon(icon, null, tint = iconTint) },
-                            trailingIcon = {
-                                IconButton(onClick = { onStartEditing(-1) }) {
-                                    Icon(Icons.Default.Close, "Annulla")
-                                }
-                            },
-                            singleLine = true,
-                            shape = MaterialTheme.shapes.medium,
-                        )
-                    } else {
-                        // Display mode: show selected location or placeholder
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium,
-                            color = if (wp.isSet)
-                                MaterialTheme.colorScheme.surfaceVariant
-                            else
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            onClick = { onStartEditing(index) }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = onSearchChange,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .focusRequester(focusRequester),
+                                placeholder = { Text("Cerca $label…") },
+                                leadingIcon = { Icon(Icons.Default.Place, null, tint = iconTint) },
+                                trailingIcon = {
+                                    IconButton(onClick = { onStartEditing(-1) }) {
+                                        Icon(Icons.Default.Close, "Annulla")
+                                    }
+                                },
+                                singleLine = true,
+                                shape = MaterialTheme.shapes.medium,
+                            )
+                            if (isLast) {
+                                IconButton(onClick = onAddWaypoint) {
+                                    Icon(Icons.Default.Add, "Aggiungi tappa",
+                                        tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        }
+                    } else {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Surface(
+                                modifier = Modifier.weight(1f),
+                                shape = MaterialTheme.shapes.medium,
+                                color = if (wp.isSet)
+                                    MaterialTheme.colorScheme.surfaceVariant
+                                else
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                onClick = { onStartEditing(index) }
                             ) {
-                                Icon(icon, null, tint = iconTint, modifier = Modifier.size(22.dp))
-                                Column(modifier = Modifier.weight(1f)) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Icon(Icons.Default.Place, null, tint = iconTint, modifier = Modifier.size(22.dp))
                                     Text(
                                         text = if (wp.isSet) wp.label.ifBlank { label } else "Tocca per impostare $label",
                                         style = MaterialTheme.typography.bodyMedium,
@@ -167,38 +163,28 @@ fun RoutePlannerSheet(
                                         else
                                             MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
+                                        modifier = Modifier.weight(1f)
                                     )
-                                    if (wp.isSet && wp.isGps) {
-                                        Text(
-                                            "Posizione attuale",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
+                                    if (isIntermediate) {
+                                        IconButton(
+                                            onClick = { onRemoveWaypoint(index) },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(Icons.Default.Close, "Rimuovi",
+                                                modifier = Modifier.size(18.dp),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
                                     }
                                 }
-                                if (isIntermediate) {
-                                    IconButton(
-                                        onClick = { onRemoveWaypoint(index) },
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(Icons.Default.Close, "Rimuovi",
-                                            modifier = Modifier.size(18.dp),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
+                            }
+                            if (isLast) {
+                                IconButton(onClick = onAddWaypoint) {
+                                    Icon(Icons.Default.Add, "Aggiungi tappa",
+                                        tint = MaterialTheme.colorScheme.primary)
                                 }
                             }
                         }
                     }
-                }
-
-                // Add waypoint button
-                TextButton(
-                    onClick = onAddWaypoint,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Aggiungi tappa intermedia")
                 }
             }
 

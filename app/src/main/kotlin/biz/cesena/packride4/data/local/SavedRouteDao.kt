@@ -11,6 +11,9 @@ interface SavedRouteDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(route: SavedRoute): Long
 
+    @Update
+    suspend fun update(route: SavedRoute)
+
     @Delete
     suspend fun delete(route: SavedRoute)
 }

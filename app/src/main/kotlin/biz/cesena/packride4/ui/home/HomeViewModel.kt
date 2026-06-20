@@ -439,15 +439,30 @@ class HomeViewModel @Inject constructor(
                 onlineRoutingService.routeMulti(points)
             }
             if (result != null) {
-                val savedId = savedRouteDao.insert(SavedRoute(
-                    name = destName.ifBlank { "Percorso" },
-                    destinationLat = last.first,
-                    destinationLon = last.second,
-                    distanceMeters = result.distanceMeters,
-                    durationMillis = result.timeMillis,
-                    pointsJson = SavedRoute.serializePoints(result.points),
-                    instructionsJson = SavedRoute.serializeInstructions(result.instructions),
-                ))
+                val existingId = _uiState.value.savedRouteId
+                val savedId = if (existingId != null) {
+                    savedRouteDao.update(SavedRoute(
+                        id = existingId.toInt(),
+                        name = destName.ifBlank { "Percorso" },
+                        destinationLat = last.first,
+                        destinationLon = last.second,
+                        distanceMeters = result.distanceMeters,
+                        durationMillis = result.timeMillis,
+                        pointsJson = SavedRoute.serializePoints(result.points),
+                        instructionsJson = SavedRoute.serializeInstructions(result.instructions),
+                    ))
+                    existingId
+                } else {
+                    savedRouteDao.insert(SavedRoute(
+                        name = destName.ifBlank { "Percorso" },
+                        destinationLat = last.first,
+                        destinationLon = last.second,
+                        distanceMeters = result.distanceMeters,
+                        durationMillis = result.timeMillis,
+                        pointsJson = SavedRoute.serializePoints(result.points),
+                        instructionsJson = SavedRoute.serializeInstructions(result.instructions),
+                    ))
+                }
                 _uiState.update { it.copy(
                     route = result,
                     isRouteCalculating = false,
