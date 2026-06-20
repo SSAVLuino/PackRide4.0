@@ -2,6 +2,9 @@ package biz.cesena.packride4.routing
 
 import biz.cesena.packride4.data.download.RegionCatalogEntry
 import biz.cesena.packride4.debug.DebugLog
+import biz.cesena.packride4.debug.RoutingDebugDump
+import org.json.JSONArray
+import org.json.JSONObject
 import com.graphhopper.GHRequest
 import com.graphhopper.GraphHopper
 import com.graphhopper.GraphHopperConfig
@@ -163,6 +166,32 @@ class RoutingManager @Inject constructor() {
                     )
                 }
                 DebugLog.log("routing: route OK via $key, ${routePoints.size} pts, ${path.distance.toInt()}m")
+                val destLabel = waypoints.last().let { "${it.first},${it.second}" }
+                val dumpJson = JSONObject().apply {
+                    put("engine", "graphhopper")
+                    put("distance", path.distance)
+                    put("time", path.time)
+                    put("instructions", JSONArray().also { arr ->
+                        path.instructions.forEachIndexed { idx, ghInstr ->
+                            val isRb = ghInstr is com.graphhopper.util.RoundaboutInstruction
+                            arr.put(JSONObject().apply {
+                                put("index", idx)
+                                put("sign", ghInstr.sign)
+                                put("name", ghInstr.name)
+                                put("distance", ghInstr.distance)
+                                put("time", ghInstr.time)
+                                if (isRb) {
+                                    val ri = ghInstr as com.graphhopper.util.RoundaboutInstruction
+                                    put("exitNumber", ri.exitNumber)
+                                    put("turnAngleRad", ri.turnAngle)
+                                    put("turnAngleDeg", Math.toDegrees(ri.turnAngle))
+                                    put("isRoundabout", true)
+                                }
+                            })
+                        }
+                    })
+                }
+                RoutingDebugDump.save("graphhopper", destLabel, dumpJson.toString(2))
                 return@withContext RouteResult(routePoints, instructions, path.distance, path.time)
             } catch (e: Exception) {
                 DebugLog.log("routing: graph $key exception: ${e.message}")

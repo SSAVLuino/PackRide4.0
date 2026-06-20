@@ -2,6 +2,7 @@ package biz.cesena.packride4.routing
 
 import biz.cesena.packride4.BuildConfig
 import biz.cesena.packride4.debug.DebugLog
+import biz.cesena.packride4.debug.RoutingDebugDump
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -53,7 +54,10 @@ class OnlineRoutingService @Inject constructor() {
             val url = "https://api.tomtom.com/routing/1/calculateRoute/" +
                     "$coordsPath/json" +
                     "?key=$tomTomKey&traffic=false&travelMode=car&instructionsType=coded&language=it-IT"
-            val json = JSONObject(fetchJson(url) ?: return null)
+            val rawJson = fetchJson(url) ?: return null
+            val destLabel = waypoints.last().let { "${it.first},${it.second}" }
+            RoutingDebugDump.save("tomtom", destLabel, rawJson)
+            val json = JSONObject(rawJson)
             val route = json.getJSONArray("routes").getJSONObject(0)
             val summary = route.getJSONObject("summary")
             val distanceM = summary.getDouble("lengthInMeters")
@@ -99,7 +103,10 @@ class OnlineRoutingService @Inject constructor() {
             val coordsStr = waypoints.joinToString(";") { (lat, lon) -> "$lon,$lat" }
             val url = "http://router.project-osrm.org/route/v1/driving/" +
                     "$coordsStr?overview=full&geometries=geojson&steps=true"
-            val json = JSONObject(fetchJson(url) ?: return null)
+            val rawJson = fetchJson(url) ?: return null
+            val destLabel = waypoints.last().let { "${it.first},${it.second}" }
+            RoutingDebugDump.save("osrm", destLabel, rawJson)
+            val json = JSONObject(rawJson)
             if (json.getString("code") != "Ok") return null
             val route = json.getJSONArray("routes").getJSONObject(0)
             val distanceM = route.getDouble("distance")
