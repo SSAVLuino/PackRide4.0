@@ -44,7 +44,8 @@ data class SavedRoute(
                         .put("sign", instr.sign)
                         .put("modifier", instr.modifier)
                         .put("exitNumber", instr.exitNumber)
-                        .put("speedLimitKmh", instr.speedLimitKmh))
+                        .put("speedLimitKmh", instr.speedLimitKmh)
+                        .put("turnAngle", if (instr.turnAngle.isNaN()) JSONObject.NULL else instr.turnAngle))
                 }
             }.toString()
 
@@ -60,6 +61,7 @@ data class SavedRoute(
                     modifier = o.optString("modifier", ""),
                     exitNumber = o.optInt("exitNumber", 0),
                     speedLimitKmh = o.optInt("speedLimitKmh", 0),
+                    turnAngle = if (o.has("turnAngle") && !o.isNull("turnAngle")) o.getDouble("turnAngle") else Double.NaN,
                 )
             }
         }

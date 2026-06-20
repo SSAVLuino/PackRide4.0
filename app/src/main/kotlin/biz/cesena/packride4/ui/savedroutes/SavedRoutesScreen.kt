@@ -159,7 +159,7 @@ private fun SavedRouteItem(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Icon(
-                                painter = painterResource(maneuverIcon(instr.sign, instr.modifier, instr.exitNumber)),
+                                painter = painterResource(maneuverIcon(instr.sign, instr.modifier, instr.exitNumber, instr.turnAngle)),
                                 contentDescription = null,
                                 modifier = Modifier.size(24.dp),
                                 tint = MaterialTheme.colorScheme.primary

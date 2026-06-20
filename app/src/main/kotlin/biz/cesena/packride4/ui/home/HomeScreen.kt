@@ -610,7 +610,7 @@ private fun NavigationInstructionBanner(
         ) {
             Box(contentAlignment = Alignment.BottomEnd) {
                 Icon(
-                    painter = painterResource(maneuverIcon(currentInstruction?.sign ?: 0, currentInstruction?.modifier ?: "", currentInstruction?.exitNumber ?: 0)),
+                    painter = painterResource(maneuverIcon(currentInstruction?.sign ?: 0, currentInstruction?.modifier ?: "", currentInstruction?.exitNumber ?: 0, currentInstruction?.turnAngle ?: Double.NaN)),
                     contentDescription = null,
                     modifier = Modifier.size(40.dp),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer

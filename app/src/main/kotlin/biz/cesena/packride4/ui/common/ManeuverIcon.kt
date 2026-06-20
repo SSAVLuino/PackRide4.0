@@ -14,7 +14,7 @@ import biz.cesena.packride4.R
  *   4 finish/arrive   6 roundabout
  */
 @DrawableRes
-fun maneuverIcon(sign: Int, modifier: String = "", exitNumber: Int = 0): Int = when (sign) {
+fun maneuverIcon(sign: Int, modifier: String = "", exitNumber: Int = 0, turnAngle: Double = Double.NaN): Int = when (sign) {
     -3   -> R.drawable.direction_turn_sharp_left
     -2   -> R.drawable.direction_turn_left
     -1   -> R.drawable.direction_turn_slight_left
@@ -23,22 +23,27 @@ fun maneuverIcon(sign: Int, modifier: String = "", exitNumber: Int = 0): Int = w
     2    -> R.drawable.direction_turn_right
     3    -> R.drawable.direction_turn_sharp_right
     4    -> R.drawable.direction_arrive
-    6    -> roundaboutIcon(modifier, exitNumber)
+    6    -> roundaboutIcon(modifier, exitNumber, turnAngle)
     -7   -> R.drawable.direction_fork_slight_left
     7    -> R.drawable.direction_fork_slight_right
     else -> R.drawable.direction_continue_straight
 }
 
-/**
- * Picks the roundabout directional icon. When exitNumber is known (1-8),
- * maps to the closest directional variant based on typical roundabout geometry
- * (right-hand traffic, counterclockwise rotation in Italy):
- *   1 = slight right, 2 = right, 3 = sharp right / straight,
- *   4 = straight (U), 5 = sharp left, 6 = left, 7 = slight left, 8+ = straight
- */
 @DrawableRes
-fun roundaboutIcon(modifier: String = "", exitNumber: Int = 0): Int {
-    // If the routing engine already gave us a directional modifier, use it
+fun roundaboutIcon(modifier: String = "", exitNumber: Int = 0, turnAngle: Double = Double.NaN): Int {
+    if (!turnAngle.isNaN()) {
+        val a = turnAngle
+        return when {
+            a < -120 -> R.drawable.direction_roundabout_sharp_left
+            a < -60  -> R.drawable.direction_roundabout_left
+            a < -20  -> R.drawable.direction_roundabout_slight_left
+            a < 20   -> R.drawable.direction_roundabout_straight
+            a < 60   -> R.drawable.direction_roundabout_slight_right
+            a < 120  -> R.drawable.direction_roundabout_right
+            else     -> R.drawable.direction_roundabout_sharp_right
+        }
+    }
+
     val fromModifier = when (modifier) {
         "sharp left"   -> R.drawable.direction_roundabout_sharp_left
         "left"         -> R.drawable.direction_roundabout_left
@@ -51,15 +56,10 @@ fun roundaboutIcon(modifier: String = "", exitNumber: Int = 0): Int {
     }
     if (fromModifier != null) return fromModifier
 
-    // Fall back to exit number (right-hand traffic, counterclockwise roundabout)
     return when (exitNumber) {
-        1    -> R.drawable.direction_roundabout_slight_right
-        2    -> R.drawable.direction_roundabout_right
-        3    -> R.drawable.direction_roundabout_sharp_right
-        4    -> R.drawable.direction_roundabout_straight   // ~180° = straight through
-        5    -> R.drawable.direction_roundabout_sharp_left
-        6    -> R.drawable.direction_roundabout_left
-        7    -> R.drawable.direction_roundabout_slight_left
+        1    -> R.drawable.direction_roundabout_right
+        2    -> R.drawable.direction_roundabout_straight
+        3    -> R.drawable.direction_roundabout_left
         else -> R.drawable.direction_roundabout
     }
 }

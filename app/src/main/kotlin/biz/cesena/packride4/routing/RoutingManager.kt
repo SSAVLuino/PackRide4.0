@@ -22,7 +22,8 @@ data class RouteInstruction(
     val sign: Int = 0,        // GraphHopper sign: -3 sharp-left … 3 sharp-right, 4 finish, 6 roundabout
     val modifier: String = "", // OSRM modifier for roundabout/fork/ramp variants
     val exitNumber: Int = 0,  // roundabout exit number (1-8), 0 = unknown
-    val speedLimitKmh: Int = 0 // max speed for this segment (0 = unknown)
+    val speedLimitKmh: Int = 0, // max speed for this segment (0 = unknown)
+    val turnAngle: Double = Double.NaN // roundabout turn angle in degrees (from GH)
 )
 
 data class RouteResult(
@@ -140,8 +141,11 @@ class RoutingManager @Inject constructor() {
                 // Map instructions — RoundaboutInstruction gives exit number
                 var pointIndex = 0
                 val instructions = path.instructions.mapIndexed { idx, ghInstr ->
-                    val exitNum = if (ghInstr is com.graphhopper.util.RoundaboutInstruction)
-                        ghInstr.exitNumber else 0
+                        val isRoundabout = ghInstr is com.graphhopper.util.RoundaboutInstruction
+                    val exitNum = if (isRoundabout)
+                        (ghInstr as com.graphhopper.util.RoundaboutInstruction).exitNumber else 0
+                    val turnAngle = if (isRoundabout)
+                        (ghInstr as com.graphhopper.util.RoundaboutInstruction).turnAngle else Double.NaN
                     val speed = speedByPoint[pointIndex] ?: 0
                     pointIndex += ghInstr.points.size()
                     RouteInstruction(
@@ -151,6 +155,7 @@ class RoutingManager @Inject constructor() {
                         sign = ghInstr.sign,
                         exitNumber = exitNum,
                         speedLimitKmh = speed,
+                        turnAngle = turnAngle,
                     )
                 }
                 DebugLog.log("routing: route OK via $key, ${routePoints.size} pts, ${path.distance.toInt()}m")
