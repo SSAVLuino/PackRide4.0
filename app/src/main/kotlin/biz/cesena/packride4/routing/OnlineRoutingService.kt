@@ -41,6 +41,12 @@ class OnlineRoutingService @Inject constructor() {
         osrmResult
     }
 
+    suspend fun routeViaTomTomPublic(waypoints: List<Pair<Double, Double>>): RouteResult? =
+        withContext(Dispatchers.IO) { routeViaTomTom(waypoints) }
+
+    suspend fun routeViaOsrmPublic(waypoints: List<Pair<Double, Double>>): RouteResult? =
+        withContext(Dispatchers.IO) { routeViaOsrm(waypoints) }
+
     private fun routeViaTomTom(waypoints: List<Pair<Double, Double>>): RouteResult? {
         return try {
             val coordsPath = waypoints.joinToString(":") { (lat, lon) -> "$lat,$lon" }

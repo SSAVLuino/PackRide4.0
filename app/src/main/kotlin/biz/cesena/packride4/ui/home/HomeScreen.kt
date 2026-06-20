@@ -422,6 +422,7 @@ fun HomeScreen(
                     destinationName = uiState.destinationName,
                     onStart = { viewModel.startNavigation() },
                     onCancel = { viewModel.clearRoute() },
+                    onRecalculate = { engine -> viewModel.recalculateWithEngine(engine) },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
@@ -544,6 +545,7 @@ private fun RouteReadyPanel(
     destinationName: String,
     onStart: () -> Unit,
     onCancel: () -> Unit,
+    onRecalculate: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -555,31 +557,45 @@ private fun RouteReadyPanel(
             bottomEnd = androidx.compose.foundation.shape.CornerSize(0.dp)
         )
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                if (destinationName.isNotBlank()) {
-                    Text(destinationName,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1)
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    if (destinationName.isNotBlank()) {
+                        Text(destinationName,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1)
+                    }
+                    Text(
+                        "${formatDistance(route.distanceMeters)}  ·  ${formatDuration(route.timeMillis)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                Text(
-                    "${formatDistance(route.distanceMeters)}  ·  ${formatDuration(route.timeMillis)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                OutlinedButton(onClick = onCancel) { Text("Cancella") }
+                Button(onClick = onStart) {
+                    Icon(Icons.Default.Navigation, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Avvia")
+                }
             }
-            OutlinedButton(onClick = onCancel) { Text("Cancella") }
-            Button(onClick = onStart) {
-                Icon(Icons.Default.Navigation, null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("Avvia")
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(onClick = { onRecalculate("local") }, modifier = Modifier.weight(1f)) {
+                    Text("Locale", style = MaterialTheme.typography.labelSmall)
+                }
+                OutlinedButton(onClick = { onRecalculate("tomtom") }, modifier = Modifier.weight(1f)) {
+                    Text("TomTom", style = MaterialTheme.typography.labelSmall)
+                }
+                OutlinedButton(onClick = { onRecalculate("osrm") }, modifier = Modifier.weight(1f)) {
+                    Text("OSRM", style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
     }

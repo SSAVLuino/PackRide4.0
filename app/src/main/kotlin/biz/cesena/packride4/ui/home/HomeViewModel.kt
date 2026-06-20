@@ -528,6 +528,27 @@ class HomeViewModel @Inject constructor(
         computeRouteFromWaypoints()
     }
 
+    fun recalculateWithEngine(engine: String) {
+        val state = _uiState.value
+        val setWps = state.waypoints.filter { it.isSet }
+        if (setWps.size < 2) return
+        val points = setWps.map { it.lat to it.lon }
+        _uiState.update { it.copy(isRouteCalculating = true, routeError = null) }
+        viewModelScope.launch {
+            val result = when (engine) {
+                "local" -> routingManager.route(points)
+                "tomtom" -> onlineRoutingService.routeViaTomTomPublic(points)
+                "osrm" -> onlineRoutingService.routeViaOsrmPublic(points)
+                else -> null
+            }
+            if (result != null) {
+                _uiState.update { it.copy(route = result, isRouteCalculating = false, isEditingRoute = true, selectedWaypointIndex = -1) }
+            } else {
+                _uiState.update { it.copy(isRouteCalculating = false, routeError = "Errore con $engine") }
+            }
+        }
+    }
+
     fun clearRoute() {
         _uiState.update { it.copy(
             route = null,
