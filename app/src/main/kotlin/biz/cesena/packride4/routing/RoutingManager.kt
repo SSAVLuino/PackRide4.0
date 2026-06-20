@@ -146,6 +146,9 @@ class RoutingManager @Inject constructor() {
                         (ghInstr as com.graphhopper.util.RoundaboutInstruction).exitNumber else 0
                     val turnAngle = if (isRoundabout)
                         (ghInstr as com.graphhopper.util.RoundaboutInstruction).turnAngle else Double.NaN
+                    if (isRoundabout) {
+                        DebugLog.log("routing: roundabout sign=${ghInstr.sign} exit=$exitNum turnAngle=$turnAngle name=${ghInstr.name}")
+                    }
                     val speed = speedByPoint[pointIndex] ?: 0
                     pointIndex += ghInstr.points.size()
                     RouteInstruction(
