@@ -658,7 +658,6 @@ private fun NavigationInstructionBanner(
 
 // ── Navigation stats overlay (left side, on the map) ─────────────────────────
 
-@Composable
 data class NavStatItem(val value: String, val unit: String, val tint: Color = Color.Unspecified)
 
 @Composable
