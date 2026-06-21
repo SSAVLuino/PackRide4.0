@@ -6,7 +6,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -105,7 +105,7 @@ fun SettingsScreen(
                     })
                 },
                 leadingContent = {
-                    Icon(Icons.Default.VolumeUp, null,
+                    Icon(Icons.AutoMirrored.Filled.VolumeUp, null,
                         tint = MaterialTheme.colorScheme.primary)
                 }
             )
