@@ -19,12 +19,13 @@ object ShortbreadStyle {
     // MapLibre's "asset://" URI scheme, which is bundled with the APK (no network call).
     private const val GLYPHS_URL = "asset://glyphs/{fontstack}/{range}.pbf"
 
-    private const val SPRITE_URL = "https://maputnik.github.io/osm-liberty/sprites/osm-liberty"
+    private const val SPRITE_URL = "asset://sprites/osm-liberty"
 
     fun offline(tilesUrl: String = "http://localhost:8787/tiles/{z}/{x}/{y}.pbf"): String = """
     {
       "version": 8,
       "glyphs": "$GLYPHS_URL",
+      "sprite": "$SPRITE_URL",
       "sources": {
         "sb": {
           "type": "vector",
@@ -41,9 +42,24 @@ object ShortbreadStyle {
           "paint": { "fill-color": "#aad3df" } },
         { "id": "water-lines", "type": "line", "source": "sb", "source-layer": "water_lines",
           "paint": { "line-color": "#aad3df", "line-width": 1 } },
+        { "id": "landuse-forest", "type": "fill", "source": "sb", "source-layer": "land",
+          "filter": ["in", ["get", "kind"], ["literal", ["forest","wood"]]],
+          "paint": { "fill-color": "#add19e", "fill-opacity": 0.6 } },
         { "id": "landuse-green", "type": "fill", "source": "sb", "source-layer": "land",
-          "filter": ["in", ["get", "kind"], ["literal", ["park","garden","forest","nature_reserve","wood","meadow","grass"]]],
+          "filter": ["in", ["get", "kind"], ["literal", ["park","garden","nature_reserve","meadow","grass","village_green","recreation_ground","golf_course"]]],
           "paint": { "fill-color": "#c8dfc8", "fill-opacity": 0.7 } },
+        { "id": "landuse-farm", "type": "fill", "source": "sb", "source-layer": "land",
+          "filter": ["in", ["get", "kind"], ["literal", ["farmland","orchard","vineyard","allotments"]]],
+          "paint": { "fill-color": "#dde6c6", "fill-opacity": 0.5 } },
+        { "id": "landuse-residential", "type": "fill", "source": "sb", "source-layer": "land",
+          "filter": ["==", ["get", "kind"], "residential"],
+          "paint": { "fill-color": "#e8e0d8", "fill-opacity": 0.5 } },
+        { "id": "landuse-commercial", "type": "fill", "source": "sb", "source-layer": "land",
+          "filter": ["in", ["get", "kind"], ["literal", ["commercial","retail","industrial"]]],
+          "paint": { "fill-color": "#ddd0c8", "fill-opacity": 0.4 } },
+        { "id": "landuse-cemetery", "type": "fill", "source": "sb", "source-layer": "land",
+          "filter": ["==", ["get", "kind"], "cemetery"],
+          "paint": { "fill-color": "#c8d8c0", "fill-opacity": 0.5 } },
         { "id": "boundaries", "type": "line", "source": "sb", "source-layer": "boundaries",
           "filter": ["==", ["get", "admin_level"], 2],
           "paint": { "line-color": "#9090a8", "line-width": 1.5, "line-dasharray": [4, 2] } },
@@ -133,7 +149,69 @@ object ShortbreadStyle {
             "symbol-placement": "line",
             "text-max-angle": 30
           },
-          "paint": { "text-color": "#666666", "text-halo-color": "#ffffff", "text-halo-width": 1 } }
+          "paint": { "text-color": "#666666", "text-halo-color": "#ffffff", "text-halo-width": 1 } },
+        { "id": "pois", "type": "symbol", "source": "sb", "source-layer": "pois",
+          "minzoom": 14,
+          "layout": {
+            "icon-image": ["match", ["coalesce", ["get","amenity"], ["get","shop"], ["get","tourism"], ["get","leisure"]],
+              "fuel", "fuel_11",
+              "pharmacy", "pharmacy_11",
+              "hospital", "hospital_11",
+              "clinic", "doctors_11",
+              "doctors", "doctors_11",
+              "dentist", "dentist_11",
+              "veterinary", "veterinary_11",
+              "restaurant", "restaurant_11",
+              "fast_food", "fast_food_11",
+              "cafe", "cafe_11",
+              "bar", "bar_11",
+              "bakery", "bakery_11",
+              "butcher", "butcher_11",
+              "ice_cream", "ice_cream_11",
+              "bank", "bank_11",
+              "atm", "bank_11",
+              "parking", "parking_11",
+              "police", "police_11",
+              "fire_station", "fire_station_11",
+              "post_office", "post_11",
+              "school", "school_11",
+              "university", "college_11",
+              "kindergarten", "school_11",
+              "library", "library_11",
+              "theatre", "theatre_11",
+              "cinema", "cinema_11",
+              "museum", "museum_11",
+              "place_of_worship", "place_of_worship_11",
+              "supermarket", "grocery_11",
+              "convenience", "grocery_11",
+              "clothes", "clothing_store_11",
+              "hairdresser", "hairdresser_11",
+              "florist", "florist_11",
+              "hotel", "lodging_11",
+              "motel", "lodging_11",
+              "hostel", "lodging_11",
+              "guest_house", "lodging_11",
+              "camp_site", "campsite_11",
+              "viewpoint", "monument_11",
+              "zoo", "zoo_11",
+              "playground", "playground_11",
+              "swimming_pool", "swimming_11",
+              ""],
+            "icon-size": ["interpolate",["linear"],["zoom"],14,0.7,17,1],
+            "icon-allow-overlap": false,
+            "text-field": ["step",["zoom"],"",16,["get","name"]],
+            "text-font": ["Noto Sans Regular"],
+            "text-size": 10,
+            "text-offset": [0, 1.2],
+            "text-anchor": "top",
+            "text-optional": true
+          },
+          "paint": {
+            "icon-opacity": 0.9,
+            "text-color": "#555555",
+            "text-halo-color": "#ffffff",
+            "text-halo-width": 1
+          } }
       ]
     }
     """.trimIndent()
