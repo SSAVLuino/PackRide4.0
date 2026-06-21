@@ -166,6 +166,7 @@ object ShortbreadStyle {
               "theatre", "theatre_11", "cinema", "cinema_11",
               "place_of_worship", "place_of_worship_11", "ice_cream", "ice_cream_11",
               "drinking_water", "drinking_water_11", "grave_yard", "cemetery_11",
+              "townhall", "town_hall_11", "fountain", "drinking_water_11",
               "circle_11"],
             "icon-size": ["interpolate",["linear"],["zoom"],14,0.7,17,1],
             "icon-allow-overlap": false,
