@@ -14,6 +14,9 @@ import java.util.*;
 
 /**
  * Extracts geocoding data from an OSM PBF file and writes a SQLite FTS5 database.
+ * Single-pass approach: processes nodes directly (no coord storage for all nodes).
+ * For ways, stores first referenced node coord in a compact long->lat/lon map.
+ *
  * Usage: BuildGeocodingDb input.osm.pbf output.db
  */
 public class BuildGeocodingDb {
@@ -65,9 +68,9 @@ public class BuildGeocodingDb {
         "camp_site", "camping"
     );
 
-    // Collected data
-    private static final Map<Long, double[]> nodeCoords = new HashMap<>();
-    private static final List<PlaceRecord> places = Collections.synchronizedList(new ArrayList<>());
+    // Compact storage: node ID -> encoded lat/lon (both as int, packed into long)
+    private static final HashMap<Long, Long> nodePositions = new HashMap<>();
+    private static final List<PlaceRecord> places = new ArrayList<>();
 
     public static void main(String[] args) throws Exception {
         if (args.length < 2) {
@@ -80,44 +83,51 @@ public class BuildGeocodingDb {
 
         new File(dbPath).delete();
 
-        // Pass 1: read all nodes (coords + places)
-        System.out.println("Pass 1: reading nodes...");
-        OsmosisReader reader1 = new OsmosisReader(new File(pbfPath));
-        reader1.setSink(new Sink() {
+        // Single pass: nodes are always before ways in PBF format
+        System.out.println("Reading PBF (single pass)...");
+        OsmosisReader reader = new OsmosisReader(new File(pbfPath));
+        reader.setSink(new Sink() {
+            int nodeCount = 0;
+            int wayCount = 0;
+
             @Override public void initialize(Map<String, Object> metaData) {}
-            @Override public void complete() {}
+            @Override public void complete() {
+                System.out.println("  Nodes processed: " + nodeCount + " (stored coords: " + nodePositions.size() + ")");
+                System.out.println("  Ways processed: " + wayCount);
+                System.out.println("  Places found: " + places.size());
+            }
             @Override public void close() {}
 
             @Override
             public void process(EntityContainer entityContainer) {
                 if (entityContainer instanceof NodeContainer nc) {
                     Node node = nc.getEntity();
-                    double lat = node.getLatitude();
-                    double lon = node.getLongitude();
-                    nodeCoords.put(node.getId(), new double[]{lat, lon});
+                    nodeCount++;
 
                     Map<String, String> tags = tagsToMap(node.getTags());
-                    PlaceRecord place = extractPlace(tags, lat, lon);
-                    if (place != null) places.add(place);
-                }
-            }
-        });
-        reader1.run();
-        System.out.println("  Nodes: " + nodeCoords.size() + ", places from nodes: " + places.size());
 
-        // Pass 2: read ways (streets + POI buildings)
-        System.out.println("Pass 2: reading ways...");
-        OsmosisReader reader2 = new OsmosisReader(new File(pbfPath));
-        reader2.setSink(new Sink() {
-            @Override public void initialize(Map<String, Object> metaData) {}
-            @Override public void complete() {}
-            @Override public void close() {}
+                    // Only store position if node has relevant tags OR we store all for way lookup
+                    // To save memory, we store coords compactly for ALL nodes (needed for way centroids)
+                    // Using int encoding: lat*1e7 and lon*1e7 packed into one long
+                    long encoded = encodeLatLon(node.getLatitude(), node.getLongitude());
+                    nodePositions.put(node.getId(), encoded);
 
-            @Override
-            public void process(EntityContainer entityContainer) {
-                if (entityContainer instanceof WayContainer wc) {
+                    if (!tags.isEmpty()) {
+                        PlaceRecord place = extractPlace(tags, node.getLatitude(), node.getLongitude());
+                        if (place != null) places.add(place);
+                    }
+
+                    // Periodically log progress
+                    if (nodeCount % 10_000_000 == 0) {
+                        System.out.println("  ... " + nodeCount / 1_000_000 + "M nodes, " + places.size() + " places, mem: " +
+                            (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / 1024 / 1024 + "MB");
+                    }
+
+                } else if (entityContainer instanceof WayContainer wc) {
                     Way way = wc.getEntity();
+                    wayCount++;
                     Map<String, String> tags = tagsToMap(way.getTags());
+                    if (tags.isEmpty()) return;
 
                     double[] centroid = wayCentroid(way.getWayNodes());
                     if (centroid == null) return;
@@ -125,6 +135,7 @@ public class BuildGeocodingDb {
                     PlaceRecord place = extractPlace(tags, centroid[0], centroid[1]);
                     if (place != null) places.add(place);
 
+                    // Named streets
                     String highway = tags.get("highway");
                     String name = tags.get("name");
                     if (highway != null && name != null && !name.isBlank()) {
@@ -134,11 +145,10 @@ public class BuildGeocodingDb {
                 }
             }
         });
-        reader2.run();
-        System.out.println("  Total places: " + places.size());
+        reader.run();
 
-        // Free node coords memory
-        nodeCoords.clear();
+        // Free memory before DB writing
+        nodePositions.clear();
 
         // Deduplicate streets
         System.out.println("Deduplicating streets...");
@@ -153,6 +163,7 @@ public class BuildGeocodingDb {
             }
         }
         finalPlaces.addAll(streetDedup.values());
+        places.clear();
         System.out.println("  Final count: " + finalPlaces.size());
 
         // Write DB
@@ -168,8 +179,23 @@ public class BuildGeocodingDb {
         System.out.println("Done. Output: " + dbPath + " (" + new File(dbPath).length() / 1024 / 1024 + " MB)");
     }
 
+    private static long encodeLatLon(double lat, double lon) {
+        int iLat = (int) (lat * 1e7);
+        int iLon = (int) (lon * 1e7);
+        return ((long) iLat << 32) | (iLon & 0xFFFFFFFFL);
+    }
+
+    private static double decodeLat(long encoded) {
+        return (encoded >> 32) / 1e7;
+    }
+
+    private static double decodeLon(long encoded) {
+        return ((int) encoded) / 1e7;
+    }
+
     private static Map<String, String> tagsToMap(Collection<Tag> tags) {
-        Map<String, String> map = new HashMap<>();
+        if (tags.isEmpty()) return Collections.emptyMap();
+        Map<String, String> map = new HashMap<>(tags.size());
         for (Tag t : tags) map.put(t.getKey(), t.getValue());
         return map;
     }
@@ -255,10 +281,10 @@ public class BuildGeocodingDb {
         int count = 0;
         double sumLat = 0, sumLon = 0;
         for (WayNode wn : wayNodes) {
-            double[] c = nodeCoords.get(wn.getNodeId());
-            if (c != null) {
-                sumLat += c[0];
-                sumLon += c[1];
+            Long encoded = nodePositions.get(wn.getNodeId());
+            if (encoded != null) {
+                sumLat += decodeLat(encoded);
+                sumLon += decodeLon(encoded);
                 count++;
             }
         }

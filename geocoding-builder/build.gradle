@@ -15,4 +15,5 @@ dependencies {
 
 application {
     mainClass = 'BuildGeocodingDb'
+    applicationDefaultJvmArgs = ['-Xmx5g']
 }

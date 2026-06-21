@@ -66,6 +66,8 @@ jobs:
           ls -lh "graph-${REGION_ID}/"
 
       - name: Build geocoding database
+        env:
+          GRADLE_OPTS: '-Xmx512m'
         run: |
           REGION_ID="${{ github.event.inputs.region_id }}"
           cd geocoding-builder
