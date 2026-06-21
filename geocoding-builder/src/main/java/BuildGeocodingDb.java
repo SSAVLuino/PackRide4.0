@@ -1,7 +1,12 @@
-import de.topobyte.osm4j.core.access.OsmIterator;
-import de.topobyte.osm4j.core.model.iface.*;
-import de.topobyte.osm4j.core.model.util.OsmModelUtil;
-import de.topobyte.osm4j.pbf.seq.PbfIterator;
+import crosby.binary.osmosis.OsmosisReader;
+import org.openstreetmap.osmosis.core.container.v0_6.EntityContainer;
+import org.openstreetmap.osmosis.core.container.v0_6.NodeContainer;
+import org.openstreetmap.osmosis.core.container.v0_6.WayContainer;
+import org.openstreetmap.osmosis.core.domain.v0_6.Node;
+import org.openstreetmap.osmosis.core.domain.v0_6.Tag;
+import org.openstreetmap.osmosis.core.domain.v0_6.Way;
+import org.openstreetmap.osmosis.core.domain.v0_6.WayNode;
+import org.openstreetmap.osmosis.core.task.v0_6.Sink;
 
 import java.io.*;
 import java.sql.*;
@@ -9,13 +14,9 @@ import java.util.*;
 
 /**
  * Extracts geocoding data from an OSM PBF file and writes a SQLite FTS5 database.
- * Usage: BuildGeocodingDb <input.osm.pbf> <output.db>
+ * Usage: BuildGeocodingDb input.osm.pbf output.db
  */
 public class BuildGeocodingDb {
-
-    private static final Set<String> POI_TAGS = Set.of(
-        "amenity", "shop", "tourism", "leisure", "healthcare", "office"
-    );
 
     private static final Map<String, String> AMENITY_CATEGORIES = Map.ofEntries(
         Map.entry("fuel", "fuel"),
@@ -39,7 +40,6 @@ public class BuildGeocodingDb {
         Map.entry("theatre", "theatre"),
         Map.entry("cinema", "cinema"),
         Map.entry("place_of_worship", "place_of_worship"),
-        Map.entry("supermarket", "supermarket"),
         Map.entry("hotel", "hotel")
     );
 
@@ -65,6 +65,10 @@ public class BuildGeocodingDb {
         "camp_site", "camping"
     );
 
+    // Collected data
+    private static final Map<Long, double[]> nodeCoords = new HashMap<>();
+    private static final List<PlaceRecord> places = Collections.synchronizedList(new ArrayList<>());
+
     public static void main(String[] args) throws Exception {
         if (args.length < 2) {
             System.err.println("Usage: BuildGeocodingDb <input.osm.pbf> <output.db>");
@@ -76,86 +80,98 @@ public class BuildGeocodingDb {
 
         new File(dbPath).delete();
 
+        // Pass 1: read all nodes (coords + places)
+        System.out.println("Pass 1: reading nodes...");
+        OsmosisReader reader1 = new OsmosisReader(new BufferedInputStream(new FileInputStream(pbfPath), 1 << 20));
+        reader1.setSink(new Sink() {
+            @Override public void initialize(Map<String, Object> metaData) {}
+            @Override public void complete() {}
+            @Override public void close() {}
+
+            @Override
+            public void process(EntityContainer entityContainer) {
+                if (entityContainer instanceof NodeContainer nc) {
+                    Node node = nc.getEntity();
+                    double lat = node.getLatitude();
+                    double lon = node.getLongitude();
+                    nodeCoords.put(node.getId(), new double[]{lat, lon});
+
+                    Map<String, String> tags = tagsToMap(node.getTags());
+                    PlaceRecord place = extractPlace(tags, lat, lon);
+                    if (place != null) places.add(place);
+                }
+            }
+        });
+        reader1.run();
+        System.out.println("  Nodes: " + nodeCoords.size() + ", places from nodes: " + places.size());
+
+        // Pass 2: read ways (streets + POI buildings)
+        System.out.println("Pass 2: reading ways...");
+        OsmosisReader reader2 = new OsmosisReader(new BufferedInputStream(new FileInputStream(pbfPath), 1 << 20));
+        reader2.setSink(new Sink() {
+            @Override public void initialize(Map<String, Object> metaData) {}
+            @Override public void complete() {}
+            @Override public void close() {}
+
+            @Override
+            public void process(EntityContainer entityContainer) {
+                if (entityContainer instanceof WayContainer wc) {
+                    Way way = wc.getEntity();
+                    Map<String, String> tags = tagsToMap(way.getTags());
+
+                    double[] centroid = wayCentroid(way.getWayNodes());
+                    if (centroid == null) return;
+
+                    PlaceRecord place = extractPlace(tags, centroid[0], centroid[1]);
+                    if (place != null) places.add(place);
+
+                    String highway = tags.get("highway");
+                    String name = tags.get("name");
+                    if (highway != null && name != null && !name.isBlank()) {
+                        String city = tags.getOrDefault("addr:city", "");
+                        places.add(new PlaceRecord(name, "street", null, centroid[0], centroid[1], city, ""));
+                    }
+                }
+            }
+        });
+        reader2.run();
+        System.out.println("  Total places: " + places.size());
+
+        // Free node coords memory
+        nodeCoords.clear();
+
+        // Deduplicate streets
+        System.out.println("Deduplicating streets...");
+        Map<String, PlaceRecord> streetDedup = new LinkedHashMap<>();
+        List<PlaceRecord> finalPlaces = new ArrayList<>();
+        for (PlaceRecord p : places) {
+            if ("street".equals(p.type)) {
+                String key = p.name.toLowerCase() + "|" + p.city.toLowerCase();
+                streetDedup.putIfAbsent(key, p);
+            } else {
+                finalPlaces.add(p);
+            }
+        }
+        finalPlaces.addAll(streetDedup.values());
+        System.out.println("  Final count: " + finalPlaces.size());
+
+        // Write DB
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + dbPath)) {
             createSchema(conn);
-
-            // First pass: collect node coordinates (needed for way centroids)
-            System.out.println("Pass 1: reading nodes...");
-            Map<Long, double[]> nodeCoords = new HashMap<>();
-            List<PlaceRecord> places = new ArrayList<>();
-
-            try (InputStream is = new BufferedInputStream(new FileInputStream(pbfPath), 1 << 20)) {
-                OsmIterator iter = new PbfIterator(is, true);
-                for (var container : iter) {
-                    if (container.getType() == de.topobyte.osm4j.core.model.iface.EntityType.Node) {
-                        OsmNode node = (OsmNode) container.getEntity();
-                        Map<String, String> tags = OsmModelUtil.getTagsAsMap(node);
-
-                        // Store coordinates for way resolution
-                        nodeCoords.put(node.getId(), new double[]{node.getLatitude(), node.getLongitude()});
-
-                        // Extract named places from nodes
-                        PlaceRecord place = extractPlace(tags, node.getLatitude(), node.getLongitude());
-                        if (place != null) places.add(place);
-                    }
-                }
-            }
-            System.out.println("  Nodes: " + nodeCoords.size() + ", places from nodes: " + places.size());
-
-            // Second pass: ways (streets, POI buildings)
-            System.out.println("Pass 2: reading ways...");
-            try (InputStream is = new BufferedInputStream(new FileInputStream(pbfPath), 1 << 20)) {
-                OsmIterator iter = new PbfIterator(is, true);
-                for (var container : iter) {
-                    if (container.getType() == de.topobyte.osm4j.core.model.iface.EntityType.Way) {
-                        OsmWay way = (OsmWay) container.getEntity();
-                        Map<String, String> tags = OsmModelUtil.getTagsAsMap(way);
-
-                        double[] centroid = wayCentroid(way, nodeCoords);
-                        if (centroid == null) continue;
-
-                        PlaceRecord place = extractPlace(tags, centroid[0], centroid[1]);
-                        if (place != null) places.add(place);
-
-                        // Named streets
-                        String highway = tags.get("highway");
-                        String name = tags.get("name");
-                        if (highway != null && name != null && !name.isBlank()) {
-                            String city = tags.getOrDefault("addr:city", "");
-                            places.add(new PlaceRecord(name, "street", null, centroid[0], centroid[1], city, ""));
-                        }
-                    }
-                }
-            }
-            System.out.println("  Total places: " + places.size());
-
-            // Deduplicate streets by name+city
-            System.out.println("Deduplicating streets...");
-            Map<String, PlaceRecord> streetDedup = new LinkedHashMap<>();
-            List<PlaceRecord> finalPlaces = new ArrayList<>();
-            for (PlaceRecord p : places) {
-                if ("street".equals(p.type)) {
-                    String key = p.name.toLowerCase() + "|" + p.city.toLowerCase();
-                    streetDedup.putIfAbsent(key, p);
-                } else {
-                    finalPlaces.add(p);
-                }
-            }
-            finalPlaces.addAll(streetDedup.values());
-            System.out.println("  Final count: " + finalPlaces.size());
-
-            // Insert into DB
             System.out.println("Writing database...");
             insertPlaces(conn, finalPlaces);
-
-            // Build FTS index
             System.out.println("Building FTS index...");
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute("INSERT INTO places_fts(places_fts) VALUES('rebuild')");
             }
-
-            System.out.println("Done. Output: " + dbPath);
         }
+        System.out.println("Done. Output: " + dbPath + " (" + new File(dbPath).length() / 1024 / 1024 + " MB)");
+    }
+
+    private static Map<String, String> tagsToMap(Collection<Tag> tags) {
+        Map<String, String> map = new HashMap<>();
+        for (Tag t : tags) map.put(t.getKey(), t.getValue());
+        return map;
     }
 
     private static void createSchema(Connection conn) throws SQLException {
@@ -186,7 +202,6 @@ public class BuildGeocodingDb {
     private static PlaceRecord extractPlace(Map<String, String> tags, double lat, double lon) {
         String name = tags.get("name");
 
-        // Place nodes: city, town, village, hamlet
         String placeType = tags.get("place");
         if (placeType != null && name != null && !name.isBlank()) {
             String type = switch (placeType) {
@@ -200,7 +215,6 @@ public class BuildGeocodingDb {
             }
         }
 
-        // POI
         if (name != null && !name.isBlank()) {
             String category = null;
 
@@ -226,7 +240,6 @@ public class BuildGeocodingDb {
             }
         }
 
-        // Address nodes (housenumber)
         String housenumber = tags.get("addr:housenumber");
         String addrStreet = tags.get("addr:street");
         if (housenumber != null && addrStreet != null) {
@@ -238,11 +251,11 @@ public class BuildGeocodingDb {
         return null;
     }
 
-    private static double[] wayCentroid(OsmWay way, Map<Long, double[]> nodeCoords) {
+    private static double[] wayCentroid(List<WayNode> wayNodes) {
         int count = 0;
         double sumLat = 0, sumLon = 0;
-        for (int i = 0; i < way.getNumberOfNodes(); i++) {
-            double[] c = nodeCoords.get(way.getNodeId(i));
+        for (WayNode wn : wayNodes) {
+            double[] c = nodeCoords.get(wn.getNodeId());
             if (c != null) {
                 sumLat += c[0];
                 sumLon += c[1];
