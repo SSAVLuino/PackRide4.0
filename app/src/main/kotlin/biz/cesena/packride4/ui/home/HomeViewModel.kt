@@ -14,6 +14,7 @@ import biz.cesena.packride4.data.prefs.UserPreferences
 import biz.cesena.packride4.debug.DebugLog
 import biz.cesena.packride4.map.MBTilesServer
 import biz.cesena.packride4.map.ShortbreadStyle
+import biz.cesena.packride4.navigation.NavigationVoiceService
 import biz.cesena.packride4.routing.GeocodingResult
 import biz.cesena.packride4.routing.GeocodingService
 import biz.cesena.packride4.routing.OnlineRoutingService
@@ -50,6 +51,7 @@ data class HomeUiState(
     // Navigation state
     val isNavigating: Boolean = false,
     val currentInstructionIndex: Int = 0,
+    val distanceToNextManeuver: Double = 0.0,
     val speedKmh: Float = 0f,
     // Route planner state
     val waypoints: List<RouteWaypoint> = emptyList(),
@@ -80,6 +82,7 @@ class HomeViewModel @Inject constructor(
     private val geocodingService: GeocodingService,
     private val userPreferences: UserPreferences,
     private val routeEventBus: RouteEventBus,
+    private val voiceService: NavigationVoiceService,
 ) : ViewModel() {
 
     val savedPosition: Pair<Double, Double>? = userPreferences.getLastPosition()
@@ -576,10 +579,14 @@ class HomeViewModel @Inject constructor(
     }
 
     fun startNavigation() {
+        voiceService.init()
+        voiceService.reset()
         _uiState.update { it.copy(isNavigating = true, isFollowing = true, currentInstructionIndex = 0, isEditingRoute = false, selectedWaypointIndex = -1) }
+        voiceService.checkAnnouncement(0, "Partiamo", 0.0, 0f)
     }
 
     fun stopNavigation() {
+        voiceService.shutdown()
         _uiState.update { it.copy(isNavigating = false, currentInstructionIndex = 0, route = null) }
     }
 
@@ -611,19 +618,30 @@ class HomeViewModel @Inject constructor(
         val distToEnd = if (lastPoint != null) haversineMeters(lat, lon, lastPoint.first, lastPoint.second) else Double.MAX_VALUE
 
         if (distToEnd < 30.0) {
+            voiceService.checkAnnouncement(instructions.size, "Sei arrivato a destinazione", 0.0, state.speedKmh)
+            voiceService.shutdown()
             _uiState.update { it.copy(isNavigating = false, currentInstructionIndex = 0, route = null) }
             return
         }
 
-        if (newIdx != idx) {
-            val remainingDist = (route.distanceMeters - distanceAlongRoute).coerceAtLeast(0.0)
-            val remainingRatio = if (route.distanceMeters > 0) remainingDist / route.distanceMeters else 0.0
-            val remainingTime = (route.timeMillis * remainingRatio).toLong()
-            _uiState.update { it.copy(
-                currentInstructionIndex = newIdx,
-                route = route.copy(distanceMeters = remainingDist, timeMillis = remainingTime)
-            )}
+        // Distance remaining to the next maneuver point
+        val distToNextManeuver = if (newIdx < waypointDistances.size)
+            (waypointDistances[newIdx] - distanceAlongRoute).coerceAtLeast(0.0) else 0.0
+
+        // Voice announcement for upcoming instruction
+        if (newIdx < instructions.size) {
+            val nextInstr = instructions[newIdx]
+            voiceService.checkAnnouncement(newIdx, nextInstr.text, distToNextManeuver, state.speedKmh)
         }
+
+        val remainingDist = (route.distanceMeters - distanceAlongRoute).coerceAtLeast(0.0)
+        val remainingRatio = if (route.distanceMeters > 0) remainingDist / route.distanceMeters else 0.0
+        val remainingTime = (route.timeMillis * remainingRatio).toLong()
+        _uiState.update { it.copy(
+            currentInstructionIndex = newIdx,
+            distanceToNextManeuver = distToNextManeuver,
+            route = route.copy(distanceMeters = remainingDist, timeMillis = remainingTime)
+        )}
     }
 
     private fun distanceAlongPolyline(lat: Double, lon: Double, points: List<Pair<Double, Double>>): Double {

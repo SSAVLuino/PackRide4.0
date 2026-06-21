@@ -647,21 +647,21 @@ private fun NavigationInstructionBanner(
                     }
                 }
             }
-            Column(modifier = Modifier.weight(1f)) {
+            if (uiState.distanceToNextManeuver > 0) {
                 Text(
-                    text = currentInstruction?.text?.takeIf { it.isNotBlank() } ?: "Segui il percorso",
-                    style = MaterialTheme.typography.titleSmall,
+                    text = formatDistance(uiState.distanceToNextManeuver),
+                    style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    maxLines = 1
+                    fontWeight = FontWeight.Bold
                 )
-                if ((currentInstruction?.distanceMeters ?: 0.0) > 0) {
-                    Text(
-                        text = "tra ${formatDistance(currentInstruction!!.distanceMeters)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                    )
-                }
             }
+            Text(
+                text = currentInstruction?.text?.takeIf { it.isNotBlank() } ?: "Segui il percorso",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                maxLines = 2,
+                modifier = Modifier.weight(1f)
+            )
             IconButton(onClick = onStop) {
                 Icon(Icons.Default.Close, "Stop navigazione",
                     tint = MaterialTheme.colorScheme.error)

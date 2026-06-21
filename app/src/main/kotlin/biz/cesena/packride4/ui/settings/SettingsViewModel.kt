@@ -12,6 +12,8 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
 
     val useOfflineMap: StateFlow<Boolean> = prefs.useOfflineMap
+    val voiceMode: StateFlow<String> = prefs.voiceMode
 
     fun setUseOfflineMap(value: Boolean) = prefs.setUseOfflineMap(value)
+    fun setVoiceMode(value: String) = prefs.setVoiceMode(value)
 }

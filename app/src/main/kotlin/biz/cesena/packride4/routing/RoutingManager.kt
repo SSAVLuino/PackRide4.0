@@ -144,7 +144,7 @@ class RoutingManager @Inject constructor() {
                 // Map instructions — RoundaboutInstruction gives exit number
                 var pointIndex = 0
                 val instructions = path.instructions.mapIndexed { idx, ghInstr ->
-                        val isRoundabout = ghInstr is com.graphhopper.util.RoundaboutInstruction
+                    val isRoundabout = ghInstr is com.graphhopper.util.RoundaboutInstruction
                     val exitNum = if (isRoundabout)
                         (ghInstr as com.graphhopper.util.RoundaboutInstruction).exitNumber else 0
                     val turnAngleRad = if (isRoundabout)
@@ -155,8 +155,10 @@ class RoutingManager @Inject constructor() {
                     }
                     val speed = speedByPoint[pointIndex] ?: 0
                     pointIndex += ghInstr.points.size()
+                    val instrText = if (idx == 0 && ghInstr.sign == 0) "Partiamo"
+                        else ghInstructionText(ghInstr.sign, ghInstr.name, exitNum)
                     RouteInstruction(
-                        text = ghInstructionText(ghInstr.sign, ghInstr.name, exitNum),
+                        text = instrText,
                         distanceMeters = ghInstr.distance,
                         timeMillis = ghInstr.time,
                         sign = ghInstr.sign,

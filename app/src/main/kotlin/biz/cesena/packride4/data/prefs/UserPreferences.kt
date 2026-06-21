@@ -36,9 +36,19 @@ class UserPreferences @Inject constructor(
             .apply()
     }
 
+    // Voice announcement mode: "both", "first_only", "second_only", "none"
+    private val _voiceMode = MutableStateFlow(prefs.getString(KEY_VOICE_MODE, "both") ?: "both")
+    val voiceMode: StateFlow<String> = _voiceMode.asStateFlow()
+
+    fun setVoiceMode(value: String) {
+        prefs.edit().putString(KEY_VOICE_MODE, value).apply()
+        _voiceMode.value = value
+    }
+
     companion object {
         private const val KEY_USE_OFFLINE_MAP = "use_offline_map"
         private const val KEY_LAST_LAT = "last_lat"
         private const val KEY_LAST_LON = "last_lon"
+        private const val KEY_VOICE_MODE = "voice_announcement_mode"
     }
 }

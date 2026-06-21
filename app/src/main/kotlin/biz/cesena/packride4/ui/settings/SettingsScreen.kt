@@ -6,8 +6,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -20,6 +22,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val useOfflineMap by viewModel.useOfflineMap.collectAsState()
+    val voiceMode by viewModel.voiceMode.collectAsState()
     var showDebugLog by remember { mutableStateOf(false) }
 
     if (showDebugLog) {
@@ -79,6 +82,49 @@ fun SettingsScreen(
                 },
                 modifier = Modifier.clickable { onOpenMapManager() }
             )
+
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+            // ── Sezione navigazione ────────────────────────────────────────────
+            Text(
+                "Navigazione",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+            )
+
+            ListItem(
+                headlineContent = { Text("Indicazioni vocali") },
+                supportingContent = {
+                    Text(when (voiceMode) {
+                        "both" -> "Entrambi gli annunci"
+                        "first_only" -> "Solo preparazione (es. \"Tra 400m...\")"
+                        "second_only" -> "Solo manovra imminente"
+                        "none" -> "Disattivate"
+                        else -> "Entrambi gli annunci"
+                    })
+                },
+                leadingContent = {
+                    Icon(Icons.Default.VolumeUp, null,
+                        tint = MaterialTheme.colorScheme.primary)
+                }
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val options = listOf("both" to "Entrambi", "first_only" to "Solo 1°", "second_only" to "Solo 2°", "none" to "Off")
+                options.forEach { (value, label) ->
+                    FilterChip(
+                        selected = voiceMode == value,
+                        onClick = { viewModel.setVoiceMode(value) },
+                        label = { Text(label, style = MaterialTheme.typography.labelSmall) }
+                    )
+                }
+            }
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 

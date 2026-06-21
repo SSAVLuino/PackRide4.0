@@ -178,7 +178,7 @@ class OnlineRoutingService @Inject constructor() {
         "TURN_SHARP_RIGHT" -> "Svolta decisamente a destra"
         "ARRIVE", "ARRIVE_LEFT", "ARRIVE_RIGHT" -> "Sei arrivato"
         "STRAIGHT"         -> "Prosegui dritto"
-        "LOCATION_DEPARTURE" -> "Parti"
+        "LOCATION_DEPARTURE" -> "Partiamo"
         else               -> maneuver.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }
     }
 
@@ -201,7 +201,7 @@ class OnlineRoutingService @Inject constructor() {
         val via = if (street.isNotBlank()) " su $street" else ""
         return when {
             type == "arrive"        -> "Sei arrivato"
-            type == "depart"        -> "Parti$via"
+            type == "depart"        -> "Partiamo"
             modifier == "sharp left"  -> "Svolta decisamente a sinistra$via"
             modifier == "left"        -> "Svolta a sinistra$via"
             modifier == "slight left" -> "Tieniti a sinistra$via"
