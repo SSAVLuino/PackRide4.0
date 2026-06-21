@@ -65,21 +65,31 @@ jobs:
           cd ..
           ls -lh "graph-${REGION_ID}/"
 
-      - name: Zip graph
+      - name: Build geocoding database
+        run: |
+          REGION_ID="${{ github.event.inputs.region_id }}"
+          cd geocoding-builder
+          gradle --stacktrace -q run --args="../region.osm.pbf ../geocoding-${REGION_ID}.db"
+          cd ..
+          ls -lh "geocoding-${REGION_ID}.db"
+
+      - name: Zip artifacts
         run: |
           REGION_ID="${{ github.event.inputs.region_id }}"
           cd "graph-${REGION_ID}"
           zip -r "../graph-${REGION_ID}.zip" .
           cd ..
-          ls -lh "graph-${REGION_ID}.zip"
+          zip "geocoding-${REGION_ID}.zip" "geocoding-${REGION_ID}.db"
+          ls -lh "graph-${REGION_ID}.zip" "geocoding-${REGION_ID}.zip"
 
-      - name: Create GitHub Release and upload graph
+      - name: Create GitHub Release and upload artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           REGION_ID="${{ github.event.inputs.region_id }}"
           TAG="${{ github.event.inputs.release_tag }}"
           gh release create "$TAG" \
-            --title "Routing graph: ${REGION_ID} (${TAG})" \
-            --notes "Prebuilt GraphHopper 7.0 routing graph for ${REGION_ID} (car/fastest profile). Generated from ${{ github.event.inputs.osm_url }}." \
-            "graph-${REGION_ID}.zip"
+            --title "Routing + Geocoding: ${REGION_ID} (${TAG})" \
+            --notes "Prebuilt GraphHopper 7.0 routing graph and geocoding database for ${REGION_ID}. Generated from ${{ github.event.inputs.osm_url }}." \
+            "graph-${REGION_ID}.zip" \
+            "geocoding-${REGION_ID}.zip"

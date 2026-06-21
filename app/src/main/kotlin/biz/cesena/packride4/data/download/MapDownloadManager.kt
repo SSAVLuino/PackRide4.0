@@ -28,7 +28,8 @@ data class RegionCatalogEntry(
     val fileName: String,
     val estimatedSizeMb: Double,
     val bbox: String,         // "minLon,minLat,maxLon,maxLat"
-    val routingGraphUrl: String? = null
+    val routingGraphUrl: String? = null,
+    val geocodingDbUrl: String? = null
 ) {
     fun containsPoint(lat: Double, lon: Double): Boolean {
         val p = bbox.split(",").mapNotNull { it.trim().toDoubleOrNull() }
@@ -118,6 +119,9 @@ class MapDownloadManager @Inject constructor(
     // null = not present, -1 = building graph, 0-100 = download progress
     private val _routingProgress = MutableStateFlow<Map<String, Int?>>(emptyMap())
     val routingProgress: StateFlow<Map<String, Int?>> = _routingProgress.asStateFlow()
+
+    private val _geocodingProgress = MutableStateFlow<Map<String, Int?>>(emptyMap())
+    val geocodingProgress: StateFlow<Map<String, Int?>> = _geocodingProgress.asStateFlow()
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
@@ -237,6 +241,65 @@ class MapDownloadManager @Inject constructor(
                 setRoutingProgress(regionId, null)
                 biz.cesena.packride4.debug.DebugLog.log("routing download/extract error: ${e.message}")
             }
+        }
+    }
+
+    fun geocodingDbFile(regionId: String): File =
+        File(File(context.filesDir, "geocoding"), "geocoding-$regionId.db")
+
+    fun isGeocodingReady(regionId: String): Boolean = geocodingDbFile(regionId).exists()
+
+    /** Downloads the geocoding database for [regionId] (if defined). */
+    fun startGeocodingDownload(regionId: String) {
+        if (_geocodingProgress.value[regionId] != null) return
+        val entry = AVAILABLE_REGIONS.find { it.id == regionId } ?: return
+        val dbUrl = entry.geocodingDbUrl ?: return
+        scope.launch {
+            setGeocodingProgress(regionId, 0)
+            try {
+                val geocodingDir = File(context.filesDir, "geocoding").also { it.mkdirs() }
+                val zipFile = File(geocodingDir, "geocoding-$regionId.zip")
+
+                val success = downloadToFile(dbUrl, zipFile) { pct ->
+                    setGeocodingProgress(regionId, pct)
+                }
+                if (!success) {
+                    zipFile.delete()
+                    setGeocodingProgress(regionId, null)
+                    _errorMessage.value = "Download dati ricerca per ${entry.name} interrotto — riprova"
+                    biz.cesena.packride4.debug.DebugLog.log("geocoding download ${entry.name} FAILED: ${lastDownloadError ?: "unknown error"}")
+                    return@launch
+                }
+                biz.cesena.packride4.debug.DebugLog.log("geocoding download ${entry.name} OK, ${zipFile.length()}B")
+
+                setGeocodingProgress(regionId, -1)
+                val dbFile = geocodingDbFile(regionId)
+                extractZip(zipFile, geocodingDir)
+                zipFile.delete()
+
+                if (!dbFile.exists()) {
+                    // The zip may have contained the db with a different relative path
+                    val candidate = geocodingDir.listFiles()?.find { it.name.endsWith(".db") && it.name.contains(regionId) }
+                    candidate?.renameTo(dbFile)
+                }
+
+                if (dbFile.exists()) {
+                    biz.cesena.packride4.debug.DebugLog.log("geocoding DB ready: ${dbFile.absolutePath} (${dbFile.length()}B)")
+                } else {
+                    _errorMessage.value = "Estrazione dati ricerca per ${entry.name} non riuscita"
+                    biz.cesena.packride4.debug.DebugLog.log("geocoding DB extraction failed for ${entry.name}")
+                }
+                setGeocodingProgress(regionId, null)
+            } catch (e: Exception) {
+                setGeocodingProgress(regionId, null)
+                biz.cesena.packride4.debug.DebugLog.log("geocoding download error: ${e.message}")
+            }
+        }
+    }
+
+    private fun setGeocodingProgress(regionId: String, progress: Int?) {
+        _geocodingProgress.update { current ->
+            if (progress == null) current - regionId else current + (regionId to progress)
         }
     }
 

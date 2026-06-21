@@ -104,7 +104,8 @@ fun MapManagerScreen(
                             region = region,
                             onDownload = { viewModel.downloadRegion(region.id) },
                             onDelete = { viewModel.deleteRegion(region.id) },
-                            onDownloadRouting = { viewModel.downloadRoutingData(region.id) }
+                            onDownloadRouting = { viewModel.downloadRoutingData(region.id) },
+                            onDownloadGeocoding = { viewModel.downloadGeocodingData(region.id) }
                         )
                     }
                 }
@@ -118,7 +119,8 @@ private fun MapRegionCard(
     region: MapRegionUi,
     onDownload: () -> Unit,
     onDelete: () -> Unit,
-    onDownloadRouting: () -> Unit
+    onDownloadRouting: () -> Unit,
+    onDownloadGeocoding: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -214,6 +216,42 @@ private fun MapRegionCard(
                     else -> {
                         TextButton(onClick = onDownloadRouting) {
                             Text("Scarica dati per la navigazione")
+                        }
+                    }
+                }
+            }
+        }
+
+        if (region.isDownloaded && region.hasGeocodingDb) {
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                when {
+                    region.isGeocodingReady -> {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = "Ricerca pronta",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Ricerca offline pronta", style = MaterialTheme.typography.bodySmall)
+                    }
+                    region.geocodingProgress == -1 -> {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Estrazione dati ricerca...", style = MaterialTheme.typography.bodySmall)
+                    }
+                    region.geocodingProgress != null -> {
+                        LinearProgressIndicator(
+                            progress = { region.geocodingProgress!! / 100f },
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("${region.geocodingProgress}%", style = MaterialTheme.typography.labelSmall)
+                    }
+                    else -> {
+                        TextButton(onClick = onDownloadGeocoding) {
+                            Text("Scarica dati per la ricerca")
                         }
                     }
                 }
