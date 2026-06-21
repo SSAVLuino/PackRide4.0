@@ -86,7 +86,8 @@ class OnlineRoutingService @Inject constructor() {
                     val timeS = instr.optLong("travelTimeInSeconds", 0L)
                     val modifier = if (sign == 6) tomTomRoundaboutModifier(maneuver) else ""
                     val exitNum = if (sign == 6) instr.optInt("roundaboutExitNumber", 0) else 0
-                    val angle = instr.optDouble("turnAngleInDecimalDegrees", Double.NaN)
+                    val rawAngle = instr.optDouble("turnAngleInDecimalDegrees", Double.NaN)
+                    val angle = if (!rawAngle.isNaN() && sign == 6) 180.0 - rawAngle else rawAngle
                     instructions += RouteInstruction(text, distM, timeS * 1000L, sign, modifier, exitNum, turnAngle = angle)
                 }
             }
