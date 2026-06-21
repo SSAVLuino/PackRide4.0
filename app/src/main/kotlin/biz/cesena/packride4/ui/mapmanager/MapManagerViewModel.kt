@@ -22,10 +22,7 @@ data class MapRegionUi(
     val downloadProgress: Int? = null,  // null = not downloading; 0-100 = in progress
     val hasRoutingPbf: Boolean = false,
     val routingProgress: Int? = null,   // null = idle; -1 = building graph; 0-100 = downloading
-    val isRoutingReady: Boolean = false,
-    val hasGeocodingDb: Boolean = false,
-    val geocodingProgress: Int? = null,
-    val isGeocodingReady: Boolean = false
+    val isRoutingReady: Boolean = false
 )
 
 data class MapManagerUiState(
@@ -38,7 +35,6 @@ private data class DownloadState(
     val downloaded: List<biz.cesena.packride4.data.local.MapRegion>,
     val progress: Map<String, Int?>,
     val routingProgress: Map<String, Int?>,
-    val geocodingProgress: Map<String, Int?>,
     val error: String?,
     val mobileWarning: String?
 )
@@ -58,15 +54,14 @@ class MapManagerViewModel @Inject constructor(
             db.mapRegionDao().getAll(),
             downloadManager.progress,
             downloadManager.routingProgress,
-            downloadManager.geocodingProgress,
-            downloadManager.errorMessage
-        ) { downloaded, progress, routingProgress, geocodingProgress, error ->
-            DownloadState(downloaded, progress, routingProgress, geocodingProgress, error, null)
+            downloadManager.errorMessage,
+            _showMobileDataWarning
+        ) { downloaded, progress, routingProgress, error, mobileWarning ->
+            DownloadState(downloaded, progress, routingProgress, error, mobileWarning)
         },
-        routingManager.isReady,
-        _showMobileDataWarning
-    ) { state, routingReady, mobileWarning ->
-        val (downloaded, progress, routingProgress, geocodingProgress, error, _) = state
+        routingManager.isReady
+    ) { state, routingReady ->
+        val (downloaded, progress, routingProgress, error, mobileWarning) = state
 
         val downloadedIds = downloaded.map { it.id }.toSet()
         val routingDir = java.io.File(context.filesDir, "routing")
@@ -83,10 +78,7 @@ class MapManagerViewModel @Inject constructor(
                 downloadProgress = progress[entry.id],
                 hasRoutingPbf = entry.routingGraphUrl != null,
                 routingProgress = routingProgress[entry.id],
-                isRoutingReady = routingReady && graphOnDisk,
-                hasGeocodingDb = entry.geocodingDbUrl != null,
-                geocodingProgress = geocodingProgress[entry.id],
-                isGeocodingReady = downloadManager.isGeocodingReady(entry.id)
+                isRoutingReady = routingReady && graphOnDisk
             )
         }
         MapManagerUiState(regions = regions, showMobileDataWarning = mobileWarning, errorMessage = error)
@@ -118,10 +110,6 @@ class MapManagerViewModel @Inject constructor(
         downloadManager.startRoutingDownload(regionId)
     }
 
-    fun downloadGeocodingData(regionId: String) {
-        downloadManager.startGeocodingDownload(regionId)
-    }
-
     fun deleteRegion(regionId: String) {
         viewModelScope.launch {
             val entity = db.mapRegionDao().getById(regionId) ?: return@launch
@@ -133,9 +121,6 @@ class MapManagerViewModel @Inject constructor(
                 graphDir.deleteRecursively()
                 routingManager.reset(graphDir)
             }
-
-            val geocodingDb = downloadManager.geocodingDbFile(regionId)
-            if (geocodingDb.exists()) geocodingDb.delete()
         }
     }
 
