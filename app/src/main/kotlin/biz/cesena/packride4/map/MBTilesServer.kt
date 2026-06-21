@@ -53,7 +53,12 @@ class MBTilesServer(port: Int = 8787) : NanoHTTPD(port) {
             for (db in databases) {
                 val tile = queryTile(db, z, x, tmsY) ?: continue
                 val decompressed = decompressIfGzip(tile)
-                DebugLog.log("tile $z/$x/$y -> 200 (${decompressed.size}B, layers=${layerNames(decompressed)})")
+                val layers = layerNames(decompressed)
+                DebugLog.log("tile $z/$x/$y -> 200 (${decompressed.size}B, layers=$layers)")
+                if (z >= 14 && "pois" in layers) {
+                    val poisInfo = parsePoisKeys(decompressed)
+                    if (poisInfo.isNotEmpty()) DebugLog.log("tile $z/$x/$y POIS: $poisInfo")
+                }
                 return newFixedLengthResponse(
                     Response.Status.OK,
                     "application/x-protobuf",
@@ -148,6 +153,91 @@ class MBTilesServer(port: Int = 8787) : NanoHTTPD(port) {
             return names + "ERROR:${e.message}"
         }
         return names
+    }
+
+    /**
+     * Extracts key names and sample string values from the "pois" layer in a vector tile.
+     * Vector tile spec: Layer has keys (field 3) and values (field 4), features (field 2).
+     */
+    private fun parsePoisKeys(data: ByteArray): String {
+        try {
+            var i = 0
+            fun readVarint(): Long {
+                var result = 0L; var shift = 0
+                while (i < data.size) {
+                    val b = data[i++].toInt() and 0xFF
+                    result = result or ((b.toLong() and 0x7F) shl shift)
+                    if (b and 0x80 == 0) break; shift += 7
+                }
+                return result
+            }
+            // Find the "pois" layer submessage
+            while (i < data.size) {
+                val tag = readVarint()
+                val field = (tag ushr 3).toInt()
+                val wireType = (tag and 0x7).toInt()
+                if (wireType == 2) {
+                    val len = readVarint().toInt()
+                    if (field == 3) {
+                        // This is a Layer submessage — check if it's "pois"
+                        val layerStart = i
+                        val layerEnd = i + len
+                        val keys = mutableListOf<String>()
+                        val values = mutableListOf<String>()
+                        var layerName = ""
+                        var j = layerStart
+                        while (j < layerEnd) {
+                            var ltag = 0L; var lshift = 0
+                            while (j < layerEnd) {
+                                val b = data[j++].toInt() and 0xFF
+                                ltag = ltag or ((b.toLong() and 0x7F) shl lshift)
+                                if (b and 0x80 == 0) break; lshift += 7
+                            }
+                            val lField = (ltag ushr 3).toInt()
+                            val lWire = (ltag and 0x7).toInt()
+                            if (lWire == 0) {
+                                while (j < layerEnd && data[j++].toInt() and 0x80 != 0) {}
+                            } else if (lWire == 2) {
+                                var llen = 0; var s = 0
+                                while (j < layerEnd) {
+                                    val b = data[j++].toInt() and 0xFF
+                                    llen = llen or ((b and 0x7F) shl s)
+                                    if (b and 0x80 == 0) break; s += 7
+                                }
+                                when (lField) {
+                                    1 -> layerName = String(data, j, llen, Charsets.UTF_8)
+                                    3 -> keys.add(String(data, j, llen, Charsets.UTF_8))
+                                    4 -> {
+                                        // Value submessage — extract string (field 1)
+                                        if (llen > 2) {
+                                            val vTag = data[j].toInt() and 0xFF
+                                            if ((vTag ushr 3) == 1 && (vTag and 0x7) == 2) {
+                                                val sLen = data[j + 1].toInt() and 0x7F
+                                                if (sLen > 0 && j + 2 + sLen <= layerEnd) {
+                                                    values.add(String(data, j + 2, sLen, Charsets.UTF_8))
+                                                } else values.add("")
+                                            } else values.add("")
+                                        } else values.add("")
+                                    }
+                                }
+                                j += llen
+                            } else if (lWire == 5) { j += 4 } else if (lWire == 1) { j += 8 }
+                        }
+                        if (layerName == "pois") {
+                            return "keys=$keys values(strings)=${values.take(30)}"
+                        }
+                        i = layerEnd
+                    } else {
+                        i += len
+                    }
+                } else if (wireType == 0) { readVarint() }
+                  else if (wireType == 5) { i += 4 }
+                  else if (wireType == 1) { i += 8 }
+            }
+        } catch (e: Exception) {
+            return "parse error: ${e.message}"
+        }
+        return ""
     }
 
     private fun notFound() =
