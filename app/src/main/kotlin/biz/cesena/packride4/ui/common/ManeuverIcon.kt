@@ -37,13 +37,13 @@ fun roundaboutIcon(modifier: String = "", exitNumber: Int = 0, turnAngle: Double
     if (!turnAngle.isNaN() && turnAngle != 0.0) {
         val a = Math.abs(turnAngle)
         return when {
-            a < 50   -> R.drawable.direction_roundabout_slight_right
+            a < 50   -> R.drawable.direction_roundabout_sharp_right
             a < 110  -> R.drawable.direction_roundabout_right
-            a < 150  -> R.drawable.direction_roundabout_sharp_right
+            a < 150  -> R.drawable.direction_roundabout_slight_right
             a < 210  -> R.drawable.direction_roundabout_straight
-            a < 250  -> R.drawable.direction_roundabout_sharp_left
+            a < 250  -> R.drawable.direction_roundabout_slight_left
             a < 310  -> R.drawable.direction_roundabout_left
-            else     -> R.drawable.direction_roundabout_slight_left
+            else     -> R.drawable.direction_roundabout_sharp_left
         }
     }
 
