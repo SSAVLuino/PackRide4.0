@@ -82,7 +82,7 @@ public class BuildGeocodingDb {
 
         // Pass 1: read all nodes (coords + places)
         System.out.println("Pass 1: reading nodes...");
-        OsmosisReader reader1 = new OsmosisReader(new BufferedInputStream(new FileInputStream(pbfPath), 1 << 20));
+        OsmosisReader reader1 = new OsmosisReader(new File(pbfPath));
         reader1.setSink(new Sink() {
             @Override public void initialize(Map<String, Object> metaData) {}
             @Override public void complete() {}
