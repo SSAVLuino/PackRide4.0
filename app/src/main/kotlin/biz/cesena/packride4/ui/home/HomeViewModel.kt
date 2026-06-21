@@ -238,7 +238,8 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(plannerSearchLoading = true) }
         searchJob = viewModelScope.launch {
             delay(300)
-            val results = geocodingService.search(query)
+            val pos = _uiState.value.lastKnownPosition
+            val results = geocodingService.search(query, pos?.latitude ?: 0.0, pos?.longitude ?: 0.0)
             _uiState.update { it.copy(plannerSearchResults = results, plannerSearchLoading = false) }
         }
     }

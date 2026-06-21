@@ -13,58 +13,57 @@ class OfflineGeocodingService @Inject constructor(
 ) {
     private val openDbs = mutableMapOf<String, SQLiteDatabase>()
 
-    fun isAvailable(): Boolean =
-        AVAILABLE_REGIONS.any { downloadManager.isGeocodingReady(it.id) }
+    fun isAvailable(lat: Double, lon: Double): Boolean {
+        val region = AVAILABLE_REGIONS.find { it.containsPoint(lat, lon) } ?: return false
+        return downloadManager.isGeocodingReady(region.id)
+    }
 
-    fun search(query: String, limit: Int = 6): List<GeocodingResult> {
+    fun search(query: String, lat: Double, lon: Double, limit: Int = 6): List<GeocodingResult> {
         if (query.length < 2) return emptyList()
 
+        val region = AVAILABLE_REGIONS.find { it.containsPoint(lat, lon) && downloadManager.isGeocodingReady(it.id) }
+            ?: return emptyList()
+
+        val db = getDb(region.id) ?: return emptyList()
         val results = mutableListOf<GeocodingResult>()
         val ftsQuery = query.trim().split("\\s+".toRegex()).joinToString(" ") { "$it*" }
 
-        for (region in AVAILABLE_REGIONS) {
-            if (!downloadManager.isGeocodingReady(region.id)) continue
-            val db = getDb(region.id) ?: continue
+        try {
+            val cursor = db.rawQuery(
+                """
+                SELECT p.name, p.type, p.category, p.lat, p.lon, p.city, p.street
+                FROM places_fts fts
+                JOIN places p ON p.id = fts.rowid
+                WHERE places_fts MATCH ?
+                ORDER BY rank
+                LIMIT ?
+                """.trimIndent(),
+                arrayOf(ftsQuery, limit.toString())
+            )
+            cursor.use {
+                while (it.moveToNext()) {
+                    val name = it.getString(0)
+                    val type = it.getString(1) ?: ""
+                    val category = it.getString(2) ?: ""
+                    val resultLat = it.getDouble(3)
+                    val resultLon = it.getDouble(4)
+                    val city = it.getString(5) ?: ""
+                    val street = it.getString(6) ?: ""
 
-            try {
-                val cursor = db.rawQuery(
-                    """
-                    SELECT p.name, p.type, p.category, p.lat, p.lon, p.city, p.street
-                    FROM places_fts fts
-                    JOIN places p ON p.id = fts.rowid
-                    WHERE places_fts MATCH ?
-                    ORDER BY rank
-                    LIMIT ?
-                    """.trimIndent(),
-                    arrayOf(ftsQuery, limit.toString())
-                )
-                cursor.use {
-                    while (it.moveToNext()) {
-                        val name = it.getString(0)
-                        val type = it.getString(1) ?: ""
-                        val category = it.getString(2) ?: ""
-                        val lat = it.getDouble(3)
-                        val lon = it.getDouble(4)
-                        val city = it.getString(5) ?: ""
-                        val street = it.getString(6) ?: ""
-
-                        val displayName = when {
-                            category.isNotBlank() -> "$name ($category)"
-                            else -> name
-                        }
-                        val address = listOf(street, city).filter { s -> s.isNotBlank() }.joinToString(", ")
-                        results.add(GeocodingResult(displayName, address, lat, lon))
+                    val displayName = when {
+                        category.isNotBlank() -> "$name ($category)"
+                        else -> name
                     }
+                    val address = listOf(street, city).filter { s -> s.isNotBlank() }.joinToString(", ")
+                    results.add(GeocodingResult(displayName, address, resultLat, resultLon))
                 }
-            } catch (e: Exception) {
-                DebugLog.log("offline-geocoding: query error on ${region.id}: ${e.message}")
             }
-
-            if (results.size >= limit) break
+        } catch (e: Exception) {
+            DebugLog.log("offline-geocoding: query error on ${region.id}: ${e.message}")
         }
 
-        DebugLog.log("offline-geocoding: ${results.size} results for \"$query\"")
-        return results.take(limit)
+        DebugLog.log("offline-geocoding: ${results.size} results for \"$query\" in ${region.id}")
+        return results
     }
 
     private fun getDb(regionId: String): SQLiteDatabase? {
