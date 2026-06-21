@@ -107,7 +107,7 @@ public class BuildGeocodingDb {
 
         // Pass 2: read ways (streets + POI buildings)
         System.out.println("Pass 2: reading ways...");
-        OsmosisReader reader2 = new OsmosisReader(new BufferedInputStream(new FileInputStream(pbfPath), 1 << 20));
+        OsmosisReader reader2 = new OsmosisReader(new File(pbfPath));
         reader2.setSink(new Sink() {
             @Override public void initialize(Map<String, Object> metaData) {}
             @Override public void complete() {}
