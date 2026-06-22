@@ -165,7 +165,11 @@ fun HomeScreen(
     LaunchedEffect(mapInstance, uiState.debugPois) {
         val map = mapInstance ?: return@LaunchedEffect
         val style = map.style ?: return@LaunchedEffect
-        val source = style.getSourceAs<GeoJsonSource>("debug-pois")
+        var source = style.getSourceAs<GeoJsonSource>("debug-pois")
+        if (source == null) {
+            style.addSource(GeoJsonSource("debug-pois"))
+            source = style.getSourceAs<GeoJsonSource>("debug-pois")
+        }
         val pois = uiState.debugPois
         if (pois.isEmpty()) {
             source?.setGeoJson(FeatureCollection.fromFeatures(emptyArray()))
@@ -177,6 +181,7 @@ fun HomeScreen(
                 }
             }
             source?.setGeoJson(FeatureCollection.fromFeatures(features))
+            biz.cesena.packride4.debug.DebugLog.log("debug-pois: set ${features.size} features on map")
         }
     }
 
