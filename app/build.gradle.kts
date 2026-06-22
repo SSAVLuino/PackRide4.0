@@ -11,7 +11,7 @@ plugins {
 
 android {
     namespace = "biz.cesena.packride4"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "biz.cesena.packride4"
