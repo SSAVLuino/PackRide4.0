@@ -13,7 +13,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import biz.cesena.packride4.data.download.MapCountry
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,13 +89,12 @@ fun MapManagerScreen(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(uiState.countries, key = { it.id }) { country ->
+                    items(uiState.countries, key = { it.country.id }) { countryUi ->
                         CountryCard(
-                            country = country,
-                            regions = uiState.regions.filter { it.countryId == country.id },
-                            onDownloadRouting = { viewModel.downloadRoutingData(country.id) },
-                            onDownloadGeocoding = { viewModel.downloadGeocodingData(country.id) },
-                            onDeleteCountryData = { viewModel.deleteCountryData(country.id) },
+                            countryUi = countryUi,
+                            regions = uiState.regions.filter { it.countryId == countryUi.country.id },
+                            onDownloadRouting = { viewModel.downloadRoutingData(countryUi.country.id) },
+                            onDeleteCountryData = { viewModel.deleteCountryData(countryUi.country.id) },
                             onDownloadRegion = { viewModel.downloadRegion(it) },
                             onDeleteRegion = { viewModel.deleteRegion(it) }
                         )
@@ -109,14 +107,14 @@ fun MapManagerScreen(
 
 @Composable
 private fun CountryCard(
-    country: MapCountry,
+    countryUi: CountryUi,
     regions: List<MapRegionUi>,
     onDownloadRouting: () -> Unit,
-    onDownloadGeocoding: () -> Unit,
     onDeleteCountryData: () -> Unit,
     onDownloadRegion: (String) -> Unit,
     onDeleteRegion: (String) -> Unit
 ) {
+    val country = countryUi.country
     var expanded by remember { mutableStateOf(false) }
 
     Card(
@@ -124,7 +122,6 @@ private fun CountryCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column {
-            // ── Country header (clickable to expand) ──
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -151,29 +148,48 @@ private fun CountryCard(
                 }
             }
 
-            // ── Country data downloads (routing + geocoding) ──
             if (expanded) {
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
-                // Routing graph
                 if (country.graphUrl != null) {
-                    CountryDataRow(
-                        label = "Dati navigazione",
-                        sizeMb = country.graphSizeMb,
-                        onDownload = onDownloadRouting,
-                        onDelete = onDeleteCountryData
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Dati navigazione", style = MaterialTheme.typography.bodyMedium)
+                            if (country.graphSizeMb > 0) {
+                                Text("%.0f MB".format(country.graphSizeMb),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        when {
+                            countryUi.isRoutingReady -> {
+                                Icon(Icons.Default.CheckCircle, null,
+                                    tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Pronto", style = MaterialTheme.typography.bodySmall)
+                                IconButton(onClick = onDeleteCountryData, modifier = Modifier.size(32.dp)) {
+                                    Icon(Icons.Default.Delete, "Elimina",
+                                        tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                            countryUi.routingProgress == -1 -> {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Elaborazione...", style = MaterialTheme.typography.bodySmall)
+                            }
+                            countryUi.routingProgress != null -> {
+                                Text("${countryUi.routingProgress}%", style = MaterialTheme.typography.labelSmall)
+                            }
+                            else -> {
+                                TextButton(onClick = onDownloadRouting) { Text("Scarica") }
+                            }
+                        }
+                    }
                 }
 
-                // Geocoding DB
-                if (country.geocodingUrl != null) {
-                    CountryDataRow(
-                        label = "Dati ricerca",
-                        sizeMb = country.geocodingSizeMb,
-                        onDownload = onDownloadGeocoding,
-                        onDelete = null
-                    )
-                }
 
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
@@ -194,33 +210,6 @@ private fun CountryCard(
                 }
 
                 Spacer(Modifier.height(8.dp))
-            }
-        }
-    }
-}
-
-@Composable
-private fun CountryDataRow(
-    label: String,
-    sizeMb: Double,
-    onDownload: () -> Unit,
-    onDelete: (() -> Unit)?
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(label, style = MaterialTheme.typography.bodyMedium)
-            if (sizeMb > 0) {
-                Text("%.0f MB".format(sizeMb), style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        TextButton(onClick = onDownload) { Text("Scarica") }
-        if (onDelete != null) {
-            IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.Delete, "Elimina", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
             }
         }
     }

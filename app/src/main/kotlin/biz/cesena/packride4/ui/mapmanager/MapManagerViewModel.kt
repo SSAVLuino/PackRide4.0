@@ -29,10 +29,16 @@ data class MapRegionUi(
     val isRoutingReady: Boolean = false
 )
 
+data class CountryUi(
+    val country: MapCountry,
+    val isRoutingReady: Boolean = false,
+    val routingProgress: Int? = null
+)
+
 data class MapManagerUiState(
     val isLoggedIn: Boolean = false,
     val regions: List<MapRegionUi> = emptyList(),
-    val countries: List<MapCountry> = emptyList(),
+    val countries: List<CountryUi> = emptyList(),
     val showMobileDataWarning: String? = null,
     val errorMessage: String? = null,
     val isLoading: Boolean = false
@@ -89,11 +95,19 @@ class MapManagerViewModel @Inject constructor(
                 isRoutingReady = routingReady && graphOnDisk
             )
         }
-        biz.cesena.packride4.debug.DebugLog.log("uiState: countries=${countries.size} regions=${regions.size} isLoggedIn=$isLoggedIn isLoading=${_isLoading.value}")
+        val countryUiList = countries.map { country ->
+            val graphDir = java.io.File(routingDir, "graph-${country.id}")
+            val graphOnDisk = graphDir.exists() && graphDir.isDirectory && (graphDir.listFiles()?.isNotEmpty() == true)
+            CountryUi(
+                country = country,
+                isRoutingReady = routingReady && graphOnDisk,
+                routingProgress = routingProgress[country.id]
+            )
+        }
         MapManagerUiState(
             isLoggedIn = isLoggedIn,
             regions = regions,
-            countries = countries,
+            countries = countryUiList,
             showMobileDataWarning = mobileWarning,
             errorMessage = error,
             isLoading = isLoading
