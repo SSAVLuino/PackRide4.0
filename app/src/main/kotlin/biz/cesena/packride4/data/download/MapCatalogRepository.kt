@@ -3,6 +3,8 @@ package biz.cesena.packride4.data.download
 import biz.cesena.packride4.BuildConfig
 import biz.cesena.packride4.data.auth.AuthRepository
 import biz.cesena.packride4.debug.DebugLog
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.net.HttpURLConnection
 import java.net.URL
@@ -35,8 +37,8 @@ class MapCatalogRepository @Inject constructor(
     private val supabaseUrl = BuildConfig.SUPABASE_URL
     private val anonKey = BuildConfig.SUPABASE_ANON_KEY
 
-    suspend fun fetchCountries(): List<MapCountry> {
-        return try {
+    suspend fun fetchCountries(): List<MapCountry> = withContext(Dispatchers.IO) {
+        try {
             val json = fetchTable("map_countries")
             (0 until json.length()).map { i ->
                 val obj = json.getJSONObject(i)
@@ -51,13 +53,13 @@ class MapCatalogRepository @Inject constructor(
                 )
             }.also { DebugLog.log("catalog: fetched ${it.size} countries") }
         } catch (e: Exception) {
-            DebugLog.log("catalog: fetch countries error: ${e.message}")
+            DebugLog.log("catalog: fetch countries error: ${e::class.simpleName}: ${e.message}")
             emptyList()
         }
     }
 
-    suspend fun fetchRegions(): List<MapRegionRemote> {
-        return try {
+    suspend fun fetchRegions(): List<MapRegionRemote> = withContext(Dispatchers.IO) {
+        try {
             val json = fetchTable("map_regions")
             (0 until json.length()).map { i ->
                 val obj = json.getJSONObject(i)
@@ -71,7 +73,7 @@ class MapCatalogRepository @Inject constructor(
                 )
             }.also { DebugLog.log("catalog: fetched ${it.size} regions") }
         } catch (e: Exception) {
-            DebugLog.log("catalog: fetch regions error: ${e.message}")
+            DebugLog.log("catalog: fetch regions error: ${e::class.simpleName}: ${e.message}")
             emptyList()
         }
     }
