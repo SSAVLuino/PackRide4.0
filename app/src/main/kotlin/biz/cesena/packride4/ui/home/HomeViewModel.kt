@@ -113,6 +113,7 @@ class HomeViewModel @Inject constructor(
 
     init {
         startMBTilesServer()
+        registerMbtFilesInDb()
         observeMapSource()
         viewModelScope.launch {
             routeEventBus.routeDeleted.collect { deletedId ->
@@ -695,6 +696,30 @@ class HomeViewModel @Inject constructor(
 
     private fun startMBTilesServer() {
         runCatching { mbTilesServer.start() }
+    }
+
+    private fun registerMbtFilesInDb() {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val mapsDir = java.io.File(context.filesDir, "maps")
+            if (!mapsDir.exists()) return@launch
+            mapsDir.listFiles()?.filter { it.name.endsWith(".mbtiles") }?.forEach { mapFile ->
+                val regionId = mapFile.nameWithoutExtension
+                if (db.mapRegionDao().getById(regionId) == null) {
+                    DebugLog.log("registerMbt: registering ${mapFile.name}")
+                    db.mapRegionDao().insert(
+                        biz.cesena.packride4.data.local.MapRegion(
+                            id = regionId,
+                            name = regionId,
+                            filePath = mapFile.absolutePath,
+                            downloadedAt = mapFile.lastModified(),
+                            sizeBytes = mapFile.length(),
+                            bboxMinLon = 0.0, bboxMinLat = 0.0,
+                            bboxMaxLon = 0.0, bboxMaxLat = 0.0
+                        )
+                    )
+                }
+            }
+        }
     }
 
     private fun observeMapSource() {
