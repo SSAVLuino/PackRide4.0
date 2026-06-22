@@ -174,6 +174,84 @@ class MapDownloadManager @Inject constructor(
         }
     }
 
+    fun startDownloadFromUrl(regionId: String, name: String, url: String, bbox: String) {
+        if (_progress.value[regionId] != null) return
+        scope.launch {
+            setProgress(regionId, 0)
+            try {
+                val mapsDir = File(context.filesDir, "maps").also { it.mkdirs() }
+                val destFile = File(mapsDir, "$regionId.mbtiles")
+
+                val success = downloadToFile(url, destFile) { pct -> setProgress(regionId, pct) }
+                if (!success) {
+                    destFile.delete()
+                    setProgress(regionId, null)
+                    _errorMessage.value = "Download di $name interrotto — riprova"
+                    biz.cesena.packride4.debug.DebugLog.log("download $name FAILED: ${lastDownloadError ?: "unknown error"}")
+                    return@launch
+                }
+
+                biz.cesena.packride4.debug.DebugLog.log("download $name OK, ${destFile.length()}B")
+
+                val bboxParts = bbox.split(",").mapNotNull { it.toDoubleOrNull() }
+                db.mapRegionDao().insert(
+                    MapRegion(
+                        id = regionId,
+                        name = name,
+                        filePath = destFile.absolutePath,
+                        downloadedAt = System.currentTimeMillis(),
+                        sizeBytes = destFile.length(),
+                        bboxMinLon = bboxParts.getOrElse(0) { 0.0 },
+                        bboxMinLat = bboxParts.getOrElse(1) { 0.0 },
+                        bboxMaxLon = bboxParts.getOrElse(2) { 0.0 },
+                        bboxMaxLat = bboxParts.getOrElse(3) { 0.0 }
+                    )
+                )
+                setProgress(regionId, null)
+            } catch (e: Exception) {
+                setProgress(regionId, null)
+                biz.cesena.packride4.debug.DebugLog.log("download error: ${e.message}")
+            }
+        }
+    }
+
+    fun startRoutingDownloadFromUrl(countryId: String, name: String, graphUrl: String) {
+        if (_routingProgress.value[countryId] != null) return
+        scope.launch {
+            setRoutingProgress(countryId, 0)
+            try {
+                val routingDir = File(context.filesDir, "routing").also { it.mkdirs() }
+                val zipFile = File(routingDir, "graph-$countryId.zip")
+
+                val success = downloadToFile(graphUrl, zipFile) { pct -> setRoutingProgress(countryId, pct) }
+                if (!success) {
+                    zipFile.delete()
+                    setRoutingProgress(countryId, null)
+                    _errorMessage.value = "Download navigazione per $name interrotto — riprova"
+                    return@launch
+                }
+
+                setRoutingProgress(countryId, -1)
+                val graphDir = File(routingDir, "graph-$countryId")
+                extractZip(zipFile, graphDir)
+                zipFile.delete()
+
+                val children = graphDir.listFiles() ?: emptyArray()
+                if (children.size == 1 && children[0].isDirectory) {
+                    val wrapper = children[0]
+                    wrapper.listFiles()?.forEach { child -> child.renameTo(File(graphDir, child.name)) }
+                    wrapper.delete()
+                }
+
+                routingManager.loadPrebuiltGraph(graphDir, countryId)
+                setRoutingProgress(countryId, null)
+            } catch (e: Exception) {
+                setRoutingProgress(countryId, null)
+                biz.cesena.packride4.debug.DebugLog.log("routing download error: ${e.message}")
+            }
+        }
+    }
+
     private fun setProgress(regionId: String, progress: Int?) {
         _progress.update { current ->
             if (progress == null) current - regionId else current + (regionId to progress)

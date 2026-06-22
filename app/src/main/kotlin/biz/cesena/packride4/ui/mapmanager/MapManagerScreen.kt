@@ -21,6 +21,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapManagerScreen(
+    onLoginRequired: () -> Unit = {},
     viewModel: MapManagerViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -52,6 +53,25 @@ fun MapManagerScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            if (!uiState.isLoggedIn) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            "Accedi per scaricare le mappe offline",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Button(onClick = onLoginRequired) {
+                            Text("Accedi")
+                        }
+                    }
+                }
+                return@Scaffold
+            }
+
             // Error message banner
             uiState.errorMessage?.let { msg ->
                 Surface(

@@ -24,6 +24,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import biz.cesena.packride4.ui.auth.LoginScreen
 import biz.cesena.packride4.ui.home.HomeScreen
 import biz.cesena.packride4.ui.mapmanager.MapManagerScreen
 import biz.cesena.packride4.ui.savedroutes.SavedRoutesScreen
@@ -35,6 +36,7 @@ sealed class Screen(val route: String) {
     object MapManager : Screen("map_manager")
     object SavedRoutes : Screen("saved_routes")
     object Settings : Screen("settings")
+    object Login : Screen("login")
 }
 
 private data class SidebarItem(
@@ -81,7 +83,13 @@ fun AppNavigation() {
                 HomeScreen(onFullscreenOverlayChanged = { hideSidebar = it })
             }
             composable(Screen.MapManager.route) {
-                MapManagerScreen()
+                MapManagerScreen(
+                    onLoginRequired = {
+                        navController.navigate(Screen.Login.route) {
+                            launchSingleTop = true
+                        }
+                    }
+                )
             }
             composable(Screen.SavedRoutes.route) {
                 SavedRoutesScreen(
@@ -98,6 +106,17 @@ fun AppNavigation() {
                             launchSingleTop = true
                         }
                     }
+                )
+            }
+            composable(Screen.Login.route) {
+                LoginScreen(
+                    onLoginSuccess = {
+                        navController.navigate(Screen.MapManager.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                    onBack = { navController.popBackStack() }
                 )
             }
         }
