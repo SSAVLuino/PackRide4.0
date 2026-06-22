@@ -13,6 +13,7 @@ object RoutingDebugDump {
     }
 
     fun save(engine: String, destination: String, rawJson: String) {
+        if (!biz.cesena.packride4.BuildConfig.DEBUG) return
         try {
             val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
             val safeDest = destination.replace(Regex("[^a-zA-Z0-9_-]"), "_").take(40)
