@@ -4,9 +4,11 @@ import android.content.Context
 import biz.cesena.packride4.BuildConfig
 import biz.cesena.packride4.debug.DebugLog
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -29,8 +31,8 @@ class AuthRepository @Inject constructor(
 
     val accessToken: String? get() = prefs.getString(KEY_ACCESS_TOKEN, null)
 
-    suspend fun signInWithEmail(email: String, password: String): Result<Unit> {
-        return try {
+    suspend fun signInWithEmail(email: String, password: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
             val url = "$supabaseUrl/auth/v1/token?grant_type=password"
             val body = JSONObject().apply {
                 put("email", email)
@@ -54,7 +56,7 @@ class AuthRepository @Inject constructor(
             DebugLog.log("auth: logged in as $userEmail")
             Result.success(Unit)
         } catch (e: Exception) {
-            DebugLog.log("auth: sign in failed: ${e.message}")
+            DebugLog.log("auth: sign in failed: ${e::class.simpleName}: ${e.message}")
             Result.failure(e)
         }
     }
