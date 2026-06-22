@@ -53,7 +53,6 @@ class MBTilesServer(port: Int = 8787) : NanoHTTPD(port) {
             for (db in databases) {
                 val tile = queryTile(db, z, x, tmsY) ?: continue
                 val decompressed = decompressIfGzip(tile)
-                DebugLog.log("tile $z/$x/$y -> 200 (${decompressed.size}B)")
                 return newFixedLengthResponse(
                     Response.Status.OK,
                     "application/x-protobuf",

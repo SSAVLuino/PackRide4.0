@@ -108,6 +108,26 @@ class MapDownloadManager @Inject constructor(
     private val routingManager: biz.cesena.packride4.routing.RoutingManager
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var activeDownloads = 0
+    private var currentDownloadName = ""
+
+    private fun startForeground(name: String) {
+        activeDownloads++
+        currentDownloadName = name
+        DownloadForegroundService.start(context, name)
+    }
+
+    private fun updateNotification(name: String, progress: Int) {
+        DownloadForegroundService.updateProgress(context, name, progress)
+    }
+
+    private fun stopForegroundIfDone() {
+        activeDownloads--
+        if (activeDownloads <= 0) {
+            activeDownloads = 0
+            DownloadForegroundService.stop(context)
+        }
+    }
 
     /** Set by [downloadToFile] when it fails, so callers can log technical details. */
     private var lastDownloadError: String? = null
@@ -180,15 +200,20 @@ class MapDownloadManager @Inject constructor(
     fun startDownloadFromUrl(regionId: String, name: String, url: String, bbox: String) {
         if (_progress.value[regionId] != null) return
         scope.launch {
+            startForeground("Mappa: $name")
             setProgress(regionId, 0)
             try {
                 val mapsDir = File(context.filesDir, "maps").also { it.mkdirs() }
                 val destFile = File(mapsDir, "$regionId.mbtiles")
 
-                val success = downloadToFile(url, destFile) { pct -> setProgress(regionId, pct) }
+                val success = downloadToFile(url, destFile) { pct ->
+                    setProgress(regionId, pct)
+                    updateNotification("Mappa: $name", pct)
+                }
                 if (!success) {
                     destFile.delete()
                     setProgress(regionId, null)
+                    stopForegroundIfDone()
                     _errorMessage.value = "Download di $name interrotto — riprova"
                     biz.cesena.packride4.debug.DebugLog.log("download $name FAILED: ${lastDownloadError ?: "unknown error"}")
                     return@launch
@@ -215,25 +240,32 @@ class MapDownloadManager @Inject constructor(
                 setProgress(regionId, null)
                 biz.cesena.packride4.debug.DebugLog.log("download error: ${e.message}")
             }
+            stopForegroundIfDone()
         }
     }
 
     fun startRoutingDownloadFromUrl(countryId: String, name: String, graphUrl: String) {
         if (_routingProgress.value[countryId] != null) return
         scope.launch {
+            startForeground("Navigazione: $name")
             setRoutingProgress(countryId, 0)
             try {
                 val routingDir = File(context.filesDir, "routing").also { it.mkdirs() }
                 val zipFile = File(routingDir, "graph-$countryId.zip")
 
-                val success = downloadToFile(graphUrl, zipFile) { pct -> setRoutingProgress(countryId, pct) }
+                val success = downloadToFile(graphUrl, zipFile) { pct ->
+                    setRoutingProgress(countryId, pct)
+                    updateNotification("Navigazione: $name", pct)
+                }
                 if (!success) {
                     zipFile.delete()
                     setRoutingProgress(countryId, null)
+                    stopForegroundIfDone()
                     _errorMessage.value = "Download navigazione per $name interrotto — riprova"
                     return@launch
                 }
 
+                updateNotification("Navigazione: $name — elaborazione", -1)
                 setRoutingProgress(countryId, -1)
                 val graphDir = File(routingDir, "graph-$countryId")
                 extractZip(zipFile, graphDir)
@@ -252,21 +284,27 @@ class MapDownloadManager @Inject constructor(
                 setRoutingProgress(countryId, null)
                 biz.cesena.packride4.debug.DebugLog.log("routing download error: ${e.message}")
             }
+            stopForegroundIfDone()
         }
     }
 
     fun startGeocodingDownloadFromUrl(countryId: String, name: String, geocodingUrl: String) {
         if (_geocodingProgress.value[countryId] != null) return
         scope.launch {
+            startForeground("Ricerca: $name")
             setGeocodingProgress(countryId, 0)
             try {
                 val geocodingDir = File(context.filesDir, "geocoding").also { it.mkdirs() }
                 val zipFile = File(geocodingDir, "geocoding-$countryId.zip")
 
-                val success = downloadToFile(geocodingUrl, zipFile) { pct -> setGeocodingProgress(countryId, pct) }
+                val success = downloadToFile(geocodingUrl, zipFile) { pct ->
+                    setGeocodingProgress(countryId, pct)
+                    updateNotification("Ricerca: $name", pct)
+                }
                 if (!success) {
                     zipFile.delete()
                     setGeocodingProgress(countryId, null)
+                    stopForegroundIfDone()
                     _errorMessage.value = "Download dati ricerca per $name interrotto — riprova"
                     biz.cesena.packride4.debug.DebugLog.log("geocoding download $name FAILED: ${lastDownloadError ?: "unknown error"}")
                     return@launch
@@ -293,6 +331,7 @@ class MapDownloadManager @Inject constructor(
                 setGeocodingProgress(countryId, null)
                 biz.cesena.packride4.debug.DebugLog.log("geocoding download error: ${e.message}")
             }
+            stopForegroundIfDone()
         }
     }
 
