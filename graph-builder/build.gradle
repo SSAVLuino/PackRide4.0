@@ -1,0 +1,17 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'com.graphhopper:graphhopper-core:6.2'
+}
+
+application {
+    mainClass = 'BuildGraph'
+    applicationDefaultJvmArgs = ['-Xmx5g']
+}
