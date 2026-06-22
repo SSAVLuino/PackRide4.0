@@ -94,6 +94,7 @@ fun MapManagerScreen(
                             countryUi = countryUi,
                             regions = uiState.regions.filter { it.countryId == countryUi.country.id },
                             onDownloadRouting = { viewModel.downloadRoutingData(countryUi.country.id) },
+                            onDownloadGeocoding = { viewModel.downloadGeocodingData(countryUi.country.id) },
                             onDeleteCountryData = { viewModel.deleteCountryData(countryUi.country.id) },
                             onDownloadRegion = { viewModel.downloadRegion(it) },
                             onDeleteRegion = { viewModel.deleteRegion(it) }
@@ -110,6 +111,7 @@ private fun CountryCard(
     countryUi: CountryUi,
     regions: List<MapRegionUi>,
     onDownloadRouting: () -> Unit,
+    onDownloadGeocoding: () -> Unit,
     onDeleteCountryData: () -> Unit,
     onDownloadRegion: (String) -> Unit,
     onDeleteRegion: (String) -> Unit
@@ -190,6 +192,42 @@ private fun CountryCard(
                     }
                 }
 
+
+                // Geocoding DB
+                if (country.geocodingUrl != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Dati ricerca", style = MaterialTheme.typography.bodyMedium)
+                            if (country.geocodingSizeMb > 0) {
+                                Text("%.0f MB".format(country.geocodingSizeMb),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        when {
+                            countryUi.isGeocodingReady -> {
+                                Icon(Icons.Default.CheckCircle, null,
+                                    tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Pronto", style = MaterialTheme.typography.bodySmall)
+                            }
+                            countryUi.geocodingProgress == -1 -> {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Estrazione...", style = MaterialTheme.typography.bodySmall)
+                            }
+                            countryUi.geocodingProgress != null -> {
+                                Text("${countryUi.geocodingProgress}%", style = MaterialTheme.typography.labelSmall)
+                            }
+                            else -> {
+                                TextButton(onClick = onDownloadGeocoding) { Text("Scarica") }
+                            }
+                        }
+                    }
+                }
 
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 

@@ -119,6 +119,9 @@ class MapDownloadManager @Inject constructor(
     private val _routingProgress = MutableStateFlow<Map<String, Int?>>(emptyMap())
     val routingProgress: StateFlow<Map<String, Int?>> = _routingProgress.asStateFlow()
 
+    private val _geocodingProgress = MutableStateFlow<Map<String, Int?>>(emptyMap())
+    val geocodingProgress: StateFlow<Map<String, Int?>> = _geocodingProgress.asStateFlow()
+
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
@@ -249,6 +252,56 @@ class MapDownloadManager @Inject constructor(
                 setRoutingProgress(countryId, null)
                 biz.cesena.packride4.debug.DebugLog.log("routing download error: ${e.message}")
             }
+        }
+    }
+
+    fun startGeocodingDownloadFromUrl(countryId: String, name: String, geocodingUrl: String) {
+        if (_geocodingProgress.value[countryId] != null) return
+        scope.launch {
+            setGeocodingProgress(countryId, 0)
+            try {
+                val geocodingDir = File(context.filesDir, "geocoding").also { it.mkdirs() }
+                val zipFile = File(geocodingDir, "geocoding-$countryId.zip")
+
+                val success = downloadToFile(geocodingUrl, zipFile) { pct -> setGeocodingProgress(countryId, pct) }
+                if (!success) {
+                    zipFile.delete()
+                    setGeocodingProgress(countryId, null)
+                    _errorMessage.value = "Download dati ricerca per $name interrotto — riprova"
+                    biz.cesena.packride4.debug.DebugLog.log("geocoding download $name FAILED: ${lastDownloadError ?: "unknown error"}")
+                    return@launch
+                }
+                biz.cesena.packride4.debug.DebugLog.log("geocoding download $name OK, ${zipFile.length()}B")
+
+                setGeocodingProgress(countryId, -1)
+                extractZip(zipFile, geocodingDir)
+                zipFile.delete()
+
+                val expectedDb = File(geocodingDir, "geocoding-$countryId.db")
+                if (!expectedDb.exists()) {
+                    val candidate = geocodingDir.listFiles()?.find { it.name.endsWith(".db") && it.name.contains(countryId) }
+                    candidate?.renameTo(expectedDb)
+                }
+
+                if (expectedDb.exists()) {
+                    biz.cesena.packride4.debug.DebugLog.log("geocoding DB ready: ${expectedDb.absolutePath} (${expectedDb.length() / 1024 / 1024}MB)")
+                } else {
+                    _errorMessage.value = "Estrazione dati ricerca per $name non riuscita"
+                }
+                setGeocodingProgress(countryId, null)
+            } catch (e: Exception) {
+                setGeocodingProgress(countryId, null)
+                biz.cesena.packride4.debug.DebugLog.log("geocoding download error: ${e.message}")
+            }
+        }
+    }
+
+    fun isGeocodingReady(countryId: String): Boolean =
+        File(File(context.filesDir, "geocoding"), "geocoding-$countryId.db").exists()
+
+    private fun setGeocodingProgress(countryId: String, progress: Int?) {
+        _geocodingProgress.update { current ->
+            if (progress == null) current - countryId else current + (countryId to progress)
         }
     }
 

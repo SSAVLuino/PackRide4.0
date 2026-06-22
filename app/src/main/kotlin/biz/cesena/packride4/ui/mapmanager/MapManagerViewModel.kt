@@ -32,7 +32,9 @@ data class MapRegionUi(
 data class CountryUi(
     val country: MapCountry,
     val isRoutingReady: Boolean = false,
-    val routingProgress: Int? = null
+    val routingProgress: Int? = null,
+    val isGeocodingReady: Boolean = false,
+    val geocodingProgress: Int? = null
 )
 
 data class MapManagerUiState(
@@ -71,9 +73,13 @@ class MapManagerViewModel @Inject constructor(
         },
         routingManager.isReady,
         authRepository.isLoggedIn,
-        combine(_countries, _remoteRegions, _isLoading) { c, r, l -> Triple(c, r, l) }
-    ) { downloadState, routingReady, isLoggedIn, (countries, remoteRegions, isLoading) ->
+        combine(_countries, _remoteRegions, _isLoading, downloadManager.geocodingProgress) { c, r, l, gp ->
+            object { val countries = c; val remoteRegions = r; val isLoading = l; val geocodingProgress = gp }
+        }
+    ) { downloadState, routingReady, isLoggedIn, extra ->
         val (downloaded, progress, routingProgress, error, mobileWarning) = downloadState
+        val countries = extra.countries; val remoteRegions = extra.remoteRegions
+        val isLoading = extra.isLoading; val geocodingProgress = extra.geocodingProgress
 
         val downloadedIds = downloaded.map { it.id }.toSet()
         val routingDir = java.io.File(context.filesDir, "routing")
@@ -101,7 +107,9 @@ class MapManagerViewModel @Inject constructor(
             CountryUi(
                 country = country,
                 isRoutingReady = routingReady && graphOnDisk,
-                routingProgress = routingProgress[country.id]
+                routingProgress = routingProgress[country.id],
+                isGeocodingReady = downloadManager.isGeocodingReady(country.id),
+                geocodingProgress = geocodingProgress[country.id]
             )
         }
         MapManagerUiState(
@@ -167,8 +175,7 @@ class MapManagerViewModel @Inject constructor(
     fun downloadGeocodingData(countryId: String) {
         val country = _countries.value.find { it.id == countryId } ?: return
         val geocodingUrl = country.geocodingUrl ?: return
-        // TODO: implement geocoding download
-        biz.cesena.packride4.debug.DebugLog.log("geocoding download not yet implemented for $countryId")
+        downloadManager.startGeocodingDownloadFromUrl(countryId, country.name, geocodingUrl)
     }
 
     fun clearError() {
