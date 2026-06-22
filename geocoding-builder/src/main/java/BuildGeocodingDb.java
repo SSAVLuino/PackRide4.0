@@ -302,9 +302,20 @@ public class BuildGeocodingDb {
             if (type != null) return new PlaceRecord(name, type, null, lat, lon, "", "");
         }
 
+        // For fuel stations, also try brand/operator if name is missing
+        String amenity = tags.get("amenity");
+        if ("fuel".equals(amenity)) {
+            String fuelName = name;
+            if (fuelName == null || fuelName.isBlank()) fuelName = tags.get("brand");
+            if (fuelName == null || fuelName.isBlank()) fuelName = tags.get("operator");
+            if (fuelName == null || fuelName.isBlank()) fuelName = "Distributore";
+            String city = tags.getOrDefault("addr:city", "");
+            String street = tags.getOrDefault("addr:street", "");
+            return new PlaceRecord(fuelName, "poi", "fuel", lat, lon, city, street);
+        }
+
         if (name != null && !name.isBlank()) {
             String category = null;
-            String amenity = tags.get("amenity");
             if (amenity != null) category = AMENITY_CATEGORIES.get(amenity);
             if (category == null) {
                 String shop = tags.get("shop");
