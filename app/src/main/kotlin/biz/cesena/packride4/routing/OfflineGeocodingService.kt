@@ -80,7 +80,50 @@ class OfflineGeocodingService @Inject constructor(
         return results.take(limit)
     }
 
-    data class PoiResult(val name: String, val category: String, val lat: Double, val lon: Double)
+    data class PoiResult(val name: String, val category: String, val lat: Double, val lon: Double, val distanceMeters: Double = 0.0)
+
+    fun findPoisNearby(lat: Double, lon: Double, radiusMeters: Double = 1000.0, limit: Int = 50): List<PoiResult> {
+        val dir = geocodingDir()
+        if (!dir.exists()) return emptyList()
+        val dbFiles = dir.listFiles()?.filter { it.name.endsWith(".db") } ?: return emptyList()
+
+        val margin = radiusMeters / 111_000.0
+        val results = mutableListOf<PoiResult>()
+
+        for (dbFile in dbFiles) {
+            val db = getDb(dbFile) ?: continue
+            try {
+                val cursor = db.rawQuery(
+                    """
+                    SELECT name, type, category, lat, lon FROM places
+                    WHERE category IS NOT NULL
+                    AND lat BETWEEN ? AND ?
+                    AND lon BETWEEN ? AND ?
+                    """.trimIndent(),
+                    arrayOf(
+                        (lat - margin).toString(), (lat + margin).toString(),
+                        (lon - margin).toString(), (lon + margin).toString()
+                    )
+                )
+                cursor.use {
+                    while (it.moveToNext()) {
+                        val pLat = it.getDouble(3)
+                        val pLon = it.getDouble(4)
+                        val dist = haversine(lat, lon, pLat, pLon)
+                        if (dist <= radiusMeters) {
+                            results.add(PoiResult(it.getString(0), it.getString(2) ?: "", pLat, pLon, dist))
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                DebugLog.log("offline-geocoding: nearby query error: ${e.message}")
+            }
+        }
+
+        results.sortBy { it.distanceMeters }
+        DebugLog.log("offline-geocoding: found ${results.size} POIs within ${radiusMeters.toInt()}m")
+        return results.take(limit)
+    }
 
     fun findFuelAlongRoute(routePoints: List<Pair<Double, Double>>, radiusMeters: Double = 500.0): List<PoiResult> {
         if (routePoints.isEmpty()) return emptyList()

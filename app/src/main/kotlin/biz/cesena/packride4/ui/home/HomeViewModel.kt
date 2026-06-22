@@ -576,6 +576,17 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun debugSearchNearbyPois() {
+        val pos = _uiState.value.lastKnownPosition ?: return
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val pois = offlineGeocodingService.findPoisNearby(pos.latitude, pos.longitude, 1000.0)
+            pois.forEach { poi ->
+                DebugLog.log("POI nearby: ${poi.name} (${poi.category}) ${poi.distanceMeters.toInt()}m")
+            }
+            DebugLog.log("Total POIs nearby: ${pois.size}")
+        }
+    }
+
     fun clearRoute() {
         _uiState.update { it.copy(
             route = null,

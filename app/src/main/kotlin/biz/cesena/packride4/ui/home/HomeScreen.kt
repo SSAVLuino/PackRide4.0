@@ -405,6 +405,16 @@ fun HomeScreen(
                     SpeedLimitSign(limit = limit)
                 }
             }
+            if (biz.cesena.packride4.BuildConfig.DEBUG) {
+                SmallFloatingActionButton(
+                    onClick = { viewModel.debugSearchNearbyPois() },
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                ) {
+                    Icon(Icons.Default.Search, "Debug POI",
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.size(20.dp))
+                }
+            }
             FloatingActionButton(
                 onClick = { viewModel.toggleFollow() },
                 containerColor = if (uiState.isFollowing)
