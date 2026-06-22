@@ -30,6 +30,45 @@ class AuthRepository @Inject constructor(
     val userEmail: StateFlow<String?> = _userEmail.asStateFlow()
 
     val accessToken: String? get() = prefs.getString(KEY_ACCESS_TOKEN, null)
+    private val refreshToken: String? get() = prefs.getString(KEY_REFRESH_TOKEN, null)
+
+    suspend fun ensureValidToken(): String? {
+        val token = accessToken ?: return null
+        if (!isTokenExpired(token)) return token
+        return refreshAccessToken()
+    }
+
+    private fun isTokenExpired(token: String): Boolean {
+        try {
+            val parts = token.split(".")
+            if (parts.size != 3) return true
+            val payload = String(android.util.Base64.decode(parts[1], android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING))
+            val exp = org.json.JSONObject(payload).optLong("exp", 0)
+            return System.currentTimeMillis() / 1000 >= exp - 60
+        } catch (e: Exception) { return true }
+    }
+
+    private suspend fun refreshAccessToken(): String? = withContext(Dispatchers.IO) {
+        val rt = refreshToken ?: return@withContext null
+        try {
+            val url = "$supabaseUrl/auth/v1/token?grant_type=refresh_token"
+            val body = JSONObject().apply { put("refresh_token", rt) }
+            val response = postJson(url, body.toString())
+            val json = JSONObject(response)
+            val newToken = json.getString("access_token")
+            val newRefresh = json.getString("refresh_token")
+            prefs.edit()
+                .putString(KEY_ACCESS_TOKEN, newToken)
+                .putString(KEY_REFRESH_TOKEN, newRefresh)
+                .apply()
+            DebugLog.log("auth: token refreshed")
+            newToken
+        } catch (e: Exception) {
+            DebugLog.log("auth: refresh failed: ${e.message}")
+            signOut()
+            null
+        }
+    }
 
     suspend fun signInWithEmail(email: String, password: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
