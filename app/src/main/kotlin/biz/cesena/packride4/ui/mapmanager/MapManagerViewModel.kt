@@ -210,13 +210,8 @@ class MapManagerViewModel @Inject constructor(
                 }
             }
 
-            // Auto-load catalog if logged in
-            if (authRepository.isLoggedIn.value) loadCatalog()
-
-            // Reload catalog when auth state changes
-            authRepository.isLoggedIn.collect { loggedIn ->
-                if (loggedIn && _countries.value.isEmpty()) loadCatalog()
-            }
+            // Load catalog (works offline from cache too)
+            loadCatalog()
         }
     }
 

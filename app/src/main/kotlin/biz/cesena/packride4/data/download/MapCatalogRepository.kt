@@ -94,19 +94,23 @@ class MapCatalogRepository @Inject constructor(
 
     private fun fetchTable(table: String): JSONArray {
         val url = "$supabaseUrl/rest/v1/$table?select=*"
+        val token = authRepository.accessToken
+        DebugLog.log("catalog: fetching $table, token=${if (token != null) "present(${token.length})" else "null"}")
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 10_000
             readTimeout = 15_000
             setRequestProperty("apikey", anonKey)
             setRequestProperty("Accept", "application/json")
-            authRepository.accessToken?.let {
-                setRequestProperty("Authorization", "Bearer $it")
+            if (token != null) {
+                setRequestProperty("Authorization", "Bearer $token")
             }
         }
-        if (conn.responseCode != HttpURLConnection.HTTP_OK) {
-            val error = conn.errorStream?.bufferedReader()?.readText() ?: "HTTP ${conn.responseCode}"
+        val code = conn.responseCode
+        if (code != HttpURLConnection.HTTP_OK) {
+            val error = conn.errorStream?.bufferedReader()?.readText() ?: ""
             conn.disconnect()
-            throw Exception(error)
+            DebugLog.log("catalog: $table HTTP $code: $error")
+            throw Exception("HTTP $code: $error")
         }
         val result = conn.inputStream.bufferedReader().readText()
         conn.disconnect()
