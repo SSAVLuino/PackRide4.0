@@ -103,12 +103,8 @@ fun HomeScreen(
 
     var mapViewRef by remember { mutableStateOf<MapView?>(null) }
 
-    LaunchedEffect(mapViewRef, uiState.hasOfflineMaps) {
-        if (uiState.hasOfflineMaps) {
-            mapViewRef?.setConnected(true)
-        } else {
-            mapViewRef?.setConnected(null)
-        }
+    LaunchedEffect(uiState.hasOfflineMaps) {
+        MapLibre.setConnected(if (uiState.hasOfflineMaps) true else null)
     }
 
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
