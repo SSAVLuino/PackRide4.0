@@ -65,9 +65,8 @@ class MapManagerViewModel @Inject constructor(
         },
         routingManager.isReady,
         authRepository.isLoggedIn,
-        _countries,
-        _remoteRegions
-    ) { downloadState, routingReady, isLoggedIn, countries, remoteRegions ->
+        combine(_countries, _remoteRegions, _isLoading) { c, r, l -> Triple(c, r, l) }
+    ) { downloadState, routingReady, isLoggedIn, (countries, remoteRegions, isLoading) ->
         val (downloaded, progress, routingProgress, error, mobileWarning) = downloadState
 
         val downloadedIds = downloaded.map { it.id }.toSet()
@@ -97,7 +96,7 @@ class MapManagerViewModel @Inject constructor(
             countries = countries,
             showMobileDataWarning = mobileWarning,
             errorMessage = error,
-            isLoading = _isLoading.value
+            isLoading = isLoading
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MapManagerUiState())
 
