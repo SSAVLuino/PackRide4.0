@@ -143,6 +143,24 @@ fun HomeScreen(
         }
     }
 
+    // Fuel stations along route
+    LaunchedEffect(mapInstance, uiState.fuelStationsAlongRoute) {
+        val map = mapInstance ?: return@LaunchedEffect
+        val style = map.style ?: return@LaunchedEffect
+        val fuelSource = style.getSourceAs<GeoJsonSource>("fuel-stations")
+        val stations = uiState.fuelStationsAlongRoute
+        if (stations.isEmpty()) {
+            fuelSource?.setGeoJson(FeatureCollection.fromFeatures(emptyArray()))
+        } else {
+            val features = stations.map { poi ->
+                Feature.fromGeometry(Point.fromLngLat(poi.lon, poi.lat)).apply {
+                    addStringProperty("name", poi.name)
+                }
+            }
+            fuelSource?.setGeoJson(FeatureCollection.fromFeatures(features))
+        }
+    }
+
     // Waypoint markers + desired-path line on map
     LaunchedEffect(mapInstance, uiState.waypoints, uiState.selectedWaypointIndex, uiState.isEditingRoute) {
         val map = mapInstance ?: return@LaunchedEffect
@@ -837,6 +855,7 @@ private fun addMapLayers(style: Style) {
     if (style.getSource("route") == null) style.addSource(GeoJsonSource("route"))
     if (style.getSource("desired-path") == null) style.addSource(GeoJsonSource("desired-path"))
     if (style.getSource("waypoint-markers") == null) style.addSource(GeoJsonSource("waypoint-markers"))
+    if (style.getSource("fuel-stations") == null) style.addSource(GeoJsonSource("fuel-stations"))
 
     // ── Desired-path layer (thin dashed gray line between waypoints) ──
     if (style.getLayer("desired-path") == null) {
@@ -892,6 +911,46 @@ private fun addMapLayers(style: Style) {
             PropertyFactory.iconAnchor(org.maplibre.android.style.layers.Property.ICON_ANCHOR_BOTTOM),
             PropertyFactory.iconAllowOverlap(true),
             PropertyFactory.iconIgnorePlacement(true),
+        ))
+    }
+
+    // ── Fuel station icon ──
+    if (style.getImage("fuel-pin") == null) {
+        val density = android.content.res.Resources.getSystem().displayMetrics.density
+        val size = (28 * density).toInt()
+        val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bmp)
+        val bg = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.parseColor("#e8a735")
+            this.style = android.graphics.Paint.Style.FILL
+        }
+        canvas.drawCircle(size / 2f, size / 2f, size / 2f, bg)
+        val txt = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.WHITE
+            textSize = 14f * density
+            textAlign = android.graphics.Paint.Align.CENTER
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        canvas.drawText("⛽", size / 2f, size / 2f + 5f * density, txt)
+        style.addImage("fuel-pin", bmp)
+    }
+
+    // ── Fuel stations layer ──
+    if (style.getLayer("fuel-stations") == null) {
+        style.addLayer(org.maplibre.android.style.layers.SymbolLayer("fuel-stations", "fuel-stations").withProperties(
+            PropertyFactory.iconImage("fuel-pin"),
+            PropertyFactory.iconSize(1f),
+            PropertyFactory.iconAllowOverlap(true),
+            PropertyFactory.iconIgnorePlacement(true),
+            PropertyFactory.textField(org.maplibre.android.style.expressions.Expression.get("name")),
+            PropertyFactory.textFont(arrayOf("Noto Sans Regular")),
+            PropertyFactory.textSize(10f),
+            PropertyFactory.textOffset(arrayOf(0f, 1.5f)),
+            PropertyFactory.textAnchor(org.maplibre.android.style.layers.Property.TEXT_ANCHOR_TOP),
+            PropertyFactory.textColor("#333333"),
+            PropertyFactory.textHaloColor("#ffffff"),
+            PropertyFactory.textHaloWidth(1f),
+            PropertyFactory.textOptional(true),
         ))
     }
 }

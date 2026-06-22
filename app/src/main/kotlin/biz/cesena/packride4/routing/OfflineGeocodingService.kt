@@ -80,6 +80,82 @@ class OfflineGeocodingService @Inject constructor(
         return results.take(limit)
     }
 
+    data class PoiResult(val name: String, val category: String, val lat: Double, val lon: Double)
+
+    fun findFuelAlongRoute(routePoints: List<Pair<Double, Double>>, radiusMeters: Double = 500.0): List<PoiResult> {
+        if (routePoints.isEmpty()) return emptyList()
+
+        val dir = geocodingDir()
+        if (!dir.exists()) return emptyList()
+        val dbFiles = dir.listFiles()?.filter { it.name.endsWith(".db") } ?: return emptyList()
+
+        // Bounding box of the route with margin (~0.005° ≈ 500m)
+        val margin = radiusMeters / 111_000.0
+        val minLat = routePoints.minOf { it.first } - margin
+        val maxLat = routePoints.maxOf { it.first } + margin
+        val minLon = routePoints.minOf { it.second } - margin
+        val maxLon = routePoints.maxOf { it.second } + margin
+
+        val results = mutableListOf<PoiResult>()
+
+        for (dbFile in dbFiles) {
+            val db = getDb(dbFile) ?: continue
+            try {
+                val cursor = db.rawQuery(
+                    """
+                    SELECT name, category, lat, lon FROM places
+                    WHERE category = 'fuel'
+                    AND lat BETWEEN ? AND ?
+                    AND lon BETWEEN ? AND ?
+                    """.trimIndent(),
+                    arrayOf(minLat.toString(), maxLat.toString(), minLon.toString(), maxLon.toString())
+                )
+                cursor.use {
+                    while (it.moveToNext()) {
+                        val lat = it.getDouble(2)
+                        val lon = it.getDouble(3)
+                        if (distanceToPolyline(lat, lon, routePoints) <= radiusMeters) {
+                            results.add(PoiResult(it.getString(0), it.getString(1), lat, lon))
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                DebugLog.log("offline-geocoding: fuel query error on ${dbFile.name}: ${e.message}")
+            }
+        }
+
+        DebugLog.log("offline-geocoding: found ${results.size} fuel stations along route")
+        return results
+    }
+
+    private fun distanceToPolyline(lat: Double, lon: Double, points: List<Pair<Double, Double>>): Double {
+        var minDist = Double.MAX_VALUE
+        for (i in 0 until points.size - 1) {
+            val d = distanceToSegment(lat, lon, points[i].first, points[i].second, points[i + 1].first, points[i + 1].second)
+            if (d < minDist) minDist = d
+        }
+        return minDist
+    }
+
+    private fun distanceToSegment(pLat: Double, pLon: Double, aLat: Double, aLon: Double, bLat: Double, bLon: Double): Double {
+        val dx = bLon - aLon
+        val dy = bLat - aLat
+        if (dx == 0.0 && dy == 0.0) return haversine(pLat, pLon, aLat, aLon)
+        val t = ((pLon - aLon) * dx + (pLat - aLat) * dy) / (dx * dx + dy * dy)
+        val clamped = t.coerceIn(0.0, 1.0)
+        return haversine(pLat, pLon, aLat + clamped * dy, aLon + clamped * dx)
+    }
+
+    private fun haversine(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val R = 6371000.0
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    }
+
     private val indexedDbs = mutableSetOf<String>()
 
     private fun ensureIndex(db: SQLiteDatabase) {

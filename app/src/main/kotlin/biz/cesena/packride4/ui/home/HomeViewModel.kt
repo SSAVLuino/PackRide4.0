@@ -16,6 +16,7 @@ import biz.cesena.packride4.map.MBTilesServer
 import biz.cesena.packride4.map.ShortbreadStyle
 import biz.cesena.packride4.navigation.NavigationVoiceService
 import biz.cesena.packride4.routing.GeocodingResult
+import biz.cesena.packride4.routing.OfflineGeocodingService
 import biz.cesena.packride4.routing.GeocodingService
 import biz.cesena.packride4.routing.OnlineRoutingService
 import biz.cesena.packride4.routing.RouteResult
@@ -69,6 +70,7 @@ data class HomeUiState(
     val savedRouteId: Long? = null,
     // Routing error feedback
     val routeError: String? = null,
+    val fuelStationsAlongRoute: List<OfflineGeocodingService.PoiResult> = emptyList(),
     val isRouteCalculating: Boolean = false,
 )
 
@@ -83,6 +85,7 @@ class HomeViewModel @Inject constructor(
     private val userPreferences: UserPreferences,
     private val routeEventBus: RouteEventBus,
     private val voiceService: NavigationVoiceService,
+    private val offlineGeocodingService: OfflineGeocodingService,
 ) : ViewModel() {
 
     val savedPosition: Pair<Double, Double>? = userPreferences.getLastPosition()
@@ -329,6 +332,7 @@ class HomeViewModel @Inject constructor(
                     pointsJson = SavedRoute.serializePoints(result.points),
                     instructionsJson = SavedRoute.serializeInstructions(result.instructions),
                 ))
+                val fuel = offlineGeocodingService.findFuelAlongRoute(result.points)
                 _uiState.update { it.copy(
                     route = result,
                     isRouteCalculating = false,
@@ -336,6 +340,7 @@ class HomeViewModel @Inject constructor(
                     savedRouteId = savedId,
                     isEditingRoute = true,
                     selectedWaypointIndex = -1,
+                    fuelStationsAlongRoute = fuel,
                 )}
             } else {
                 _uiState.update { it.copy(
@@ -503,12 +508,14 @@ class HomeViewModel @Inject constructor(
                         instructionsJson = SavedRoute.serializeInstructions(result.instructions),
                     ))
                 }
+                val fuel = offlineGeocodingService.findFuelAlongRoute(result.points)
                 _uiState.update { it.copy(
                     route = result,
                     isRouteCalculating = false,
                     savedRouteId = savedId,
                     isEditingRoute = true,
                     selectedWaypointIndex = -1,
+                    fuelStationsAlongRoute = fuel,
                 )}
             } else {
                 _uiState.update { it.copy(isRouteCalculating = false, routeError = "Impossibile ricalcolare il percorso") }
@@ -577,6 +584,7 @@ class HomeViewModel @Inject constructor(
             savedRouteId = null,
             isEditingRoute = false,
             selectedWaypointIndex = -1,
+            fuelStationsAlongRoute = emptyList(),
         )}
     }
 
