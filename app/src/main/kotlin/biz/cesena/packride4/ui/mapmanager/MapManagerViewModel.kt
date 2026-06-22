@@ -200,6 +200,13 @@ class MapManagerViewModel @Inject constructor(
         }
     }
 
+    fun deleteGeocodingData(countryId: String) {
+        viewModelScope.launch {
+            val dbFile = java.io.File(context.filesDir, "geocoding/geocoding-$countryId.db")
+            if (dbFile.exists()) dbFile.delete()
+        }
+    }
+
     init {
         viewModelScope.launch {
             // Reload prebuilt routing graphs found on disk

@@ -95,7 +95,8 @@ fun MapManagerScreen(
                             regions = uiState.regions.filter { it.countryId == countryUi.country.id },
                             onDownloadRouting = { viewModel.downloadRoutingData(countryUi.country.id) },
                             onDownloadGeocoding = { viewModel.downloadGeocodingData(countryUi.country.id) },
-                            onDeleteCountryData = { viewModel.deleteCountryData(countryUi.country.id) },
+                            onDeleteRouting = { viewModel.deleteCountryData(countryUi.country.id) },
+                            onDeleteGeocoding = { viewModel.deleteGeocodingData(countryUi.country.id) },
                             onDownloadRegion = { viewModel.downloadRegion(it) },
                             onDeleteRegion = { viewModel.deleteRegion(it) }
                         )
@@ -112,7 +113,8 @@ private fun CountryCard(
     regions: List<MapRegionUi>,
     onDownloadRouting: () -> Unit,
     onDownloadGeocoding: () -> Unit,
-    onDeleteCountryData: () -> Unit,
+    onDeleteRouting: () -> Unit,
+    onDeleteGeocoding: () -> Unit,
     onDownloadRegion: (String) -> Unit,
     onDeleteRegion: (String) -> Unit
 ) {
@@ -172,7 +174,7 @@ private fun CountryCard(
                                     tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(4.dp))
                                 Text("Pronto", style = MaterialTheme.typography.bodySmall)
-                                IconButton(onClick = onDeleteCountryData, modifier = Modifier.size(32.dp)) {
+                                IconButton(onClick = onDeleteRouting, modifier = Modifier.size(32.dp)) {
                                     Icon(Icons.Default.Delete, "Elimina",
                                         tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                                 }
@@ -213,6 +215,10 @@ private fun CountryCard(
                                     tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(4.dp))
                                 Text("Pronto", style = MaterialTheme.typography.bodySmall)
+                                IconButton(onClick = onDeleteGeocoding, modifier = Modifier.size(32.dp)) {
+                                    Icon(Icons.Default.Delete, "Elimina",
+                                        tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                                }
                             }
                             countryUi.geocodingProgress == -1 -> {
                                 CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
