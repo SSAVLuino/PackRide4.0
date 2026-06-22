@@ -230,10 +230,11 @@ public class BuildGeocodingDb {
         System.out.println("  Way inserts: " + wayInserts);
         System.out.println("  Total records: " + (counts[2] + wayInserts));
 
-        // ── Build FTS index ──
-        System.out.println("Building FTS index...");
+        // ── Build indexes ──
+        System.out.println("Building indexes...");
         try (Statement stmt = conn.createStatement()) {
-            stmt.execute("INSERT INTO places_fts(places_fts) VALUES('rebuild')");
+            stmt.execute("CREATE INDEX idx_places_name ON places(name COLLATE NOCASE)");
+            stmt.execute("CREATE INDEX idx_places_city ON places(city COLLATE NOCASE)");
         }
 
         insertPs.close();
