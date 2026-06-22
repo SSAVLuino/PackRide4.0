@@ -430,7 +430,7 @@ fun HomeScreen(
                         val map = mapInstance ?: return@SmallFloatingActionButton
                         val bounds = map.projection.visibleRegion.latLngBounds
                         viewModel.debugSearchVisiblePois(
-                            bounds.latSouth, bounds.lonWest, bounds.latNorth, bounds.lonEast
+                            bounds.latitudeSouth, bounds.longitudeWest, bounds.latitudeNorth, bounds.longitudeEast
                         )
                     },
                     containerColor = MaterialTheme.colorScheme.tertiaryContainer
