@@ -123,10 +123,7 @@ dependencies {
     }
     implementation(libs.slf4j.android)
 
-    // Supabase
-    implementation(libs.supabase.postgrest)
-    implementation(libs.supabase.gotrue)
-    implementation(libs.ktor.client.android)
+    // Serialization (for Supabase REST responses)
     implementation(libs.kotlinx.serialization.json)
 
     // Google Play Services — FusedLocationProvider
