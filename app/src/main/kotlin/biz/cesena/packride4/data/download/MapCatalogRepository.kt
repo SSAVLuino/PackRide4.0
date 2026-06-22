@@ -74,7 +74,7 @@ class MapCatalogRepository @Inject constructor(
         }.also { DebugLog.log("catalog: ${it.size} regions") }
     }
 
-    private fun fetchTableWithCache(table: String): JSONArray {
+    private suspend fun fetchTableWithCache(table: String): JSONArray {
         return try {
             val json = fetchTable(table)
             File(cacheDir, "$table.json").writeText(json.toString())
