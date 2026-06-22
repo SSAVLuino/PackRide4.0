@@ -142,11 +142,32 @@ class MapManagerViewModel @Inject constructor(
         downloadManager.startRoutingDownloadFromUrl(countryId, country.name, graphUrl)
     }
 
+    fun downloadGeocodingData(countryId: String) {
+        val country = _countries.value.find { it.id == countryId } ?: return
+        val geocodingUrl = country.geocodingUrl ?: return
+        // TODO: implement geocoding download
+        biz.cesena.packride4.debug.DebugLog.log("geocoding download not yet implemented for $countryId")
+    }
+
+    fun clearError() {
+        downloadManager.clearError()
+    }
+
     fun deleteRegion(regionId: String) {
         viewModelScope.launch {
             val entity = db.mapRegionDao().getById(regionId) ?: return@launch
             java.io.File(entity.filePath).takeIf { it.exists() }?.delete()
             db.mapRegionDao().deleteById(regionId)
+        }
+    }
+
+    fun deleteCountryData(countryId: String) {
+        viewModelScope.launch {
+            val graphDir = java.io.File(context.filesDir, "routing/graph-$countryId")
+            if (graphDir.exists()) {
+                graphDir.deleteRecursively()
+                routingManager.reset(graphDir)
+            }
         }
     }
 
