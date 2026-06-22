@@ -125,6 +125,39 @@ class OfflineGeocodingService @Inject constructor(
         return results.take(limit)
     }
 
+    fun findPoisInBounds(minLat: Double, minLon: Double, maxLat: Double, maxLon: Double, limit: Int = 200): List<PoiResult> {
+        val dir = geocodingDir()
+        if (!dir.exists()) return emptyList()
+        val dbFiles = dir.listFiles()?.filter { it.name.endsWith(".db") } ?: return emptyList()
+
+        val results = mutableListOf<PoiResult>()
+        for (dbFile in dbFiles) {
+            val db = getDb(dbFile) ?: continue
+            try {
+                val cursor = db.rawQuery(
+                    """
+                    SELECT name, category, lat, lon FROM places
+                    WHERE category IS NOT NULL
+                    AND lat BETWEEN ? AND ?
+                    AND lon BETWEEN ? AND ?
+                    LIMIT ?
+                    """.trimIndent(),
+                    arrayOf(minLat.toString(), maxLat.toString(), minLon.toString(), maxLon.toString(), limit.toString())
+                )
+                cursor.use {
+                    while (it.moveToNext()) {
+                        results.add(PoiResult(it.getString(0), it.getString(1) ?: "", it.getDouble(2), it.getDouble(3)))
+                    }
+                }
+            } catch (e: Exception) {
+                DebugLog.log("offline-geocoding: bounds query error: ${e.message}")
+            }
+            if (results.size >= limit) break
+        }
+        DebugLog.log("offline-geocoding: found ${results.size} POIs in bounds")
+        return results.take(limit)
+    }
+
     fun findFuelAlongRoute(routePoints: List<Pair<Double, Double>>, radiusMeters: Double = 500.0): List<PoiResult> {
         if (routePoints.isEmpty()) return emptyList()
 

@@ -71,6 +71,7 @@ data class HomeUiState(
     // Routing error feedback
     val routeError: String? = null,
     val fuelStationsAlongRoute: List<OfflineGeocodingService.PoiResult> = emptyList(),
+    val debugPois: List<OfflineGeocodingService.PoiResult> = emptyList(),
     val isRouteCalculating: Boolean = false,
 )
 
@@ -576,14 +577,11 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun debugSearchNearbyPois() {
-        val pos = _uiState.value.lastKnownPosition ?: return
+    fun debugSearchVisiblePois(minLat: Double, minLon: Double, maxLat: Double, maxLon: Double) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            val pois = offlineGeocodingService.findPoisNearby(pos.latitude, pos.longitude, 1000.0)
-            pois.forEach { poi ->
-                DebugLog.log("POI nearby: ${poi.name} (${poi.category}) ${poi.distanceMeters.toInt()}m")
-            }
-            DebugLog.log("Total POIs nearby: ${pois.size}")
+            val pois = offlineGeocodingService.findPoisInBounds(minLat, minLon, maxLat, maxLon)
+            DebugLog.log("debug POIs in view: ${pois.size}")
+            _uiState.update { it.copy(debugPois = pois) }
         }
     }
 

@@ -161,6 +161,25 @@ fun HomeScreen(
         }
     }
 
+    // Debug POIs on map
+    LaunchedEffect(mapInstance, uiState.debugPois) {
+        val map = mapInstance ?: return@LaunchedEffect
+        val style = map.style ?: return@LaunchedEffect
+        val source = style.getSourceAs<GeoJsonSource>("debug-pois")
+        val pois = uiState.debugPois
+        if (pois.isEmpty()) {
+            source?.setGeoJson(FeatureCollection.fromFeatures(emptyArray()))
+        } else {
+            val features = pois.map { poi ->
+                Feature.fromGeometry(Point.fromLngLat(poi.lon, poi.lat)).apply {
+                    addStringProperty("name", poi.name)
+                    addStringProperty("category", poi.category)
+                }
+            }
+            source?.setGeoJson(FeatureCollection.fromFeatures(features))
+        }
+    }
+
     // Waypoint markers + desired-path line on map
     LaunchedEffect(mapInstance, uiState.waypoints, uiState.selectedWaypointIndex, uiState.isEditingRoute) {
         val map = mapInstance ?: return@LaunchedEffect
@@ -407,7 +426,13 @@ fun HomeScreen(
             }
             if (biz.cesena.packride4.BuildConfig.DEBUG) {
                 SmallFloatingActionButton(
-                    onClick = { viewModel.debugSearchNearbyPois() },
+                    onClick = {
+                        val map = mapInstance ?: return@SmallFloatingActionButton
+                        val bounds = map.projection.visibleRegion.latLngBounds
+                        viewModel.debugSearchVisiblePois(
+                            bounds.latSouth, bounds.lonWest, bounds.latNorth, bounds.lonEast
+                        )
+                    },
                     containerColor = MaterialTheme.colorScheme.tertiaryContainer
                 ) {
                     Icon(Icons.Default.Place, "Debug POI",
@@ -866,6 +891,7 @@ private fun addMapLayers(style: Style) {
     if (style.getSource("desired-path") == null) style.addSource(GeoJsonSource("desired-path"))
     if (style.getSource("waypoint-markers") == null) style.addSource(GeoJsonSource("waypoint-markers"))
     if (style.getSource("fuel-stations") == null) style.addSource(GeoJsonSource("fuel-stations"))
+    if (style.getSource("debug-pois") == null) style.addSource(GeoJsonSource("debug-pois"))
 
     // ── Desired-path layer (thin dashed gray line between waypoints) ──
     if (style.getLayer("desired-path") == null) {
@@ -948,6 +974,36 @@ private fun addMapLayers(style: Style) {
         }
         canvas.drawText("F", size / 2f, size / 2f + 7f * density, txt)
         style.addImage("fuel-pin", bmp)
+    }
+
+    // ── Debug POIs layer (circles with name) ──
+    if (style.getLayer("debug-pois") == null) {
+        style.addLayer(org.maplibre.android.style.layers.CircleLayer("debug-pois", "debug-pois").withProperties(
+            PropertyFactory.circleRadius(6f),
+            PropertyFactory.circleColor("#e03030"),
+            PropertyFactory.circleStrokeWidth(2f),
+            PropertyFactory.circleStrokeColor("#ffffff"),
+        ))
+    }
+    if (style.getLayer("debug-pois-labels") == null) {
+        style.addLayer(org.maplibre.android.style.layers.SymbolLayer("debug-pois-labels", "debug-pois").withProperties(
+            PropertyFactory.textField(
+                org.maplibre.android.style.expressions.Expression.concat(
+                    org.maplibre.android.style.expressions.Expression.get("name"),
+                    org.maplibre.android.style.expressions.Expression.literal(" ("),
+                    org.maplibre.android.style.expressions.Expression.get("category"),
+                    org.maplibre.android.style.expressions.Expression.literal(")")
+                )
+            ),
+            PropertyFactory.textFont(arrayOf("Noto Sans Regular")),
+            PropertyFactory.textSize(9f),
+            PropertyFactory.textOffset(arrayOf(0f, 1.5f)),
+            PropertyFactory.textAnchor(org.maplibre.android.style.layers.Property.TEXT_ANCHOR_TOP),
+            PropertyFactory.textColor("#cc0000"),
+            PropertyFactory.textHaloColor("#ffffff"),
+            PropertyFactory.textHaloWidth(1f),
+            PropertyFactory.textAllowOverlap(false),
+        ))
     }
 
     // ── Fuel stations layer ──
