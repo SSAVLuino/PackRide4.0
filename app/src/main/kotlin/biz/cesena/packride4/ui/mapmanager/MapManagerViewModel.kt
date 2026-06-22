@@ -103,8 +103,16 @@ class MapManagerViewModel @Inject constructor(
     fun loadCatalog() {
         viewModelScope.launch {
             _isLoading.value = true
-            _countries.value = catalogRepository.fetchCountries()
-            _remoteRegions.value = catalogRepository.fetchRegions()
+            try {
+                val countries = catalogRepository.fetchCountries()
+                biz.cesena.packride4.debug.DebugLog.log("loadCatalog: ${countries.size} countries")
+                _countries.value = countries
+                val regions = catalogRepository.fetchRegions()
+                biz.cesena.packride4.debug.DebugLog.log("loadCatalog: ${regions.size} regions")
+                _remoteRegions.value = regions
+            } catch (e: Exception) {
+                biz.cesena.packride4.debug.DebugLog.log("loadCatalog: ERROR ${e::class.simpleName}: ${e.message}")
+            }
             _isLoading.value = false
         }
     }
