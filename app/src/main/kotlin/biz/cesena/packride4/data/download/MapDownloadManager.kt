@@ -299,6 +299,12 @@ class MapDownloadManager @Inject constructor(
     fun isGeocodingReady(countryId: String): Boolean =
         File(File(context.filesDir, "geocoding"), "geocoding-$countryId.db").exists()
 
+    fun notifyGeocodingChanged() {
+        // Force re-emission by toggling a dummy entry
+        _geocodingProgress.update { it + ("_refresh" to null) }
+        _geocodingProgress.update { it - "_refresh" }
+    }
+
     private fun setGeocodingProgress(countryId: String, progress: Int?) {
         _geocodingProgress.update { current ->
             if (progress == null) current - countryId else current + (countryId to progress)

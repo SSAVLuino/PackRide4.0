@@ -191,19 +191,27 @@ class MapManagerViewModel @Inject constructor(
     }
 
     fun deleteCountryData(countryId: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             val graphDir = java.io.File(context.filesDir, "routing/graph-$countryId")
             if (graphDir.exists()) {
                 graphDir.deleteRecursively()
                 routingManager.reset(graphDir)
+                biz.cesena.packride4.debug.DebugLog.log("deleted routing graph for $countryId")
             }
         }
     }
 
     fun deleteGeocodingData(countryId: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             val dbFile = java.io.File(context.filesDir, "geocoding/geocoding-$countryId.db")
-            if (dbFile.exists()) dbFile.delete()
+            if (dbFile.exists()) {
+                dbFile.delete()
+                biz.cesena.packride4.debug.DebugLog.log("deleted geocoding DB for $countryId")
+            }
+            // Trigger UI refresh
+            downloadManager.geocodingProgress.value.let {
+                downloadManager.notifyGeocodingChanged()
+            }
         }
     }
 
