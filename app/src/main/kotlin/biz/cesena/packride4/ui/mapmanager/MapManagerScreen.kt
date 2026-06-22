@@ -124,7 +124,7 @@ fun MapManagerScreen(
                             region = region,
                             onDownload = { viewModel.downloadRegion(region.id) },
                             onDelete = { viewModel.deleteRegion(region.id) },
-                            onDownloadRouting = { viewModel.downloadRoutingData(region.id) }
+                            onDownloadRouting = { viewModel.downloadRoutingData(region.countryId) }
                         )
                     }
                 }

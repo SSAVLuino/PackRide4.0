@@ -18,6 +18,7 @@ import javax.inject.Inject
 
 data class MapRegionUi(
     val id: String,
+    val countryId: String = "",
     val name: String,
     val sizeMb: Double,
     val bbox: String,
@@ -78,6 +79,7 @@ class MapManagerViewModel @Inject constructor(
             val country = countries.find { it.id == entry.countryId }
             MapRegionUi(
                 id = entry.id,
+                countryId = entry.countryId,
                 name = entry.name,
                 sizeMb = entity?.sizeBytes?.div(1_048_576.0) ?: entry.mbtilesSizeMb,
                 bbox = entry.bbox,
