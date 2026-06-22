@@ -914,24 +914,29 @@ private fun addMapLayers(style: Style) {
         ))
     }
 
-    // ── Fuel station icon ──
+    // ── Fuel station icon (orange circle with white "F") ──
     if (style.getImage("fuel-pin") == null) {
         val density = android.content.res.Resources.getSystem().displayMetrics.density
-        val size = (28 * density).toInt()
+        val size = (36 * density).toInt()
         val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bmp)
-        val bg = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.parseColor("#e8a735")
+        val border = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.parseColor("#c07020")
             this.style = android.graphics.Paint.Style.FILL
         }
-        canvas.drawCircle(size / 2f, size / 2f, size / 2f, bg)
+        canvas.drawCircle(size / 2f, size / 2f, size / 2f, border)
+        val bg = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.parseColor("#f5a623")
+            this.style = android.graphics.Paint.Style.FILL
+        }
+        canvas.drawCircle(size / 2f, size / 2f, size / 2f - 2f * density, bg)
         val txt = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.WHITE
-            textSize = 14f * density
+            textSize = 18f * density
             textAlign = android.graphics.Paint.Align.CENTER
             typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
-        canvas.drawText("⛽", size / 2f, size / 2f + 5f * density, txt)
+        canvas.drawText("F", size / 2f, size / 2f + 7f * density, txt)
         style.addImage("fuel-pin", bmp)
     }
 
