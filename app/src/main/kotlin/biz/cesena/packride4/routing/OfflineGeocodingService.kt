@@ -25,7 +25,7 @@ class OfflineGeocodingService @Inject constructor(
         if (query.length < 2) return emptyList()
 
         val results = mutableListOf<GeocodingResult>()
-        val ftsQuery = query.trim().split("\\s+".toRegex()).joinToString(" ") { "$it*" }
+        val likePattern = "%${query.trim()}%"
 
         val dir = geocodingDir()
         if (!dir.exists()) return emptyList()
@@ -37,14 +37,12 @@ class OfflineGeocodingService @Inject constructor(
             try {
                 val cursor = db.rawQuery(
                     """
-                    SELECT p.name, p.type, p.category, p.lat, p.lon, p.city, p.street
-                    FROM places_fts fts
-                    JOIN places p ON p.id = fts.rowid
-                    WHERE places_fts MATCH ?
-                    ORDER BY rank
+                    SELECT name, type, category, lat, lon, city, street
+                    FROM places
+                    WHERE name LIKE ? OR city LIKE ? OR street LIKE ?
                     LIMIT ?
                     """.trimIndent(),
-                    arrayOf(ftsQuery, limit.toString())
+                    arrayOf(likePattern, likePattern, likePattern, limit.toString())
                 )
                 cursor.use {
                     while (it.moveToNext()) {
