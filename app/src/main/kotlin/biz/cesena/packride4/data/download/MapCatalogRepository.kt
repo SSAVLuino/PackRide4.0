@@ -3,6 +3,7 @@ package biz.cesena.packride4.data.download
 import biz.cesena.packride4.debug.DebugLog
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import javax.inject.Inject

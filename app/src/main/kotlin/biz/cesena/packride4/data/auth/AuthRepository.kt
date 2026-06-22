@@ -2,9 +2,9 @@ package biz.cesena.packride4.data.auth
 
 import biz.cesena.packride4.debug.DebugLog
 import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.auth.providers.builtin.Email
-import io.github.jan.supabase.auth.status.SessionStatus
+import io.github.jan.supabase.gotrue.gotrue
+import io.github.jan.supabase.gotrue.providers.builtin.Email
+import io.github.jan.supabase.gotrue.SessionStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,7 +29,7 @@ class AuthRepository @Inject constructor(
 
     init {
         scope.launch {
-            supabase.auth.sessionStatus.collect { status ->
+            supabase.gotrue.sessionStatus.collect { status ->
                 when (status) {
                     is SessionStatus.Authenticated -> {
                         _isLoggedIn.value = true
@@ -49,7 +49,7 @@ class AuthRepository @Inject constructor(
 
     suspend fun signInWithEmail(email: String, password: String): Result<Unit> {
         return try {
-            supabase.auth.signInWith(Email) {
+            supabase.gotrue.loginWith(Email) {
                 this.email = email
                 this.password = password
             }
@@ -62,7 +62,7 @@ class AuthRepository @Inject constructor(
 
     suspend fun signOut() {
         try {
-            supabase.auth.signOut()
+            supabase.gotrue.logout()
         } catch (e: Exception) {
             DebugLog.log("auth: sign out error: ${e.message}")
         }
