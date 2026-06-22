@@ -90,6 +90,7 @@ class MapManagerViewModel @Inject constructor(
                 isRoutingReady = routingReady && graphOnDisk
             )
         }
+        biz.cesena.packride4.debug.DebugLog.log("uiState: countries=${countries.size} regions=${regions.size} isLoggedIn=$isLoggedIn isLoading=${_isLoading.value}")
         MapManagerUiState(
             isLoggedIn = isLoggedIn,
             regions = regions,
