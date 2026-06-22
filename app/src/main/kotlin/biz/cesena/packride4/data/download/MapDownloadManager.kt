@@ -278,7 +278,10 @@ class MapDownloadManager @Inject constructor(
                     wrapper.delete()
                 }
 
+                val files = graphDir.listFiles()?.map { it.name } ?: emptyList()
+                biz.cesena.packride4.debug.DebugLog.log("routing: extracted to $graphDir, files=$files")
                 routingManager.loadPrebuiltGraph(graphDir, countryId)
+                biz.cesena.packride4.debug.DebugLog.log("routing: loadPrebuiltGraph done, isReady=${routingManager.isReady.value}")
                 setRoutingProgress(countryId, null)
             } catch (e: Exception) {
                 setRoutingProgress(countryId, null)
