@@ -28,6 +28,7 @@ class GeocodingService @Inject constructor(
     suspend fun search(query: String): List<GeocodingResult> = withContext(Dispatchers.IO) {
         if (query.length < 2) return@withContext emptyList()
 
+        offlineGeocoding.cancelPending()
         if (offlineGeocoding.isAvailable()) {
             val offlineResults = offlineGeocoding.search(query)
             if (offlineResults.isNotEmpty()) return@withContext offlineResults

@@ -13,6 +13,7 @@ class OfflineGeocodingService @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val openDbs = mutableMapOf<String, SQLiteDatabase>()
+    @Volatile private var currentSearchId = 0L
 
     private fun geocodingDir() = File(context.filesDir, "geocoding")
 
@@ -21,9 +22,14 @@ class OfflineGeocodingService @Inject constructor(
             dir.exists() && dir.listFiles()?.any { it.name.endsWith(".db") } == true
         }
 
+    fun cancelPending() {
+        currentSearchId++
+    }
+
     fun search(query: String, limit: Int = 6): List<GeocodingResult> {
         if (query.length < 3) return emptyList()
 
+        val searchId = ++currentSearchId
         val results = mutableListOf<GeocodingResult>()
         val trimmed = query.trim()
 
@@ -33,6 +39,7 @@ class OfflineGeocodingService @Inject constructor(
         val dbFiles = dir.listFiles()?.filter { it.name.endsWith(".db") } ?: return emptyList()
 
         for (dbFile in dbFiles) {
+            if (searchId != currentSearchId) return emptyList()
             val db = getDb(dbFile) ?: continue
             ensureIndex(db)
             try {
