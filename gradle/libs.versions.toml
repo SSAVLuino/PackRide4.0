@@ -19,6 +19,7 @@ graphhopper = "6.2"
 slf4jAndroid = "1.7.36"
 
 supabase = "3.1.4"
+supabaseKt = "3.6.0"
 ktor = "3.1.3"
 kotlinxSerializationJson = "1.7.3"
 
@@ -76,8 +77,8 @@ graphhopper-core = { group = "com.graphhopper", name = "graphhopper-core", versi
 slf4j-android = { group = "org.slf4j", name = "slf4j-android", version.ref = "slf4jAndroid" }
 
 # Supabase
-supabase-postgrest = { group = "io.github.jan-m-s", name = "supabase-postgrest", version.ref = "supabase" }
-supabase-auth = { group = "io.github.jan-m-s", name = "supabase-gotrue", version.ref = "supabase" }
+supabase-postgrest = { group = "io.github.jan-tennert.supabase", name = "postgrest-kt", version.ref = "supabaseKt" }
+supabase-auth = { group = "io.github.jan-tennert.supabase", name = "auth-kt", version.ref = "supabaseKt" }
 ktor-client-android = { group = "io.ktor", name = "ktor-client-android", version.ref = "ktor" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 
