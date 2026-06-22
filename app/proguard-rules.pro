@@ -8,6 +8,7 @@
 -dontwarn org.codehaus.stax2.**
 -dontwarn com.fasterxml.jackson.**
 -dontwarn org.apache.xmlgraphics.**
+-keep class org.apache.xmlgraphics.** { *; }
 
 # Keep GraphHopper classes (R8 strips them causing graph load failures)
 -keep class com.graphhopper.** { *; }
