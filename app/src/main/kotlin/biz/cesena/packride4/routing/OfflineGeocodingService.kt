@@ -22,10 +22,10 @@ class OfflineGeocodingService @Inject constructor(
         }
 
     fun search(query: String, limit: Int = 6): List<GeocodingResult> {
-        if (query.length < 2) return emptyList()
+        if (query.length < 3) return emptyList()
 
         val results = mutableListOf<GeocodingResult>()
-        val likePattern = "%${query.trim()}%"
+        val trimmed = query.trim()
 
         val dir = geocodingDir()
         if (!dir.exists()) return emptyList()
@@ -34,15 +34,16 @@ class OfflineGeocodingService @Inject constructor(
 
         for (dbFile in dbFiles) {
             val db = getDb(dbFile) ?: continue
+            ensureIndex(db)
             try {
                 val cursor = db.rawQuery(
                     """
                     SELECT name, type, category, lat, lon, city, street
                     FROM places
-                    WHERE name LIKE ? OR city LIKE ? OR street LIKE ?
+                    WHERE name LIKE ?
                     LIMIT ?
                     """.trimIndent(),
-                    arrayOf(likePattern, likePattern, likePattern, limit.toString())
+                    arrayOf("$trimmed%", limit.toString())
                 )
                 cursor.use {
                     while (it.moveToNext()) {
@@ -72,11 +73,25 @@ class OfflineGeocodingService @Inject constructor(
         return results.take(limit)
     }
 
+    private val indexedDbs = mutableSetOf<String>()
+
+    private fun ensureIndex(db: SQLiteDatabase) {
+        val path = db.path ?: return
+        if (path in indexedDbs) return
+        try {
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_places_name ON places(name COLLATE NOCASE)")
+            indexedDbs.add(path)
+            DebugLog.log("offline-geocoding: index created/verified for $path")
+        } catch (e: Exception) {
+            DebugLog.log("offline-geocoding: index creation failed: ${e.message}")
+        }
+    }
+
     private fun getDb(file: File): SQLiteDatabase? {
         val key = file.absolutePath
         openDbs[key]?.let { if (it.isOpen) return it }
         return try {
-            SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY).also {
+            SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READWRITE).also {
                 openDbs[key] = it
             }
         } catch (e: Exception) {
