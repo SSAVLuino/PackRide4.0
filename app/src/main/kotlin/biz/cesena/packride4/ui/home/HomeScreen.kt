@@ -410,7 +410,7 @@ fun HomeScreen(
                     onClick = { viewModel.debugSearchNearbyPois() },
                     containerColor = MaterialTheme.colorScheme.tertiaryContainer
                 ) {
-                    Icon(Icons.Default.Search, "Debug POI",
+                    Icon(Icons.Default.Place, "Debug POI",
                         tint = MaterialTheme.colorScheme.onTertiaryContainer,
                         modifier = Modifier.size(20.dp))
                 }
