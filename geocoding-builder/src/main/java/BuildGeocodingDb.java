@@ -15,10 +15,10 @@ import java.util.*;
 /**
  * Extracts geocoding data from an OSM PBF file and writes a SQLite FTS5 database.
  *
- * Memory-efficient approach:
- * - Pass 1: extract all POIs, places, addresses from NODES (no coordinate storage needed).
- *   Also collect node IDs referenced by tagged ways (streets, way-POIs) into a Set.
- * - Pass 2: re-read PBF, store only the needed node coordinates, then process ways.
+ * Streaming approach — writes directly to DB, minimal memory:
+ * - Pass 1: nodes → write POIs/places/addresses to DB immediately.
+ *           ways  → save only tag+nodeIds for interesting ways (small).
+ * - Pass 2: re-read nodes to resolve needed coords, then write ways to DB.
  *
  * Usage: BuildGeocodingDb input.osm.pbf output.db
  */
@@ -71,8 +71,6 @@ public class BuildGeocodingDb {
         "camp_site", "camping"
     );
 
-    private static final List<PlaceRecord> places = new ArrayList<>();
-
     public static void main(String[] args) throws Exception {
         if (args.length < 2) {
             System.err.println("Usage: BuildGeocodingDb <input.osm.pbf> <output.db>");
@@ -84,81 +82,93 @@ public class BuildGeocodingDb {
 
         new File(dbPath).delete();
 
-        // ── Pass 1: nodes (POIs, places, addresses) + collect way node IDs ──
-        System.out.println("Pass 1: reading nodes + scanning ways...");
-        // We need node IDs for ways that have interesting tags (streets, POIs as buildings)
-        Set<Long> neededNodeIds = new HashSet<>();
-        // Store way info temporarily
+        Connection conn = DriverManager.getConnection("jdbc:sqlite:" + dbPath);
+        createSchema(conn);
+        PreparedStatement insertPs = conn.prepareStatement(
+            "INSERT INTO places (name, type, category, lat, lon, city, street) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        conn.setAutoCommit(false);
+
+        // Pending ways (tags + node IDs) — only for interesting ways
         List<WayRecord> pendingWays = new ArrayList<>();
+        Set<Long> neededNodeIds = new HashSet<>();
+
+        // ── Pass 1: stream nodes → DB, scan ways ──
+        System.out.println("Pass 1: streaming nodes to DB + scanning ways...");
+        int[] counts = {0, 0, 0}; // nodeCount, wayCount, insertCount
 
         OsmosisReader reader1 = new OsmosisReader(new File(pbfPath));
         reader1.setSink(new Sink() {
-            int nodeCount = 0;
-            int wayCount = 0;
-
             @Override public void initialize(Map<String, Object> metaData) {}
-            @Override public void complete() {
-                System.out.println("  Nodes: " + nodeCount + ", places from nodes: " + places.size());
-                System.out.println("  Ways scanned: " + wayCount + ", pending ways: " + pendingWays.size());
-                System.out.println("  Needed node IDs: " + neededNodeIds.size());
-            }
+            @Override public void complete() {}
             @Override public void close() {}
 
             @Override
             public void process(EntityContainer entityContainer) {
-                if (entityContainer instanceof NodeContainer nc) {
-                    Node node = nc.getEntity();
-                    nodeCount++;
+                try {
+                    if (entityContainer instanceof NodeContainer nc) {
+                        Node node = nc.getEntity();
+                        counts[0]++;
 
-                    Map<String, String> tags = tagsToMap(node.getTags());
-                    if (!tags.isEmpty()) {
-                        PlaceRecord place = extractPlace(tags, node.getLatitude(), node.getLongitude());
-                        if (place != null) places.add(place);
-                    }
-
-                    if (nodeCount % 10_000_000 == 0) {
-                        System.out.println("  ... " + nodeCount / 1_000_000 + "M nodes, " + places.size() + " places, mem: " +
-                            usedMb() + "MB");
-                    }
-
-                } else if (entityContainer instanceof WayContainer wc) {
-                    Way way = wc.getEntity();
-                    wayCount++;
-                    Map<String, String> tags = tagsToMap(way.getTags());
-                    if (tags.isEmpty()) return;
-
-                    // Check if this way is interesting (POI or named street)
-                    boolean isPoi = extractPlace(tags, 0, 0) != null;
-                    String highway = tags.get("highway");
-                    String name = tags.get("name");
-                    boolean isStreet = highway != null && name != null && !name.isBlank();
-
-                    if (isPoi || isStreet) {
-                        List<Long> nodeIds = new ArrayList<>();
-                        for (WayNode wn : way.getWayNodes()) {
-                            nodeIds.add(wn.getNodeId());
-                            neededNodeIds.add(wn.getNodeId());
+                        Map<String, String> tags = tagsToMap(node.getTags());
+                        if (!tags.isEmpty()) {
+                            PlaceRecord place = extractPlace(tags, node.getLatitude(), node.getLongitude());
+                            if (place != null) {
+                                bindInsert(insertPs, place);
+                                insertPs.addBatch();
+                                counts[2]++;
+                                if (counts[2] % 10000 == 0) insertPs.executeBatch();
+                            }
                         }
-                        pendingWays.add(new WayRecord(tags, nodeIds));
+
+                        if (counts[0] % 10_000_000 == 0) {
+                            System.out.println("  ... " + counts[0] / 1_000_000 + "M nodes, " +
+                                counts[2] + " written, mem: " + usedMb() + "MB");
+                        }
+
+                    } else if (entityContainer instanceof WayContainer wc) {
+                        Way way = wc.getEntity();
+                        counts[1]++;
+                        Map<String, String> tags = tagsToMap(way.getTags());
+                        if (tags.isEmpty()) return;
+
+                        boolean isPoi = extractPlace(tags, 0, 0) != null;
+                        String highway = tags.get("highway");
+                        String name = tags.get("name");
+                        boolean isStreet = highway != null && name != null && !name.isBlank();
+
+                        if (isPoi || isStreet) {
+                            List<Long> nodeIds = new ArrayList<>(way.getWayNodes().size());
+                            for (WayNode wn : way.getWayNodes()) {
+                                nodeIds.add(wn.getNodeId());
+                                neededNodeIds.add(wn.getNodeId());
+                            }
+                            pendingWays.add(new WayRecord(tags, nodeIds));
+                        }
                     }
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
                 }
             }
         });
         reader1.run();
+        insertPs.executeBatch();
+        conn.commit();
 
-        System.out.println("Pass 1 complete. Memory: " + usedMb() + "MB");
+        System.out.println("  Nodes: " + counts[0] + ", ways scanned: " + counts[1] +
+            ", written to DB: " + counts[2]);
+        System.out.println("  Pending ways: " + pendingWays.size() +
+            ", needed node IDs: " + neededNodeIds.size());
+        System.out.println("  Memory: " + usedMb() + "MB");
 
-        // ── Pass 2: re-read nodes to get coordinates for pending ways ──
-        System.out.println("Pass 2: resolving " + neededNodeIds.size() + " node coordinates...");
+        // ── Pass 2: resolve node coords for pending ways ──
+        System.out.println("Pass 2: resolving node coordinates...");
         HashMap<Long, Long> nodeCoords = new HashMap<>(neededNodeIds.size() * 2);
 
         OsmosisReader reader2 = new OsmosisReader(new File(pbfPath));
+        int[] found = {0};
         reader2.setSink(new Sink() {
-            int found = 0;
             @Override public void initialize(Map<String, Object> metaData) {}
-            @Override public void complete() {
-                System.out.println("  Resolved " + found + " / " + neededNodeIds.size() + " node coords");
-            }
+            @Override public void complete() {}
             @Override public void close() {}
 
             @Override
@@ -169,67 +179,80 @@ public class BuildGeocodingDb {
                         long encoded = ((long)(int)(node.getLatitude() * 1e7) << 32) |
                                        ((int)(node.getLongitude() * 1e7) & 0xFFFFFFFFL);
                         nodeCoords.put(node.getId(), encoded);
-                        found++;
+                        found[0]++;
                     }
                 }
             }
         });
         reader2.run();
+        neededNodeIds.clear();
 
-        neededNodeIds.clear(); // free memory
+        System.out.println("  Resolved " + found[0] + " node coords. Memory: " + usedMb() + "MB");
 
-        // ── Process pending ways ──
-        System.out.println("Processing " + pendingWays.size() + " ways...");
+        // ── Write ways to DB ──
+        System.out.println("Writing " + pendingWays.size() + " ways to DB...");
+        int wayInserts = 0;
+        Set<String> seenStreets = new HashSet<>();
+
         for (WayRecord wr : pendingWays) {
             double[] centroid = wayCentroid(wr.nodeIds, nodeCoords);
             if (centroid == null) continue;
 
             PlaceRecord place = extractPlace(wr.tags, centroid[0], centroid[1]);
-            if (place != null) places.add(place);
+            if (place != null) {
+                bindInsert(insertPs, place);
+                insertPs.addBatch();
+                wayInserts++;
+            }
 
             String highway = wr.tags.get("highway");
             String name = wr.tags.get("name");
             if (highway != null && name != null && !name.isBlank()) {
                 String city = wr.tags.getOrDefault("addr:city", "");
-                places.add(new PlaceRecord(name, "street", null, centroid[0], centroid[1], city, ""));
+                String key = name.toLowerCase() + "|" + city.toLowerCase();
+                if (seenStreets.add(key)) {
+                    PlaceRecord street = new PlaceRecord(name, "street", null, centroid[0], centroid[1], city, "");
+                    bindInsert(insertPs, street);
+                    insertPs.addBatch();
+                    wayInserts++;
+                }
             }
+
+            if (wayInserts % 10000 == 0 && wayInserts > 0) insertPs.executeBatch();
         }
+        insertPs.executeBatch();
+        conn.commit();
+
         pendingWays.clear();
         nodeCoords.clear();
+        seenStreets.clear();
 
-        System.out.println("Total places before dedup: " + places.size());
+        System.out.println("  Way inserts: " + wayInserts);
+        System.out.println("  Total records: " + (counts[2] + wayInserts));
 
-        // ── Deduplicate streets ──
-        System.out.println("Deduplicating streets...");
-        Map<String, PlaceRecord> streetDedup = new LinkedHashMap<>();
-        List<PlaceRecord> finalPlaces = new ArrayList<>();
-        for (PlaceRecord p : places) {
-            if ("street".equals(p.type)) {
-                String key = p.name.toLowerCase() + "|" + p.city.toLowerCase();
-                streetDedup.putIfAbsent(key, p);
-            } else {
-                finalPlaces.add(p);
-            }
+        // ── Build FTS index ──
+        System.out.println("Building FTS index...");
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute("INSERT INTO places_fts(places_fts) VALUES('rebuild')");
         }
-        finalPlaces.addAll(streetDedup.values());
-        places.clear();
-        System.out.println("  Final count: " + finalPlaces.size());
 
-        // ── Write DB ──
-        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + dbPath)) {
-            createSchema(conn);
-            System.out.println("Writing database...");
-            insertPlaces(conn, finalPlaces);
-            System.out.println("Building FTS index...");
-            try (Statement stmt = conn.createStatement()) {
-                stmt.execute("INSERT INTO places_fts(places_fts) VALUES('rebuild')");
-            }
-        }
+        insertPs.close();
+        conn.close();
         System.out.println("Done. Output: " + dbPath + " (" + new File(dbPath).length() / 1024 / 1024 + " MB)");
     }
 
     private static long usedMb() {
         return (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / 1024 / 1024;
+    }
+
+    private static void bindInsert(PreparedStatement ps, PlaceRecord p) throws SQLException {
+        ps.setString(1, p.name);
+        ps.setString(2, p.type);
+        ps.setString(3, p.category);
+        ps.setDouble(4, p.lat);
+        ps.setDouble(5, p.lon);
+        ps.setString(6, p.city);
+        ps.setString(7, p.street);
     }
 
     private static Map<String, String> tagsToMap(Collection<Tag> tags) {
@@ -275,29 +298,22 @@ public class BuildGeocodingDb {
                 case "hamlet", "suburb", "neighbourhood" -> "hamlet";
                 default -> null;
             };
-            if (type != null) {
-                return new PlaceRecord(name, type, null, lat, lon, "", "");
-            }
+            if (type != null) return new PlaceRecord(name, type, null, lat, lon, "", "");
         }
 
         if (name != null && !name.isBlank()) {
             String category = null;
-
             String amenity = tags.get("amenity");
             if (amenity != null) category = AMENITY_CATEGORIES.get(amenity);
-
             if (category == null) {
                 String shop = tags.get("shop");
                 if (shop != null) category = SHOP_CATEGORIES.getOrDefault(shop, "shop");
             }
-
             if (category == null) {
                 String tourism = tags.get("tourism");
                 if (tourism != null) category = TOURISM_CATEGORIES.get(tourism);
             }
-
             if (category == null && tags.get("healthcare") != null) category = "healthcare";
-
             if (category != null) {
                 String city = tags.getOrDefault("addr:city", "");
                 String street = tags.getOrDefault("addr:street", "");
@@ -309,8 +325,7 @@ public class BuildGeocodingDb {
         String addrStreet = tags.get("addr:street");
         if (housenumber != null && addrStreet != null) {
             String city = tags.getOrDefault("addr:city", "");
-            String fullName = addrStreet + " " + housenumber;
-            return new PlaceRecord(fullName, "address", null, lat, lon, city, addrStreet);
+            return new PlaceRecord(addrStreet + " " + housenumber, "address", null, lat, lon, city, addrStreet);
         }
 
         return null;
@@ -329,30 +344,6 @@ public class BuildGeocodingDb {
         }
         if (count == 0) return null;
         return new double[]{sumLat / count, sumLon / count};
-    }
-
-    private static void insertPlaces(Connection conn, List<PlaceRecord> places) throws SQLException {
-        conn.setAutoCommit(false);
-        try (PreparedStatement ps = conn.prepareStatement(
-                "INSERT INTO places (name, type, category, lat, lon, city, street) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
-            int batch = 0;
-            for (PlaceRecord p : places) {
-                ps.setString(1, p.name);
-                ps.setString(2, p.type);
-                ps.setString(3, p.category);
-                ps.setDouble(4, p.lat);
-                ps.setDouble(5, p.lon);
-                ps.setString(6, p.city);
-                ps.setString(7, p.street);
-                ps.addBatch();
-                if (++batch % 10000 == 0) {
-                    ps.executeBatch();
-                }
-            }
-            ps.executeBatch();
-        }
-        conn.commit();
-        conn.setAutoCommit(true);
     }
 
     record PlaceRecord(String name, String type, String category, double lat, double lon, String city, String street) {}
