@@ -130,8 +130,6 @@ class OfflineGeocodingService @Inject constructor(
         if (!dir.exists()) return emptyList()
         val dbFiles = dir.listFiles()?.filter { it.name.endsWith(".db") } ?: return emptyList()
 
-        DebugLog.log("offline-geocoding: searching bounds lat=${"%.4f".format(minLat)}-${"%.4f".format(maxLat)} lon=${"%.4f".format(minLon)}-${"%.4f".format(maxLon)} in ${dbFiles.map { it.name }}")
-
         val results = mutableListOf<PoiResult>()
         for (dbFile in dbFiles) {
             val db = getDb(dbFile) ?: continue

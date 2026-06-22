@@ -126,15 +126,9 @@ class MapManagerViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val countries = catalogRepository.fetchCountries()
-                biz.cesena.packride4.debug.DebugLog.log("loadCatalog: ${countries.size} countries")
-                _countries.value = countries
-                val regions = catalogRepository.fetchRegions()
-                biz.cesena.packride4.debug.DebugLog.log("loadCatalog: ${regions.size} regions")
-                _remoteRegions.value = regions
-            } catch (e: Exception) {
-                biz.cesena.packride4.debug.DebugLog.log("loadCatalog: ERROR ${e::class.simpleName}: ${e.message}")
-            }
+                _countries.value = catalogRepository.fetchCountries()
+                _remoteRegions.value = catalogRepository.fetchRegions()
+            } catch (_: Exception) {}
             _isLoading.value = false
         }
     }
@@ -196,7 +190,6 @@ class MapManagerViewModel @Inject constructor(
             if (graphDir.exists()) {
                 graphDir.deleteRecursively()
                 routingManager.reset(graphDir)
-                biz.cesena.packride4.debug.DebugLog.log("deleted routing graph for $countryId")
             }
         }
     }
@@ -206,7 +199,6 @@ class MapManagerViewModel @Inject constructor(
             val dbFile = java.io.File(context.filesDir, "geocoding/geocoding-$countryId.db")
             if (dbFile.exists()) {
                 dbFile.delete()
-                biz.cesena.packride4.debug.DebugLog.log("deleted geocoding DB for $countryId")
             }
             // Trigger UI refresh
             downloadManager.geocodingProgress.value.let {

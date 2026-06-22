@@ -181,7 +181,6 @@ fun HomeScreen(
                 }
             }
             source?.setGeoJson(FeatureCollection.fromFeatures(features))
-            biz.cesena.packride4.debug.DebugLog.log("debug-pois: set ${features.size} features on map")
         }
     }
 

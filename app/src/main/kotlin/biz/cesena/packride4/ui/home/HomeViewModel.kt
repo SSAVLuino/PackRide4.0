@@ -723,7 +723,6 @@ class HomeViewModel @Inject constructor(
             mapsDir.listFiles()?.filter { it.name.endsWith(".mbtiles") }?.forEach { mapFile ->
                 val regionId = mapFile.nameWithoutExtension
                 if (db.mapRegionDao().getById(regionId) == null) {
-                    DebugLog.log("registerMbt: registering ${mapFile.name}")
                     db.mapRegionDao().insert(
                         biz.cesena.packride4.data.local.MapRegion(
                             id = regionId,
@@ -750,7 +749,6 @@ class HomeViewModel @Inject constructor(
             }.collect { (downloadedRegions, useOffline) ->
                 val mapFiles = downloadedRegions.map { File(it.filePath) }.filter { it.exists() }
                 val hasOffline = mapFiles.isNotEmpty()
-                DebugLog.log("mapSource: useOffline=$useOffline, regions=${downloadedRegions.size}, files=${mapFiles.size}, paths=${downloadedRegions.map { it.filePath }}")
                 if (useOffline && hasOffline) {
                     mbTilesServer.loadMaps(mapFiles)
                 } else {

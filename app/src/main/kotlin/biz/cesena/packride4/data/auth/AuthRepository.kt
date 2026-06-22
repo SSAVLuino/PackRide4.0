@@ -120,7 +120,6 @@ class AuthRepository @Inject constructor(
         if (conn.responseCode != HttpURLConnection.HTTP_OK) {
             val error = conn.errorStream?.bufferedReader()?.readText() ?: "HTTP ${conn.responseCode}"
             conn.disconnect()
-            DebugLog.log("auth: HTTP ${conn.responseCode} error: $error")
             throw Exception(parseErrorMessage(error))
         }
         val result = conn.inputStream.bufferedReader().readText()
