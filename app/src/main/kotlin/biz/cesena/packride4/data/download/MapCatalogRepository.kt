@@ -44,8 +44,8 @@ class MapCatalogRepository @Inject constructor(
                     id = obj.getString("id"),
                     name = obj.getString("name"),
                     bbox = obj.getString("bbox"),
-                    graphUrl = obj.optString("graph_url", null),
-                    geocodingUrl = obj.optString("geocoding_url", null),
+                    graphUrl = obj.optString("graph_url").ifBlank { null },
+                    geocodingUrl = obj.optString("geocoding_url").ifBlank { null },
                     graphSizeMb = obj.optDouble("graph_size_mb", 0.0),
                     geocodingSizeMb = obj.optDouble("geocoding_size_mb", 0.0)
                 )
