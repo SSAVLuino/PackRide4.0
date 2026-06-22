@@ -707,6 +707,7 @@ class HomeViewModel @Inject constructor(
             }.collect { (downloadedRegions, useOffline) ->
                 val mapFiles = downloadedRegions.map { File(it.filePath) }.filter { it.exists() }
                 val hasOffline = mapFiles.isNotEmpty()
+                DebugLog.log("mapSource: useOffline=$useOffline, regions=${downloadedRegions.size}, files=${mapFiles.size}, paths=${downloadedRegions.map { it.filePath }}")
                 if (useOffline && hasOffline) {
                     mbTilesServer.loadMaps(mapFiles)
                 } else {

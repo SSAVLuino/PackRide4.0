@@ -1,11 +1,15 @@
 package biz.cesena.packride4.data.download
 
+import android.content.Context
 import biz.cesena.packride4.BuildConfig
 import biz.cesena.packride4.data.auth.AuthRepository
 import biz.cesena.packride4.debug.DebugLog
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import javax.inject.Inject
@@ -32,49 +36,59 @@ data class MapRegionRemote(
 
 @Singleton
 class MapCatalogRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val authRepository: AuthRepository
 ) {
     private val supabaseUrl = BuildConfig.SUPABASE_URL
     private val anonKey = BuildConfig.SUPABASE_ANON_KEY
+    private val cacheDir = File(context.filesDir, "catalog_cache").also { it.mkdirs() }
 
     suspend fun fetchCountries(): List<MapCountry> = withContext(Dispatchers.IO) {
-        try {
-            val json = fetchTable("map_countries")
-            (0 until json.length()).map { i ->
-                val obj = json.getJSONObject(i)
-                MapCountry(
-                    id = obj.getString("id"),
-                    name = obj.getString("name"),
-                    bbox = obj.getString("bbox"),
-                    graphUrl = obj.optString("graph_url").ifBlank { null },
-                    geocodingUrl = obj.optString("geocoding_url").ifBlank { null },
-                    graphSizeMb = obj.optDouble("graph_size_mb", 0.0),
-                    geocodingSizeMb = obj.optDouble("geocoding_size_mb", 0.0)
-                )
-            }.also { DebugLog.log("catalog: fetched ${it.size} countries") }
-        } catch (e: Exception) {
-            DebugLog.log("catalog: fetch countries error: ${e::class.simpleName}: ${e.message}")
-            emptyList()
-        }
+        val json = fetchTableWithCache("map_countries")
+        (0 until json.length()).map { i ->
+            val obj = json.getJSONObject(i)
+            MapCountry(
+                id = obj.getString("id"),
+                name = obj.getString("name"),
+                bbox = obj.getString("bbox"),
+                graphUrl = obj.optString("graph_url").ifBlank { null },
+                geocodingUrl = obj.optString("geocoding_url").ifBlank { null },
+                graphSizeMb = obj.optDouble("graph_size_mb", 0.0),
+                geocodingSizeMb = obj.optDouble("geocoding_size_mb", 0.0)
+            )
+        }.also { DebugLog.log("catalog: ${it.size} countries") }
     }
 
     suspend fun fetchRegions(): List<MapRegionRemote> = withContext(Dispatchers.IO) {
-        try {
-            val json = fetchTable("map_regions")
-            (0 until json.length()).map { i ->
-                val obj = json.getJSONObject(i)
-                MapRegionRemote(
-                    id = obj.getString("id"),
-                    countryId = obj.getString("country_id"),
-                    name = obj.getString("name"),
-                    mbtilesUrl = obj.getString("mbtiles_url"),
-                    mbtilesSizeMb = obj.optDouble("mbtiles_size_mb", 0.0),
-                    bbox = obj.getString("bbox")
-                )
-            }.also { DebugLog.log("catalog: fetched ${it.size} regions") }
+        val json = fetchTableWithCache("map_regions")
+        (0 until json.length()).map { i ->
+            val obj = json.getJSONObject(i)
+            MapRegionRemote(
+                id = obj.getString("id"),
+                countryId = obj.getString("country_id"),
+                name = obj.getString("name"),
+                mbtilesUrl = obj.getString("mbtiles_url"),
+                mbtilesSizeMb = obj.optDouble("mbtiles_size_mb", 0.0),
+                bbox = obj.getString("bbox")
+            )
+        }.also { DebugLog.log("catalog: ${it.size} regions") }
+    }
+
+    private fun fetchTableWithCache(table: String): JSONArray {
+        return try {
+            val json = fetchTable(table)
+            File(cacheDir, "$table.json").writeText(json.toString())
+            DebugLog.log("catalog: $table fetched from network")
+            json
         } catch (e: Exception) {
-            DebugLog.log("catalog: fetch regions error: ${e::class.simpleName}: ${e.message}")
-            emptyList()
+            DebugLog.log("catalog: $table network error (${e::class.simpleName}), trying cache")
+            val cacheFile = File(cacheDir, "$table.json")
+            if (cacheFile.exists()) {
+                JSONArray(cacheFile.readText())
+            } else {
+                DebugLog.log("catalog: no cache for $table")
+                JSONArray()
+            }
         }
     }
 
