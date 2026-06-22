@@ -12,8 +12,10 @@ object RoutingDebugDump {
         File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "PackRide").also { it.mkdirs() }
     }
 
+    var enabled = false
+
     fun save(engine: String, destination: String, rawJson: String) {
-        if (!biz.cesena.packride4.BuildConfig.DEBUG) return
+        if (!biz.cesena.packride4.BuildConfig.DEBUG || !enabled) return
         try {
             val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
             val safeDest = destination.replace(Regex("[^a-zA-Z0-9_-]"), "_").take(40)
