@@ -101,6 +101,15 @@ fun HomeScreen(
         }
     }
 
+    // Force MapLibre to believe it's online when using offline tiles (localhost server)
+    LaunchedEffect(mapViewRef, uiState.hasOfflineMaps) {
+        if (uiState.hasOfflineMaps) {
+            mapViewRef?.setConnected(true)
+        } else {
+            mapViewRef?.setConnected(null) // auto-detect
+        }
+    }
+
     var mapViewRef by remember { mutableStateOf<MapView?>(null) }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, mapViewRef) {
