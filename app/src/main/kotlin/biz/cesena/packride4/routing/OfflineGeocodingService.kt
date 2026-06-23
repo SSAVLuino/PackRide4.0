@@ -38,6 +38,7 @@ class OfflineGeocodingService @Inject constructor(
 
         val dbFiles = dir.listFiles()?.filter { it.name.endsWith(".db") } ?: return emptyList()
 
+        // First pass: cities, POIs, streets (fast, ~100k records)
         for (dbFile in dbFiles) {
             if (searchId != currentSearchId) return emptyList()
             val db = getDb(dbFile) ?: continue
@@ -47,37 +48,55 @@ class OfflineGeocodingService @Inject constructor(
                     """
                     SELECT name, type, category, lat, lon, city, street
                     FROM places
-                    WHERE name LIKE ?
+                    WHERE name LIKE ? AND type != 'address'
                     LIMIT ?
                     """.trimIndent(),
                     arrayOf("$trimmed%", limit.toString())
                 )
-                cursor.use {
-                    while (it.moveToNext()) {
-                        val name = it.getString(0)
-                        val category = it.getString(2) ?: ""
-                        val lat = it.getDouble(3)
-                        val lon = it.getDouble(4)
-                        val city = it.getString(5) ?: ""
-                        val street = it.getString(6) ?: ""
-
-                        val displayName = when {
-                            category.isNotBlank() -> "$name ($category)"
-                            else -> name
-                        }
-                        val address = listOf(street, city).filter { s -> s.isNotBlank() }.joinToString(", ")
-                        results.add(GeocodingResult(displayName, address, lat, lon))
-                    }
-                }
+                cursor.use { parseResults(it, results) }
             } catch (e: Exception) {
                 DebugLog.log("offline-geocoding: query error on ${dbFile.name}: ${e.message}")
             }
-
             if (results.size >= limit) break
+        }
+
+        // Second pass: addresses only if not enough results and query looks like an address
+        if (results.size < limit && trimmed.length >= 5) {
+            for (dbFile in dbFiles) {
+                if (searchId != currentSearchId) return emptyList()
+                val db = getDb(dbFile) ?: continue
+                try {
+                    val cursor = db.rawQuery(
+                        """
+                        SELECT name, type, category, lat, lon, city, street
+                        FROM places
+                        WHERE name LIKE ? AND type = 'address'
+                        LIMIT ?
+                        """.trimIndent(),
+                        arrayOf("$trimmed%", (limit - results.size).toString())
+                    )
+                    cursor.use { parseResults(it, results) }
+                } catch (e: Exception) { }
+                if (results.size >= limit) break
+            }
         }
 
         DebugLog.log("offline-geocoding: ${results.size} results for \"$query\"")
         return results.take(limit)
+    }
+
+    private fun parseResults(cursor: android.database.Cursor, results: MutableList<GeocodingResult>) {
+        while (cursor.moveToNext()) {
+            val name = cursor.getString(0)
+            val category = cursor.getString(2) ?: ""
+            val lat = cursor.getDouble(3)
+            val lon = cursor.getDouble(4)
+            val city = cursor.getString(5) ?: ""
+            val street = cursor.getString(6) ?: ""
+            val displayName = if (category.isNotBlank()) "$name ($category)" else name
+            val address = listOf(street, city).filter { it.isNotBlank() }.joinToString(", ")
+            results.add(GeocodingResult(displayName, address, lat, lon))
+        }
     }
 
     data class PoiResult(val name: String, val category: String, val lat: Double, val lon: Double, val distanceMeters: Double = 0.0)
@@ -239,6 +258,7 @@ class OfflineGeocodingService @Inject constructor(
         if (path in indexedDbs) return
         try {
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_places_name ON places(name COLLATE NOCASE)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_places_type_name ON places(type, name COLLATE NOCASE)")
             indexedDbs.add(path)
             DebugLog.log("offline-geocoding: index created/verified for $path")
         } catch (e: Exception) {
