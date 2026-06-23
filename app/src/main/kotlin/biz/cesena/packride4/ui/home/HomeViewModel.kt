@@ -53,6 +53,8 @@ data class HomeUiState(
     val isNavigating: Boolean = false,
     val currentInstructionIndex: Int = 0,
     val distanceToNextManeuver: Double = 0.0,
+    val remainingDistance: Double = 0.0,
+    val remainingTime: Long = 0L,
     val speedKmh: Float = 0f,
     // Route planner state
     val waypoints: List<RouteWaypoint> = emptyList(),
@@ -654,13 +656,16 @@ class HomeViewModel @Inject constructor(
             voiceService.checkAnnouncement(newIdx, nextInstr.text, distToNextManeuver, state.speedKmh)
         }
 
-        val remainingDist = (route.distanceMeters - distanceAlongRoute).coerceAtLeast(0.0)
-        val remainingRatio = if (route.distanceMeters > 0) remainingDist / route.distanceMeters else 0.0
+        // Calculate remaining distance from total (never modify route.distanceMeters)
+        val totalDist = waypointDistances.lastOrNull() ?: route.distanceMeters
+        val remainingDist = (totalDist - distanceAlongRoute).coerceAtLeast(0.0)
+        val remainingRatio = if (totalDist > 0) remainingDist / totalDist else 0.0
         val remainingTime = (route.timeMillis * remainingRatio).toLong()
         _uiState.update { it.copy(
             currentInstructionIndex = newIdx,
             distanceToNextManeuver = distToNextManeuver,
-            route = route.copy(distanceMeters = remainingDist, timeMillis = remainingTime)
+            remainingDistance = remainingDist,
+            remainingTime = remainingTime,
         )}
     }
 

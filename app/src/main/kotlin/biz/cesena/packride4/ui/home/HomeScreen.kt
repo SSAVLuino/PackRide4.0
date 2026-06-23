@@ -751,8 +751,8 @@ private fun NavigationStatsBar(
             unit = "km/h",
             tint = if (overSpeed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
         ),
-        NavStatItem(value = formatDistance(route.distanceMeters), unit = "rimasti"),
-        NavStatItem(value = formatDuration(route.timeMillis), unit = "arrivo"),
+        NavStatItem(value = formatDistance(if (uiState.remainingDistance > 0) uiState.remainingDistance else route.distanceMeters), unit = "rimasti"),
+        NavStatItem(value = formatDuration(if (uiState.remainingTime > 0) uiState.remainingTime else route.timeMillis), unit = "arrivo"),
     )
 
     Column(
