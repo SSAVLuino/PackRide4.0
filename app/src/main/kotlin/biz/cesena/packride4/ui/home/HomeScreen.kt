@@ -920,18 +920,6 @@ private fun addMapLayers(style: Style) {
         )
     }
 
-    // ── User location layers ──
-    if (style.getLayer("user-bearing") == null) {
-        style.addLayer(org.maplibre.android.style.layers.SymbolLayer("user-bearing", "user-location").withProperties(
-            PropertyFactory.iconImage("user-bearing-arrow"),
-            PropertyFactory.iconSize(1f),
-            PropertyFactory.iconRotate(org.maplibre.android.style.expressions.Expression.get("bearing")),
-            PropertyFactory.iconRotationAlignment(org.maplibre.android.style.layers.Property.ICON_ROTATION_ALIGNMENT_MAP),
-            PropertyFactory.iconAllowOverlap(true),
-            PropertyFactory.iconIgnorePlacement(true),
-        ))
-    }
-
     // ── Waypoint marker layer ──
     if (style.getLayer("waypoint-markers") == null) {
         val iconExpr = org.maplibre.android.style.expressions.Expression.match(
@@ -1026,6 +1014,18 @@ private fun addMapLayers(style: Style) {
             PropertyFactory.textHaloColor("#ffffff"),
             PropertyFactory.textHaloWidth(1f),
             PropertyFactory.textOptional(true),
+        ))
+    }
+
+    // ── User location (always on top of everything) ──
+    if (style.getLayer("user-bearing") == null) {
+        style.addLayer(org.maplibre.android.style.layers.SymbolLayer("user-bearing", "user-location").withProperties(
+            PropertyFactory.iconImage("user-bearing-arrow"),
+            PropertyFactory.iconSize(1f),
+            PropertyFactory.iconRotate(org.maplibre.android.style.expressions.Expression.get("bearing")),
+            PropertyFactory.iconRotationAlignment(org.maplibre.android.style.layers.Property.ICON_ROTATION_ALIGNMENT_MAP),
+            PropertyFactory.iconAllowOverlap(true),
+            PropertyFactory.iconIgnorePlacement(true),
         ))
     }
 }

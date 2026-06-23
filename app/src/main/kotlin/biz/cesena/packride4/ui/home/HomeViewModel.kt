@@ -600,6 +600,7 @@ class HomeViewModel @Inject constructor(
     fun startNavigation() {
         voiceService.init()
         voiceService.reset()
+        lastMatchedSegment = 0
         _uiState.update { it.copy(isNavigating = true, isFollowing = true, currentInstructionIndex = 0, isEditingRoute = false, selectedWaypointIndex = -1) }
         voiceService.checkAnnouncement(0, "Partiamo", 0.0, 0f)
     }
@@ -663,13 +664,19 @@ class HomeViewModel @Inject constructor(
         )}
     }
 
+    private var lastMatchedSegment = 0
+
     private fun distanceAlongPolyline(lat: Double, lon: Double, points: List<Pair<Double, Double>>): Double {
         if (points.size < 2) return 0.0
         var bestDist = Double.MAX_VALUE
         var bestSegment = 0
         var bestFraction = 0.0
 
-        for (i in 0 until points.size - 1) {
+        // Search from a window around the last matched segment to avoid jumping back
+        val searchStart = (lastMatchedSegment - 5).coerceAtLeast(0)
+        val searchEnd = (lastMatchedSegment + 50).coerceAtMost(points.size - 1)
+
+        for (i in searchStart until searchEnd) {
             val (aLat, aLon) = points[i]
             val (bLat, bLon) = points[i + 1]
             val (dist, frac) = pointToSegmentDistance(lat, lon, aLat, aLon, bLat, bLon)
@@ -678,6 +685,14 @@ class HomeViewModel @Inject constructor(
                 bestSegment = i
                 bestFraction = frac
             }
+        }
+
+        // Only move forward, never backward (unless very close to an earlier segment)
+        if (bestSegment >= lastMatchedSegment || bestDist < 30.0) {
+            lastMatchedSegment = bestSegment
+        } else {
+            bestSegment = lastMatchedSegment
+            bestFraction = 0.0
         }
 
         var along = 0.0
