@@ -81,7 +81,8 @@ class OnlineRoutingService @Inject constructor() {
                     val instr = rawInstr.getJSONObject(i)
                     val maneuver = instr.optString("maneuver", "STRAIGHT")
                     val sign = tomTomManeuverToSign(maneuver)
-                    val text = instr.optString("message", "").ifBlank { maneuverToText(maneuver) }
+                    val rawText = instr.optString("message", "").ifBlank { maneuverToText(maneuver) }
+                    val text = if (maneuver == "LOCATION_DEPARTURE") "Partiamo" else rawText
                     val distM = instr.optDouble("routeOffsetInMeters", 0.0)
                     val timeS = instr.optLong("travelTimeInSeconds", 0L)
                     val modifier = if (sign == 6) tomTomRoundaboutModifier(maneuver) else ""
