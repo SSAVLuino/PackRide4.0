@@ -120,6 +120,7 @@ dependencies {
     // Offline routing
     implementation(libs.graphhopper.core) {
         exclude(group = "org.slf4j", module = "slf4j-api")
+        exclude(group = "org.apache.xmlgraphics", module = "xmlgraphics-commons")
     }
     implementation(libs.slf4j.android)
 
