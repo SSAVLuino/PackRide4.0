@@ -25,11 +25,13 @@ class GeocodingService @Inject constructor(
 
     private val apiKey = BuildConfig.TOMTOM_API_KEY
 
-    suspend fun search(query: String): List<GeocodingResult> = withContext(Dispatchers.IO) {
+    suspend fun search(query: String, userLat: Double = 0.0, userLon: Double = 0.0): List<GeocodingResult> = withContext(Dispatchers.IO) {
         if (query.length < 2) return@withContext emptyList()
 
         offlineGeocoding.cancelPending()
         if (offlineGeocoding.isAvailable()) {
+            offlineGeocoding.userLat = userLat
+            offlineGeocoding.userLon = userLon
             val offlineResults = offlineGeocoding.search(query)
             if (offlineResults.isNotEmpty()) return@withContext offlineResults
         }

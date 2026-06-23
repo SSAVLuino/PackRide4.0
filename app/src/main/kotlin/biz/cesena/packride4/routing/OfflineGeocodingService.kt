@@ -26,6 +26,9 @@ class OfflineGeocodingService @Inject constructor(
         currentSearchId++
     }
 
+    var userLat: Double = 0.0
+    var userLon: Double = 0.0
+
     fun search(query: String, limit: Int = 6): List<GeocodingResult> {
         if (query.length < 3) return emptyList()
 
@@ -38,7 +41,9 @@ class OfflineGeocodingService @Inject constructor(
 
         val dbFiles = dir.listFiles()?.filter { it.name.endsWith(".db") } ?: return emptyList()
 
-        // First pass: cities, POIs, streets (fast, ~100k records)
+        // Fetch more than needed, then sort by distance and trim
+        val fetchLimit = limit * 5
+
         for (dbFile in dbFiles) {
             if (searchId != currentSearchId) return emptyList()
             val db = getDb(dbFile) ?: continue
@@ -48,37 +53,20 @@ class OfflineGeocodingService @Inject constructor(
                     """
                     SELECT name, type, category, lat, lon, city, street
                     FROM places
-                    WHERE name LIKE ? AND type != 'address'
+                    WHERE name LIKE ?
                     LIMIT ?
                     """.trimIndent(),
-                    arrayOf("$trimmed%", limit.toString())
+                    arrayOf("$trimmed%", fetchLimit.toString())
                 )
                 cursor.use { parseResults(it, results) }
             } catch (e: Exception) {
                 DebugLog.log("offline-geocoding: query error on ${dbFile.name}: ${e.message}")
             }
-            if (results.size >= limit) break
         }
 
-        // Second pass: addresses only if not enough results and query looks like an address
-        if (results.size < limit && trimmed.length >= 5) {
-            for (dbFile in dbFiles) {
-                if (searchId != currentSearchId) return emptyList()
-                val db = getDb(dbFile) ?: continue
-                try {
-                    val cursor = db.rawQuery(
-                        """
-                        SELECT name, type, category, lat, lon, city, street
-                        FROM places
-                        WHERE name LIKE ? AND type = 'address'
-                        LIMIT ?
-                        """.trimIndent(),
-                        arrayOf("$trimmed%", (limit - results.size).toString())
-                    )
-                    cursor.use { parseResults(it, results) }
-                } catch (e: Exception) { }
-                if (results.size >= limit) break
-            }
+        // Sort by distance from user position
+        if (userLat != 0.0 && userLon != 0.0) {
+            results.sortBy { haversine(userLat, userLon, it.lat, it.lon) }
         }
 
         DebugLog.log("offline-geocoding: ${results.size} results for \"$query\"")
