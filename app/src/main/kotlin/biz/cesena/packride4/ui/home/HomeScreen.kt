@@ -845,20 +845,40 @@ private fun addMapLayers(style: Style) {
     // ── User bearing arrow icon ──
     if (style.getImage("user-bearing-arrow") == null) {
         val size = 96
-        val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        val pad = 8
+        val totalSize = size + pad * 2
+        val bmp = android.graphics.Bitmap.createBitmap(totalSize, totalSize, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bmp)
+        val arrowPath = android.graphics.Path().apply {
+            moveTo(totalSize / 2f, pad.toFloat())
+            lineTo(totalSize / 2f + size * 0.3f, pad + size * 0.7f)
+            lineTo(totalSize / 2f, pad + size * 0.5f)
+            lineTo(totalSize / 2f - size * 0.3f, pad + size * 0.7f)
+            close()
+        }
+        // Shadow
+        val shadowPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.argb(80, 0, 0, 0)
+            this.style = android.graphics.Paint.Style.FILL
+            maskFilter = android.graphics.BlurMaskFilter(6f, android.graphics.BlurMaskFilter.Blur.NORMAL)
+        }
+        canvas.save()
+        canvas.translate(2f, 4f)
+        canvas.drawPath(arrowPath, shadowPaint)
+        canvas.restore()
+        // Arrow
         val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.parseColor("#1a73e8")
             this.style = android.graphics.Paint.Style.FILL
         }
-        val path = android.graphics.Path().apply {
-            moveTo(size / 2f, 0f)
-            lineTo(size * 0.8f, size * 0.7f)
-            lineTo(size / 2f, size * 0.5f)
-            lineTo(size * 0.2f, size * 0.7f)
-            close()
+        canvas.drawPath(arrowPath, paint)
+        // White border
+        val border = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.WHITE
+            this.style = android.graphics.Paint.Style.STROKE
+            strokeWidth = 2f
         }
-        canvas.drawPath(path, paint)
+        canvas.drawPath(arrowPath, border)
         style.addImage("user-bearing-arrow", bmp)
     }
 
