@@ -20,7 +20,6 @@ import biz.cesena.packride4.ui.home.SidebarDebugLogDialog
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onOpenMapManager: () -> Unit = {},
     onBack: () -> Unit = {},
     onClose: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
@@ -81,22 +80,6 @@ fun SettingsScreen(
                         onCheckedChange = { viewModel.setUseOfflineMap(it) }
                     )
                 }
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-
-            ListItem(
-                headlineContent = { Text("Gestione mappe offline") },
-                supportingContent = { Text("Scarica o elimina regioni per l'uso offline") },
-                leadingContent = {
-                    Icon(Icons.Default.Download, null,
-                        tint = MaterialTheme.colorScheme.primary)
-                },
-                trailingContent = {
-                    Icon(Icons.Default.ChevronRight, null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                },
-                modifier = Modifier.clickable { onOpenMapManager() }
             )
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))

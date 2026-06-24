@@ -547,7 +547,6 @@ fun HomeScreen(
                     onClose = { viewModel.closeMenuAll() },
                 )
                 "settings" -> biz.cesena.packride4.ui.settings.SettingsScreen(
-                    onOpenMapManager = { viewModel.openMenuSubScreen("maps") },
                     onBack = { viewModel.closeMenuSubScreen() },
                     onClose = { viewModel.closeMenuAll() },
                 )
