@@ -250,7 +250,14 @@ fun HomeScreen(
         val map = mapInstance ?: return@LaunchedEffect
         val feature = Feature.fromGeometry(Point.fromLngLat(pos.longitude, pos.latitude))
         if (pos.hasBearing) feature.addNumberProperty("bearing", pos.bearing.toDouble())
-        (map.style?.getSourceAs<GeoJsonSource>("user-location"))?.setGeoJson(feature)
+        val style = map.style
+        (style?.getSourceAs<GeoJsonSource>("user-location"))?.setGeoJson(feature)
+        style?.let { s ->
+            s.getLayer("user-bearing")?.let { layer ->
+                s.removeLayer(layer)
+                s.addLayer(layer)
+            }
+        }
         if (!initialZoomDone) {
             map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(pos.latitude, pos.longitude), 14.0))
             initialZoomDone = true
@@ -933,7 +940,7 @@ private fun addMapLayers(style: Style) {
     if (style.getLayer("route") == null) {
         style.addLayerAbove(
             org.maplibre.android.style.layers.LineLayer("route", "route").withProperties(
-                PropertyFactory.lineColor("#1a73e8"),
+                PropertyFactory.lineColor("#FF1493"),
                 PropertyFactory.lineWidth(5f),
                 PropertyFactory.lineOpacity(0.85f)
             ), "desired-path"
