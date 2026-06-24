@@ -80,6 +80,7 @@ data class HomeUiState(
     val mapOrientationNorthUp: Boolean = true,
     val showInfoFullscreen: Boolean = false,
     val showMenu: Boolean = false,
+    val menuSubScreen: String? = null,
     val departureTimeMillis: Long = 0L,
     val distanceTraveled: Double = 0.0,
 )
@@ -813,7 +814,19 @@ class HomeViewModel @Inject constructor(
     }
 
     fun toggleMenu() {
-        _uiState.update { it.copy(showMenu = !it.showMenu) }
+        _uiState.update { it.copy(showMenu = !it.showMenu, menuSubScreen = null) }
+    }
+
+    fun openMenuSubScreen(screen: String) {
+        _uiState.update { it.copy(menuSubScreen = screen) }
+    }
+
+    fun closeMenuSubScreen() {
+        _uiState.update { it.copy(menuSubScreen = null) }
+    }
+
+    fun closeMenuAll() {
+        _uiState.update { it.copy(showMenu = false, menuSubScreen = null) }
     }
 
     fun toggleInfoFullscreen() {

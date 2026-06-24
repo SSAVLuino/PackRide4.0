@@ -54,9 +54,6 @@ private val BOTTOM_BAR_HEIGHT = 72.dp
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
-    onNavigateToMaps: () -> Unit = {},
-    onNavigateToRoutes: () -> Unit = {},
-    onNavigateToSettings: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
@@ -538,12 +535,29 @@ fun HomeScreen(
 
         // ── Fullscreen menu ──────────────────────────────────────────────────
         if (uiState.showMenu) {
-            MenuScreen(
-                onClose = { viewModel.toggleMenu() },
-                onNavigateToMaps = { viewModel.toggleMenu(); onNavigateToMaps() },
-                onNavigateToRoutes = { viewModel.toggleMenu(); onNavigateToRoutes() },
-                onNavigateToSettings = { viewModel.toggleMenu(); onNavigateToSettings() },
-            )
+            when (uiState.menuSubScreen) {
+                "maps" -> biz.cesena.packride4.ui.mapmanager.MapManagerScreen(
+                    onBack = { viewModel.closeMenuSubScreen() },
+                    onClose = { viewModel.closeMenuAll() },
+                    onLoginRequired = {},
+                )
+                "routes" -> biz.cesena.packride4.ui.savedroutes.SavedRoutesScreen(
+                    onGoToMap = { viewModel.closeMenuAll() },
+                    onBack = { viewModel.closeMenuSubScreen() },
+                    onClose = { viewModel.closeMenuAll() },
+                )
+                "settings" -> biz.cesena.packride4.ui.settings.SettingsScreen(
+                    onOpenMapManager = { viewModel.openMenuSubScreen("maps") },
+                    onBack = { viewModel.closeMenuSubScreen() },
+                    onClose = { viewModel.closeMenuAll() },
+                )
+                else -> MenuScreen(
+                    onClose = { viewModel.closeMenuAll() },
+                    onNavigateToMaps = { viewModel.openMenuSubScreen("maps") },
+                    onNavigateToRoutes = { viewModel.openMenuSubScreen("routes") },
+                    onNavigateToSettings = { viewModel.openMenuSubScreen("settings") },
+                )
+            }
         }
 
         // ── Route planner fullscreen ─────────────────────────────────────────
