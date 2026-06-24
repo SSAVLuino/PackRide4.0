@@ -3,6 +3,8 @@ package biz.cesena.packride4.ui.settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ChevronRight
@@ -19,6 +21,8 @@ import biz.cesena.packride4.ui.home.SidebarDebugLogDialog
 @Composable
 fun SettingsScreen(
     onOpenMapManager: () -> Unit = {},
+    onBack: () -> Unit = {},
+    onClose: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val useOfflineMap by viewModel.useOfflineMap.collectAsState()
@@ -31,7 +35,19 @@ fun SettingsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Impostazioni") })
+            TopAppBar(
+                title = { Text("Impostazioni") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Indietro")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onClose) {
+                        Icon(Icons.Default.Close, contentDescription = "Chiudi")
+                    }
+                }
+            )
         }
     ) { innerPadding ->
         Column(

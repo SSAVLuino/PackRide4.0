@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 
 import androidx.compose.material.icons.filled.ExpandLess
@@ -30,13 +32,27 @@ import kotlin.math.roundToInt
 @Composable
 fun SavedRoutesScreen(
     onGoToMap: () -> Unit = {},
+    onBack: () -> Unit = {},
+    onClose: () -> Unit = {},
     viewModel: SavedRoutesViewModel = hiltViewModel()
 ) {
     val routes by viewModel.routes.collectAsState()
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Percorsi salvati") })
+            TopAppBar(
+                title = { Text("Percorsi salvati") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Indietro")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onClose) {
+                        Icon(Icons.Default.Close, contentDescription = "Chiudi")
+                    }
+                }
+            )
         }
     ) { innerPadding ->
         Column(

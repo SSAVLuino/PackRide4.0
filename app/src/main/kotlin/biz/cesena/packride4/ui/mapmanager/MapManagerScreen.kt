@@ -18,6 +18,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @Composable
 fun MapManagerScreen(
     onLoginRequired: () -> Unit = {},
+    onBack: () -> Unit = {},
+    onClose: () -> Unit = {},
     viewModel: MapManagerViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -34,7 +36,21 @@ fun MapManagerScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Mappe offline") }) }
+        topBar = {
+            TopAppBar(
+                title = { Text("Mappe offline") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Indietro")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onClose) {
+                        Icon(Icons.Default.Close, contentDescription = "Chiudi")
+                    }
+                }
+            )
+        }
     ) { innerPadding ->
         Column(
             modifier = Modifier

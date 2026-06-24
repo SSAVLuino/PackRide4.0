@@ -57,14 +57,18 @@ fun AppNavigation() {
                     navController.navigate(Screen.Login.route) {
                         launchSingleTop = true
                     }
-                }
+                },
+                onBack = { navController.popBackStack() },
+                onClose = { navController.popBackStack(Screen.Home.route, inclusive = false) },
             )
         }
         composable(Screen.SavedRoutes.route) {
             SavedRoutesScreen(
                 onGoToMap = {
                     navController.popBackStack(Screen.Home.route, inclusive = false)
-                }
+                },
+                onBack = { navController.popBackStack() },
+                onClose = { navController.popBackStack(Screen.Home.route, inclusive = false) },
             )
         }
         composable(Screen.Settings.route) {
@@ -74,7 +78,9 @@ fun AppNavigation() {
                         popUpTo(Screen.Home.route) { inclusive = false }
                         launchSingleTop = true
                     }
-                }
+                },
+                onBack = { navController.popBackStack() },
+                onClose = { navController.popBackStack(Screen.Home.route, inclusive = false) },
             )
         }
         composable(Screen.Login.route) {
