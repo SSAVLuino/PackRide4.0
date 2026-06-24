@@ -43,71 +43,79 @@ fun BottomBar(
     onRightWidgetClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-        tonalElevation = 4.dp,
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp)
-                .navigationBarsPadding(),
-            verticalAlignment = Alignment.CenterVertically,
+        // Left group
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+            tonalElevation = 4.dp,
         ) {
-            // Left button - navigation/search
-            SmallFloatingActionButton(
-                onClick = onNavigateClick,
-                shape = CircleShape,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
+            Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Filled.Navigation, contentDescription = "Dove andiamo?")
+                SmallFloatingActionButton(
+                    onClick = onNavigateClick,
+                    shape = CircleShape,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ) {
+                    Icon(Icons.Filled.Navigation, contentDescription = "Dove andiamo?")
+                }
+                Spacer(Modifier.width(8.dp))
+                InfoWidget(
+                    line1 = "${uiState.speedKmh.roundToInt()} km/h",
+                    line2 = if (uiState.isNavigating && uiState.route != null) {
+                        "Arrivo ${formatArrivalTime(uiState.remainingTime)}"
+                    } else {
+                        val bearing = uiState.lastKnownPosition?.bearing ?: 0f
+                        bearingToCardinal(bearing)
+                    },
+                    onClick = onLeftWidgetClick,
+                )
             }
+        }
 
-            Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.weight(1f))
 
-            // Left widget
-            InfoWidget(
-                line1 = "${uiState.speedKmh.roundToInt()} km/h",
-                line2 = if (uiState.isNavigating && uiState.route != null) {
-                    "Arrivo ${formatArrivalTime(uiState.remainingTime)}"
-                } else {
-                    val bearing = uiState.lastKnownPosition?.bearing ?: 0f
-                    bearingToCardinal(bearing)
-                },
-                onClick = onLeftWidgetClick,
-                modifier = Modifier.weight(1f),
-            )
-
-            Spacer(Modifier.width(8.dp))
-
-            // Right widget
-            InfoWidget(
-                line1 = if (uiState.isNavigating && uiState.route != null) {
-                    formatDistanceShort(uiState.remainingDistance)
-                } else {
-                    "${uiState.altitudeMeters.roundToInt()} m"
-                },
-                line2 = if (uiState.isNavigating && uiState.route != null) {
-                    formatDurationShort(uiState.remainingTime)
-                } else {
-                    "GPS ±${uiState.lastKnownPosition?.accuracy?.roundToInt() ?: 0}m"
-                },
-                onClick = onRightWidgetClick,
-                modifier = Modifier.weight(1f),
-            )
-
-            Spacer(Modifier.width(8.dp))
-
-            // Right button - menu
-            SmallFloatingActionButton(
-                onClick = onMenuClick,
-                shape = CircleShape,
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        // Right group
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+            tonalElevation = 4.dp,
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Filled.Menu, contentDescription = "Menu")
+                InfoWidget(
+                    line1 = if (uiState.isNavigating && uiState.route != null) {
+                        formatDistanceShort(uiState.remainingDistance)
+                    } else {
+                        "${uiState.altitudeMeters.roundToInt()} m"
+                    },
+                    line2 = if (uiState.isNavigating && uiState.route != null) {
+                        formatDurationShort(uiState.remainingTime)
+                    } else {
+                        "GPS ±${uiState.lastKnownPosition?.accuracy?.roundToInt() ?: 0}m"
+                    },
+                    onClick = onRightWidgetClick,
+                )
+                Spacer(Modifier.width(8.dp))
+                SmallFloatingActionButton(
+                    onClick = onMenuClick,
+                    shape = CircleShape,
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ) {
+                    Icon(Icons.Filled.Menu, contentDescription = "Menu")
+                }
             }
         }
     }
