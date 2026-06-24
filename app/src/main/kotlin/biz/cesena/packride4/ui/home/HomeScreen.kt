@@ -54,7 +54,9 @@ private val BOTTOM_BAR_HEIGHT = 72.dp
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
-    onFullscreenOverlayChanged: (Boolean) -> Unit = {}
+    onNavigateToMaps: () -> Unit = {},
+    onNavigateToRoutes: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
@@ -63,10 +65,6 @@ fun HomeScreen(
         listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
     )
     val snackbarHostState = remember { SnackbarHostState() }
-
-    LaunchedEffect(uiState.showRoutePlanner) {
-        onFullscreenOverlayChanged(uiState.showRoutePlanner)
-    }
 
     LaunchedEffect(uiState.routeError) {
         val err = uiState.routeError ?: return@LaunchedEffect
@@ -540,7 +538,12 @@ fun HomeScreen(
 
         // ── Fullscreen menu ──────────────────────────────────────────────────
         if (uiState.showMenu) {
-            MenuScreen(onClose = { viewModel.toggleMenu() })
+            MenuScreen(
+                onClose = { viewModel.toggleMenu() },
+                onNavigateToMaps = { viewModel.toggleMenu(); onNavigateToMaps() },
+                onNavigateToRoutes = { viewModel.toggleMenu(); onNavigateToRoutes() },
+                onNavigateToSettings = { viewModel.toggleMenu(); onNavigateToSettings() },
+            )
         }
 
         // ── Route planner fullscreen ─────────────────────────────────────────
