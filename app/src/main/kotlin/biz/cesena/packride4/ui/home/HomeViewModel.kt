@@ -254,9 +254,16 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(plannerSearchLoading = true) }
         searchJob = viewModelScope.launch {
             delay(800)
-            val pos = _uiState.value.lastKnownPosition
-            val results = geocodingService.search(query, pos?.latitude ?: 0.0, pos?.longitude ?: 0.0)
-            _uiState.update { it.copy(plannerSearchResults = results, plannerSearchLoading = false) }
+            try {
+                val pos = _uiState.value.lastKnownPosition
+                DebugLog.log("search: querying \"$query\" pos=${pos?.latitude},${pos?.longitude}")
+                val results = geocodingService.search(query, pos?.latitude ?: 0.0, pos?.longitude ?: 0.0)
+                DebugLog.log("search: ${results.size} results for \"$query\"")
+                _uiState.update { it.copy(plannerSearchResults = results, plannerSearchLoading = false) }
+            } catch (e: Exception) {
+                DebugLog.log("search error: ${e::class.simpleName}: ${e.message}")
+                _uiState.update { it.copy(plannerSearchResults = emptyList(), plannerSearchLoading = false) }
+            }
         }
     }
 
