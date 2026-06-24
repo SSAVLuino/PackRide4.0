@@ -45,6 +45,22 @@ class UserPreferences @Inject constructor(
         _voiceMode.value = value
     }
 
+    fun getWidgetSelection(side: String, navigating: Boolean): String {
+        val key = "widget_${side}_${if (navigating) "nav" else "idle"}"
+        val default = when {
+            side == "left" && !navigating -> "altitude"
+            side == "right" && !navigating -> "time"
+            side == "left" && navigating -> "km_remaining"
+            else -> "altitude"
+        }
+        return prefs.getString(key, default) ?: default
+    }
+
+    fun setWidgetSelection(side: String, navigating: Boolean, value: String) {
+        val key = "widget_${side}_${if (navigating) "nav" else "idle"}"
+        prefs.edit().putString(key, value).apply()
+    }
+
     companion object {
         private const val KEY_USE_OFFLINE_MAP = "use_offline_map"
         private const val KEY_LAST_LAT = "last_lat"

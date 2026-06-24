@@ -83,6 +83,11 @@ data class HomeUiState(
     val menuSubScreen: String? = null,
     val departureTimeMillis: Long = 0L,
     val distanceTraveled: Double = 0.0,
+    val widgetLeftIdle: String = "altitude",
+    val widgetRightIdle: String = "time",
+    val widgetLeftNav: String = "km_remaining",
+    val widgetRightNav: String = "altitude",
+    val selectingWidgetSide: String? = null,
 )
 
 @HiltViewModel
@@ -127,6 +132,12 @@ class HomeViewModel @Inject constructor(
     }
 
     init {
+        _uiState.update { it.copy(
+            widgetLeftIdle = userPreferences.getWidgetSelection("left", false),
+            widgetRightIdle = userPreferences.getWidgetSelection("right", false),
+            widgetLeftNav = userPreferences.getWidgetSelection("left", true),
+            widgetRightNav = userPreferences.getWidgetSelection("right", true),
+        )}
         startMBTilesServer()
         registerMbtFilesInDb()
         observeMapSource()
@@ -830,7 +841,25 @@ class HomeViewModel @Inject constructor(
     }
 
     fun toggleInfoFullscreen() {
-        _uiState.update { it.copy(showInfoFullscreen = !it.showInfoFullscreen) }
+        _uiState.update { it.copy(showInfoFullscreen = !it.showInfoFullscreen, selectingWidgetSide = null) }
+    }
+
+    fun openWidgetSelector(side: String) {
+        _uiState.update { it.copy(showInfoFullscreen = true, selectingWidgetSide = side) }
+    }
+
+    fun selectWidgetValue(dataKey: String) {
+        val side = _uiState.value.selectingWidgetSide ?: return
+        val navigating = _uiState.value.isNavigating
+        userPreferences.setWidgetSelection(side, navigating, dataKey)
+        _uiState.update {
+            val updated = if (navigating) {
+                if (side == "left") it.copy(widgetLeftNav = dataKey) else it.copy(widgetRightNav = dataKey)
+            } else {
+                if (side == "left") it.copy(widgetLeftIdle = dataKey) else it.copy(widgetRightIdle = dataKey)
+            }
+            updated.copy(showInfoFullscreen = false, selectingWidgetSide = null)
+        }
     }
 
     override fun onCleared() {

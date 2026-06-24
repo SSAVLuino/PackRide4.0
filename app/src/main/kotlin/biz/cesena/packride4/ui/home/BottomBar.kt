@@ -34,6 +34,34 @@ fun bearingToCardinal(bearing: Float): String {
     }
 }
 
+data class WidgetData(val value: String, val label: String)
+
+fun resolveWidgetData(key: String, uiState: HomeUiState): WidgetData {
+    return when (key) {
+        "speed" -> WidgetData("${uiState.speedKmh.roundToInt()} km/h", "Velocità")
+        "altitude" -> WidgetData("${uiState.altitudeMeters.roundToInt()} m", "Altitudine")
+        "direction" -> WidgetData(
+            uiState.lastKnownPosition?.let { if (it.hasBearing) bearingToCardinal(it.bearing) else "—" } ?: "—",
+            "Direzione"
+        )
+        "gps_accuracy" -> WidgetData("±${uiState.lastKnownPosition?.accuracy?.roundToInt() ?: 0} m", "GPS")
+        "time" -> WidgetData(SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()), "Ora")
+        "arrival_time" -> WidgetData(formatArrivalTime(uiState.remainingTime), "Arrivo")
+        "time_from_departure" -> WidgetData(formatDurationShort(System.currentTimeMillis() - uiState.departureTimeMillis), "In viaggio")
+        "time_to_arrival" -> WidgetData(formatDurationShort(uiState.remainingTime), "Tempo rimasto")
+        "km_done" -> {
+            val total = uiState.route?.distanceMeters ?: 0.0
+            WidgetData(formatDistanceShort(total - uiState.remainingDistance), "Km fatti")
+        }
+        "km_remaining" -> WidgetData(formatDistanceShort(uiState.remainingDistance), "Km mancanti")
+        else -> WidgetData("—", key)
+    }
+}
+
+val IDLE_WIDGET_KEYS = listOf("altitude", "time", "speed", "direction", "gps_accuracy")
+val NAV_WIDGET_KEYS = listOf("altitude", "time", "speed", "direction", "gps_accuracy",
+    "arrival_time", "time_from_departure", "time_to_arrival", "km_done", "km_remaining")
+
 @Composable
 fun BottomBar(
     uiState: HomeUiState,
@@ -43,6 +71,11 @@ fun BottomBar(
     onRightWidgetClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val leftKey = if (uiState.isNavigating) uiState.widgetLeftNav else uiState.widgetLeftIdle
+    val rightKey = if (uiState.isNavigating) uiState.widgetRightNav else uiState.widgetRightIdle
+    val leftData = resolveWidgetData(leftKey, uiState)
+    val rightData = resolveWidgetData(rightKey, uiState)
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -69,16 +102,23 @@ fun BottomBar(
                     Icon(Icons.Filled.Navigation, contentDescription = "Dove andiamo?")
                 }
                 Spacer(Modifier.width(8.dp))
-                InfoWidget(
-                    line1 = "${uiState.speedKmh.roundToInt()} km/h",
-                    line2 = if (uiState.isNavigating && uiState.route != null) {
-                        "Arrivo ${formatArrivalTime(uiState.remainingTime)}"
-                    } else {
-                        val bearing = uiState.lastKnownPosition?.bearing ?: 0f
-                        bearingToCardinal(bearing)
-                    },
-                    onClick = onLeftWidgetClick,
-                )
+                Surface(
+                    modifier = Modifier.clickable(onClick = onLeftWidgetClick),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = leftData.value,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
             }
         }
 
@@ -94,19 +134,23 @@ fun BottomBar(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                InfoWidget(
-                    line1 = if (uiState.isNavigating && uiState.route != null) {
-                        formatDistanceShort(uiState.remainingDistance)
-                    } else {
-                        "${uiState.altitudeMeters.roundToInt()} m"
-                    },
-                    line2 = if (uiState.isNavigating && uiState.route != null) {
-                        formatDurationShort(uiState.remainingTime)
-                    } else {
-                        "GPS ±${uiState.lastKnownPosition?.accuracy?.roundToInt() ?: 0}m"
-                    },
-                    onClick = onRightWidgetClick,
-                )
+                Surface(
+                    modifier = Modifier.clickable(onClick = onRightWidgetClick),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = rightData.value,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
                 Spacer(Modifier.width(8.dp))
                 SmallFloatingActionButton(
                     onClick = onMenuClick,
@@ -121,45 +165,12 @@ fun BottomBar(
     }
 }
 
-@Composable
-private fun InfoWidget(
-    line1: String,
-    line2: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-        tonalElevation = 2.dp,
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                text = line1,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = line2,
-                style = MaterialTheme.typography.bodySmall,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
 private fun formatArrivalTime(remainingTimeMs: Long): String {
     val arrival = Date(System.currentTimeMillis() + remainingTimeMs)
     return SimpleDateFormat("HH:mm", Locale.getDefault()).format(arrival)
 }
 
-private fun formatDistanceShort(meters: Double): String {
+fun formatDistanceShort(meters: Double): String {
     return if (meters >= 1000) {
         "%.1f km".format(meters / 1000)
     } else {
@@ -167,7 +178,7 @@ private fun formatDistanceShort(meters: Double): String {
     }
 }
 
-private fun formatDurationShort(ms: Long): String {
+fun formatDurationShort(ms: Long): String {
     val totalMin = ms / 60_000
     return if (totalMin >= 60) {
         "${totalMin / 60}h ${totalMin % 60}min"

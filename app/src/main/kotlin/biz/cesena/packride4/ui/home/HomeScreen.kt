@@ -520,8 +520,8 @@ fun HomeScreen(
             uiState = uiState,
             onNavigateClick = { viewModel.openRoutePlanner() },
             onMenuClick = { viewModel.toggleMenu() },
-            onLeftWidgetClick = { viewModel.toggleInfoFullscreen() },
-            onRightWidgetClick = { viewModel.toggleInfoFullscreen() },
+            onLeftWidgetClick = { viewModel.openWidgetSelector("left") },
+            onRightWidgetClick = { viewModel.openWidgetSelector("right") },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
 
@@ -529,6 +529,8 @@ fun HomeScreen(
         if (uiState.showInfoFullscreen) {
             FullscreenInfoPanel(
                 uiState = uiState,
+                selectingSide = uiState.selectingWidgetSide,
+                onSelectValue = { viewModel.selectWidgetValue(it) },
                 onClose = { viewModel.toggleInfoFullscreen() },
             )
         }
