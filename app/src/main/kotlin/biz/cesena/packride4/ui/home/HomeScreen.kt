@@ -48,7 +48,7 @@ import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
 import kotlin.math.roundToInt
 
-private val SIDEBAR_WIDTH = 64.dp
+private val BOTTOM_BAR_HEIGHT = 72.dp
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -262,12 +262,14 @@ fun HomeScreen(
             map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(pos.latitude, pos.longitude), 14.0))
             initialZoomDone = true
         } else if (uiState.isFollowing && uiState.isNavigating) {
-            val bearing = if (pos.hasBearing) pos.bearing.toDouble() else map.cameraPosition.bearing
+            val bearing = if (uiState.mapOrientationNorthUp) 0.0
+                          else if (pos.hasBearing) pos.bearing.toDouble()
+                          else map.cameraPosition.bearing
             map.animateCamera(CameraUpdateFactory.newCameraPosition(
                 CameraPosition.Builder()
                     .target(LatLng(pos.latitude, pos.longitude))
                     .zoom(17.0)
-                    .tilt(45.0)
+                    .tilt(if (uiState.mapOrientationNorthUp) 0.0 else 45.0)
                     .bearing(bearing)
                     .build()
             ))
@@ -283,16 +285,9 @@ fun HomeScreen(
     )
     val safeBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val safeEnd = WindowInsets.navigationBars.asPaddingValues().calculateEndPadding(androidx.compose.ui.unit.LayoutDirection.Ltr)
-    val contentStart = SIDEBAR_WIDTH + 12.dp
-    val contentEnd = 16.dp + safeEnd
+    val contentStart = 12.dp
+    val contentEnd = 12.dp + safeEnd
     val contentTop = safeTop + 8.dp
-
-    // Height of the bottom overlay so the GPS FAB stays above it
-    val bottomPanelDp = when {
-        uiState.isNavigating -> 80.dp
-        uiState.route != null -> 80.dp
-        else -> 64.dp
-    }
 
     Box(modifier = Modifier.fillMaxSize()) {
 
@@ -410,30 +405,75 @@ fun HomeScreen(
             }
         }
 
-        // ── Navigation stats (top, 3 blocks) ───────────────────────────────
-        if (uiState.isNavigating && uiState.route != null) {
-            NavigationStatsBar(
-                uiState = uiState,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(top = contentTop, start = contentStart, end = contentEnd)
-            )
-        }
-
-        // ── GPS FAB + speed limit (right side, stacked) ─────────────────────
+        // ── Left column (zoom + speed limit) ────────────────────────────────
         Column(
             modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = contentEnd, bottom = bottomPanelDp + safeBottom + 12.dp),
+                .align(Alignment.CenterStart)
+                .padding(start = contentStart),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            SmallFloatingActionButton(
+                onClick = { mapInstance?.animateCamera(CameraUpdateFactory.zoomIn()) },
+                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                contentColor = MaterialTheme.colorScheme.onSurface,
+            ) {
+                Text("+", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            }
+            SmallFloatingActionButton(
+                onClick = { mapInstance?.animateCamera(CameraUpdateFactory.zoomOut()) },
+                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                contentColor = MaterialTheme.colorScheme.onSurface,
+            ) {
+                Text("−", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            }
             if (uiState.isNavigating && uiState.route != null) {
                 val currentInstruction = uiState.route!!.instructions.getOrNull(uiState.currentInstructionIndex)
                 val limit = currentInstruction?.speedLimitKmh ?: 0
                 if (limit > 0) {
                     SpeedLimitSign(limit = limit)
                 }
+            }
+        }
+
+        // ── Right column (GPS follow + orientation) ─────────────────────────
+        Column(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = contentEnd),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FloatingActionButton(
+                onClick = { viewModel.toggleFollow() },
+                containerColor = if (uiState.isFollowing)
+                    MaterialTheme.colorScheme.primary
+                else
+                    MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Icon(
+                    if (uiState.isFollowing) Icons.Default.GpsFixed else Icons.Default.MyLocation,
+                    contentDescription = "Segui GPS",
+                    tint = if (uiState.isFollowing)
+                        MaterialTheme.colorScheme.onPrimary
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            SmallFloatingActionButton(
+                onClick = {
+                    viewModel.toggleMapOrientation()
+                    if (!uiState.mapOrientationNorthUp) {
+                        mapInstance?.animateCamera(CameraUpdateFactory.bearingTo(0.0))
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                contentColor = MaterialTheme.colorScheme.onSurface,
+            ) {
+                Text(
+                    if (uiState.mapOrientationNorthUp) "N" else "↑",
+                    fontWeight = FontWeight.Bold, fontSize = 14.sp
+                )
             }
             if (biz.cesena.packride4.BuildConfig.DEBUG) {
                 SmallFloatingActionButton(
@@ -451,64 +491,56 @@ fun HomeScreen(
                         modifier = Modifier.size(20.dp))
                 }
             }
-            FloatingActionButton(
-                onClick = { viewModel.toggleFollow() },
-                containerColor = if (uiState.isFollowing)
-                    MaterialTheme.colorScheme.primary
-                else
-                    MaterialTheme.colorScheme.surfaceVariant
-            ) {
-                Icon(
-                    if (uiState.isFollowing) Icons.Default.GpsFixed else Icons.Default.MyLocation,
-                    contentDescription = "Segui GPS",
-                    tint = if (uiState.isFollowing)
-                        MaterialTheme.colorScheme.onPrimary
-                    else
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
 
-        // ── Bottom overlay (depends on state) ────────────────────────────────
-        when {
+        // ── Navigation instruction banner (TOP, only when navigating) ───────
+        if (uiState.isNavigating && uiState.route != null) {
+            NavigationInstructionBanner(
+                uiState = uiState,
+                onStop = { viewModel.stopNavigation() },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .padding(start = contentStart, end = contentEnd, top = contentTop)
+            )
+        }
 
-            // STATE 1 — Navigating: only instruction banner at bottom
-            uiState.isNavigating && uiState.route != null -> {
-                NavigationInstructionBanner(
-                    uiState = uiState,
-                    onStop = { viewModel.stopNavigation() },
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(start = contentStart, end = contentEnd, bottom = safeBottom)
-                )
-            }
+        // ── Route ready panel (above bottom bar) ─────────────────────────────
+        if (!uiState.isNavigating && uiState.route != null) {
+            RouteReadyPanel(
+                route = uiState.route!!,
+                destinationName = uiState.destinationName,
+                onStart = { viewModel.startNavigation() },
+                onCancel = { viewModel.clearRoute() },
+                onRecalculate = { engine -> viewModel.recalculateWithEngine(engine) },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(start = contentStart, end = contentEnd, bottom = BOTTOM_BAR_HEIGHT + 8.dp)
+            )
+        }
 
-            // STATE 2 — Route computed, not yet navigating
-            uiState.route != null -> {
-                RouteReadyPanel(
-                    route = uiState.route!!,
-                    destinationName = uiState.destinationName,
-                    onStart = { viewModel.startNavigation() },
-                    onCancel = { viewModel.clearRoute() },
-                    onRecalculate = { engine -> viewModel.recalculateWithEngine(engine) },
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(start = contentStart, end = contentEnd, bottom = safeBottom)
-                )
-            }
+        // ── Bottom bar (always visible) ──────────────────────────────────────
+        BottomBar(
+            uiState = uiState,
+            onNavigateClick = { viewModel.openRoutePlanner() },
+            onMenuClick = { viewModel.toggleMenu() },
+            onLeftWidgetClick = { viewModel.toggleInfoFullscreen() },
+            onRightWidgetClick = { viewModel.toggleInfoFullscreen() },
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
 
-            // STATE 3 — Idle: search bar
-            else -> {
-                SearchBar(
-                    onClick = { viewModel.openRoutePlanner() },
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(start = contentStart, end = contentEnd, bottom = safeBottom + 12.dp)
-                )
-            }
+        // ── Fullscreen info panel ────────────────────────────────────────────
+        if (uiState.showInfoFullscreen) {
+            FullscreenInfoPanel(
+                uiState = uiState,
+                onClose = { viewModel.toggleInfoFullscreen() },
+            )
+        }
+
+        // ── Fullscreen menu ──────────────────────────────────────────────────
+        if (uiState.showMenu) {
+            MenuScreen(onClose = { viewModel.toggleMenu() })
         }
 
         // ── Route planner fullscreen ─────────────────────────────────────────
@@ -555,7 +587,7 @@ fun HomeScreen(
             hostState = snackbarHostState,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = bottomPanelDp + safeBottom + 8.dp)
+                .padding(bottom = BOTTOM_BAR_HEIGHT + safeBottom + 8.dp)
         )
 
         // ── GPS permission rationale ─────────────────────────────────────────
@@ -583,26 +615,6 @@ fun HomeScreen(
             }
         }
 
-    }
-}
-
-// ── Bottom panel: idle "Dove andiamo?" button ─────────────────────────────────
-
-@Composable
-private fun SearchBar(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Button(
-        onClick = onClick,
-        modifier = modifier.height(52.dp),
-        shape = MaterialTheme.shapes.extraLarge,
-        contentPadding = PaddingValues(horizontal = 24.dp)
-    ) {
-        Icon(Icons.Default.Place, contentDescription = null, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(10.dp))
-        Text(
-            "Dove andiamo?",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold
-        )
     }
 }
 
@@ -734,58 +746,6 @@ private fun NavigationInstructionBanner(
             IconButton(onClick = onStop) {
                 Icon(Icons.Default.Close, "Stop navigazione",
                     tint = MaterialTheme.colorScheme.error)
-            }
-        }
-    }
-}
-
-// ── Navigation stats overlay (left side, on the map) ─────────────────────────
-
-data class NavStatItem(val value: String, val unit: String, val tint: Color = Color.Unspecified)
-
-@Composable
-private fun NavigationStatsBar(
-    uiState: HomeUiState,
-    modifier: Modifier = Modifier
-) {
-    val route = uiState.route ?: return
-    val currentInstruction = route.instructions.getOrNull(uiState.currentInstructionIndex)
-    val overSpeed = currentInstruction?.speedLimitKmh?.let { it > 0 && uiState.speedKmh > it } == true
-
-    val stats = listOf(
-        NavStatItem(
-            value = "${uiState.speedKmh.roundToInt()}",
-            unit = "km/h",
-            tint = if (overSpeed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-        ),
-        NavStatItem(value = formatDistance(if (uiState.remainingDistance > 0) uiState.remainingDistance else route.distanceMeters), unit = "rimasti"),
-        NavStatItem(value = formatDuration(if (uiState.remainingTime > 0) uiState.remainingTime else route.timeMillis), unit = "arrivo"),
-    )
-
-    Column(
-        modifier = modifier.width(IntrinsicSize.Min),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        stats.forEach { stat ->
-            Surface(
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                shape = MaterialTheme.shapes.medium,
-                shadowElevation = 4.dp
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(stat.value,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (stat.tint == Color.Unspecified) MaterialTheme.colorScheme.onSurface else stat.tint,
-                        maxLines = 1)
-                    Text(stat.unit,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
             }
         }
     }

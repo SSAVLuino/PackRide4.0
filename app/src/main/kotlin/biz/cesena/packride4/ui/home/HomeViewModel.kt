@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
 
-data class GpsPosition(val latitude: Double, val longitude: Double, val accuracy: Float, val bearing: Float = 0f, val hasBearing: Boolean = false)
+data class GpsPosition(val latitude: Double, val longitude: Double, val accuracy: Float, val bearing: Float = 0f, val hasBearing: Boolean = false, val altitude: Double = 0.0, val speed: Float = 0f)
 
 data class RouteWaypoint(
     val label: String = "",
@@ -75,6 +75,13 @@ data class HomeUiState(
     val fuelStationsAlongRoute: List<OfflineGeocodingService.PoiResult> = emptyList(),
     val debugPois: List<OfflineGeocodingService.PoiResult> = emptyList(),
     val isRouteCalculating: Boolean = false,
+    // Layout redesign state
+    val altitudeMeters: Double = 0.0,
+    val mapOrientationNorthUp: Boolean = true,
+    val showInfoFullscreen: Boolean = false,
+    val showMenu: Boolean = false,
+    val departureTimeMillis: Long = 0L,
+    val distanceTraveled: Double = 0.0,
 )
 
 @HiltViewModel
@@ -108,8 +115,9 @@ class HomeViewModel @Inject constructor(
         override fun onLocationResult(result: LocationResult) {
             result.lastLocation?.let { loc ->
                 _uiState.update { it.copy(
-                    lastKnownPosition = GpsPosition(loc.latitude, loc.longitude, loc.accuracy, loc.bearing, loc.hasBearing()),
-                    speedKmh = if (loc.hasSpeed()) loc.speed * 3.6f else it.speedKmh
+                    lastKnownPosition = GpsPosition(loc.latitude, loc.longitude, loc.accuracy, loc.bearing, loc.hasBearing(), loc.altitude, loc.speed),
+                    speedKmh = if (loc.hasSpeed()) loc.speed * 3.6f else it.speedKmh,
+                    altitudeMeters = if (loc.hasAltitude()) loc.altitude else it.altitudeMeters,
                 )}
                 userPreferences.saveLastPosition(loc.latitude, loc.longitude)
                 if (_uiState.value.isNavigating) advanceNavigation(loc.latitude, loc.longitude)
@@ -604,7 +612,7 @@ class HomeViewModel @Inject constructor(
         voiceService.init()
         voiceService.reset()
         lastMatchedSegment = 0
-        _uiState.update { it.copy(isNavigating = true, isFollowing = true, currentInstructionIndex = 0, isEditingRoute = false, selectedWaypointIndex = -1) }
+        _uiState.update { it.copy(isNavigating = true, isFollowing = true, currentInstructionIndex = 0, isEditingRoute = false, selectedWaypointIndex = -1, departureTimeMillis = System.currentTimeMillis(), distanceTraveled = 0.0) }
         voiceService.checkAnnouncement(0, "Partiamo", 0.0, 0f)
     }
 
@@ -791,6 +799,18 @@ class HomeViewModel @Inject constructor(
 
     fun toggleFollow() {
         _uiState.update { it.copy(isFollowing = !it.isFollowing) }
+    }
+
+    fun toggleMapOrientation() {
+        _uiState.update { it.copy(mapOrientationNorthUp = !it.mapOrientationNorthUp) }
+    }
+
+    fun toggleMenu() {
+        _uiState.update { it.copy(showMenu = !it.showMenu) }
+    }
+
+    fun toggleInfoFullscreen() {
+        _uiState.update { it.copy(showInfoFullscreen = !it.showInfoFullscreen) }
     }
 
     override fun onCleared() {
