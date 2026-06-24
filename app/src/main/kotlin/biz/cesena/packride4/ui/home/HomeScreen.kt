@@ -648,52 +648,38 @@ private fun RouteReadyPanel(
 ) {
     Surface(
         modifier = modifier,
-        color = MaterialTheme.colorScheme.surface,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
         shadowElevation = 8.dp,
-        shape = MaterialTheme.shapes.large.copy(
-            bottomStart = androidx.compose.foundation.shape.CornerSize(0.dp),
-            bottomEnd = androidx.compose.foundation.shape.CornerSize(0.dp)
-        )
+        shape = MaterialTheme.shapes.large,
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    if (destinationName.isNotBlank()) {
-                        Text(destinationName,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1)
-                    }
-                    Text(
-                        "${formatDistance(route.distanceMeters)}  ·  ${formatDuration(route.timeMillis)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                OutlinedButton(onClick = onCancel) { Text("Cancella") }
-                Button(onClick = onStart) {
-                    Icon(Icons.Default.Navigation, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Avvia")
-                }
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            IconButton(onClick = onCancel) {
+                Icon(Icons.Default.Close, "Cancella", tint = MaterialTheme.colorScheme.error)
             }
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Column(modifier = Modifier.weight(1f)) {
+                if (destinationName.isNotBlank()) {
+                    Text(destinationName,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1)
+                }
+                Text(
+                    "${formatDistance(route.distanceMeters)}  ·  ${formatDuration(route.timeMillis)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            FloatingActionButton(
+                onClick = onStart,
+                containerColor = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(48.dp),
             ) {
-                OutlinedButton(onClick = { onRecalculate("local") }, modifier = Modifier.weight(1f)) {
-                    Text("Locale", style = MaterialTheme.typography.labelSmall)
-                }
-                OutlinedButton(onClick = { onRecalculate("tomtom") }, modifier = Modifier.weight(1f)) {
-                    Text("TomTom", style = MaterialTheme.typography.labelSmall)
-                }
-                OutlinedButton(onClick = { onRecalculate("osrm") }, modifier = Modifier.weight(1f)) {
-                    Text("OSRM", style = MaterialTheme.typography.labelSmall)
-                }
+                Icon(Icons.Default.Navigation, "Avvia",
+                    tint = MaterialTheme.colorScheme.onPrimary)
             }
         }
     }
