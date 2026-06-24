@@ -815,8 +815,9 @@ private fun DebugLogDialog(onDismiss: () -> Unit) {
 private fun addMapLayers(style: Style) {
     // ── User bearing arrow icon ──
     if (style.getImage("user-bearing-arrow") == null) {
-        val size = 96
-        val pad = 8
+        val density = android.content.res.Resources.getSystem().displayMetrics.density
+        val size = (40 * density).toInt()
+        val pad = (4 * density).toInt()
         val totalSize = size + pad * 2
         val bmp = android.graphics.Bitmap.createBitmap(totalSize, totalSize, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bmp)
@@ -831,10 +832,10 @@ private fun addMapLayers(style: Style) {
         val shadowPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.argb(80, 0, 0, 0)
             this.style = android.graphics.Paint.Style.FILL
-            maskFilter = android.graphics.BlurMaskFilter(6f, android.graphics.BlurMaskFilter.Blur.NORMAL)
+            maskFilter = android.graphics.BlurMaskFilter(3f * density, android.graphics.BlurMaskFilter.Blur.NORMAL)
         }
         canvas.save()
-        canvas.translate(2f, 4f)
+        canvas.translate(1f * density, 2f * density)
         canvas.drawPath(arrowPath, shadowPaint)
         canvas.restore()
         // Arrow
@@ -847,7 +848,7 @@ private fun addMapLayers(style: Style) {
         val border = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.WHITE
             this.style = android.graphics.Paint.Style.STROKE
-            strokeWidth = 2f
+            strokeWidth = 1.5f * density
         }
         canvas.drawPath(arrowPath, border)
         style.addImage("user-bearing-arrow", bmp)
