@@ -188,12 +188,17 @@ class HomeViewModel @Inject constructor(
         }
         viewModelScope.launch {
             val routingDir = File(context.filesDir, "routing")
+            DebugLog.log("routing: scanning $routingDir for graphs")
             for (entry in AVAILABLE_REGIONS) {
                 val graphDir = File(routingDir, "graph-${entry.id}")
                 if (graphDir.exists() && graphDir.isDirectory) {
+                    DebugLog.log("routing: found graph dir for ${entry.id}, loading...")
                     routingManager.loadPrebuiltGraph(graphDir, entry.id)
+                } else {
+                    DebugLog.log("routing: no graph dir for ${entry.id} (${graphDir.absolutePath})")
                 }
             }
+            DebugLog.log("routing: scan complete, ${routingManager.loadedCount()} graphs loaded")
         }
     }
 

@@ -99,14 +99,22 @@ class RoutingManager @Inject constructor() {
      * Returns true if both [from] and [to] fall inside the bounding box of a single
      * loaded region — meaning GraphHopper can serve the route entirely offline.
      */
+    fun loadedCount(): Int = hoppers.size
+
     fun canRouteLocally(
         fromLat: Double, fromLon: Double,
         toLat: Double, toLon: Double,
         regions: List<RegionCatalogEntry>
-    ): Boolean = regions.any { region ->
-        region.id in regionToPath &&
-        region.containsPoint(fromLat, fromLon) &&
-        region.containsPoint(toLat, toLon)
+    ): Boolean {
+        val result = regions.any { region ->
+            val loaded = region.id in regionToPath
+            val fromIn = region.containsPoint(fromLat, fromLon)
+            val toIn = region.containsPoint(toLat, toLon)
+            if (loaded) DebugLog.log("routing: canRouteLocally ${region.id}: from=$fromIn to=$toIn")
+            loaded && fromIn && toIn
+        }
+        DebugLog.log("routing: canRouteLocally result=$result (loaded regions: ${regionToPath.keys})")
+        return result
     }
 
     suspend fun route(points: List<Pair<Double, Double>>): RouteResult? = withContext(Dispatchers.IO) {
