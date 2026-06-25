@@ -33,7 +33,8 @@ data class RouteResult(
     val points: List<Pair<Double, Double>>, // lat, lon
     val instructions: List<RouteInstruction>,
     val distanceMeters: Double,
-    val timeMillis: Long
+    val timeMillis: Long,
+    val engineTag: String = "",
 )
 
 /** Manages one or more on-device GraphHopper routing graphs and computes routes. */
@@ -194,7 +195,7 @@ class RoutingManager @Inject constructor() {
                     })
                 }
                 RoutingDebugDump.save("graphhopper", destLabel, dumpJson.toString(2))
-                return@withContext RouteResult(routePoints, instructions, path.distance, path.time)
+                return@withContext RouteResult(routePoints, instructions, path.distance, path.time, "L")
             } catch (e: Exception) {
                 DebugLog.log("routing: graph $key exception: ${e.message}")
             }

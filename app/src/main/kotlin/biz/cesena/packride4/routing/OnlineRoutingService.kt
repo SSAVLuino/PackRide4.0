@@ -104,7 +104,7 @@ class OnlineRoutingService @Inject constructor() {
                 }
             }
             DebugLog.log("online-routing: TomTom ${instructions.size} istruzioni")
-            RouteResult(points, instructions, distanceM, timeMs)
+            RouteResult(points, instructions, distanceM, timeMs, "T")
         } catch (e: Exception) {
             DebugLog.log("online-routing: TomTom exception: ${e::class.simpleName}: ${e.message}")
             null
@@ -149,7 +149,7 @@ class OnlineRoutingService @Inject constructor() {
                 }
             }
             DebugLog.log("online-routing: OSRM ${instructions.size} istruzioni")
-            RouteResult(points, instructions, distanceM, timeMs)
+            RouteResult(points, instructions, distanceM, timeMs, "O")
         } catch (e: Exception) {
             DebugLog.log("online-routing: OSRM exception: ${e::class.simpleName}: ${e.message}")
             null
