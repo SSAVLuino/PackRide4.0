@@ -339,11 +339,13 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             val first = points.first()
             val last = points.last()
+            var engineTag = "O"
             val result = if (routingManager.canRouteLocally(first.first, first.second, last.first, last.second, AVAILABLE_REGIONS)) {
                 DebugLog.log("routing: trying local GraphHopper with ${points.size} waypoints")
                 val local = routingManager.route(points)
                 if (local != null) {
                     DebugLog.log("routing: local OK")
+                    engineTag = "L"
                     local
                 } else {
                     DebugLog.log("routing: local failed, falling back to online")
@@ -354,8 +356,10 @@ class HomeViewModel @Inject constructor(
                 onlineRoutingService.routeMulti(points)
             }
             if (result != null) {
+                val nameWithEngine = "$destName ($engineTag)"
+                _uiState.update { it.copy(destinationName = nameWithEngine) }
                 val savedId = savedRouteDao.insert(SavedRoute(
-                    name = destName,
+                    name = nameWithEngine,
                     destinationLat = last.first,
                     destinationLon = last.second,
                     distanceMeters = result.distanceMeters,
@@ -586,7 +590,10 @@ class HomeViewModel @Inject constructor(
             }
             if (result != null) {
                 val existingId = _uiState.value.savedRouteId
-                val destName = _uiState.value.destinationName.ifBlank { "Percorso" }
+                val engineTag = when (engine) { "local" -> "L"; "tomtom" -> "T"; "osrm" -> "O"; else -> "?" }
+                val baseName = _uiState.value.destinationName.replace(Regex("\\s*\\([LTOE?]\\)$"), "").ifBlank { "Percorso" }
+                val destName = "$baseName ($engineTag)"
+                _uiState.update { it.copy(destinationName = destName) }
                 val last = points.last()
                 if (existingId != null) {
                     savedRouteDao.update(SavedRoute(
