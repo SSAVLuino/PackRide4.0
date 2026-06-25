@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
 
-data class GpsPosition(val latitude: Double, val longitude: Double, val accuracy: Float, val bearing: Float = 0f, val hasBearing: Boolean = false, val altitude: Double = 0.0, val speed: Float = 0f)
+data class GpsPosition(val latitude: Double, val longitude: Double, val accuracy: Float, val bearing: Float = 0f, val hasBearing: Boolean = false, val altitude: Double = 0.0, val speed: Float = 0f, val snappedLat: Double? = null, val snappedLon: Double? = null)
 
 data class RouteWaypoint(
     val label: String = "",
@@ -664,7 +664,8 @@ class HomeViewModel @Inject constructor(
             waypointDistances.add(cumulative)
         }
 
-        val distanceAlongRoute = distanceAlongPolyline(lat, lon, route.points)
+        val match = matchToPolyline(lat, lon, route.points)
+        val distanceAlongRoute = match.distanceAlong
 
         var newIdx = idx
         while (newIdx < instructions.size - 1 && distanceAlongRoute >= waypointDistances[newIdx] + 30.0) {
@@ -701,18 +702,25 @@ class HomeViewModel @Inject constructor(
             distanceToNextManeuver = distToNextManeuver,
             remainingDistance = remainingDist,
             remainingTime = remainingTime,
+            lastKnownPosition = it.lastKnownPosition?.copy(
+                snappedLat = match.snappedLat,
+                snappedLon = match.snappedLon,
+                bearing = match.bearingDeg,
+                hasBearing = true,
+            ),
         )}
     }
 
     private var lastMatchedSegment = 0
 
-    private fun distanceAlongPolyline(lat: Double, lon: Double, points: List<Pair<Double, Double>>): Double {
-        if (points.size < 2) return 0.0
+    data class PolylineMatch(val distanceAlong: Double, val snappedLat: Double, val snappedLon: Double, val bearingDeg: Float)
+
+    private fun matchToPolyline(lat: Double, lon: Double, points: List<Pair<Double, Double>>): PolylineMatch {
+        if (points.size < 2) return PolylineMatch(0.0, lat, lon, 0f)
         var bestDist = Double.MAX_VALUE
         var bestSegment = 0
         var bestFraction = 0.0
 
-        // Search from a window around the last matched segment to avoid jumping back
         val searchStart = (lastMatchedSegment - 5).coerceAtLeast(0)
         val searchEnd = (lastMatchedSegment + 200).coerceAtMost(points.size - 1)
 
@@ -727,7 +735,6 @@ class HomeViewModel @Inject constructor(
             }
         }
 
-        // Only move forward, never backward (unless very close to an earlier segment)
         if (bestSegment >= lastMatchedSegment || bestDist < 30.0) {
             lastMatchedSegment = bestSegment
         } else {
@@ -735,13 +742,27 @@ class HomeViewModel @Inject constructor(
             bestFraction = 0.0
         }
 
+        val (aLat, aLon) = points[bestSegment]
+        val (bLat, bLon) = points[bestSegment + 1]
+        val snappedLat = aLat + bestFraction * (bLat - aLat)
+        val snappedLon = aLon + bestFraction * (bLon - aLon)
+
+        val bearing = bearingBetween(aLat, aLon, bLat, bLon)
+
         var along = 0.0
         for (i in 0 until bestSegment) {
             along += haversineMeters(points[i].first, points[i].second, points[i + 1].first, points[i + 1].second)
         }
-        along += haversineMeters(points[bestSegment].first, points[bestSegment].second,
-            points[bestSegment + 1].first, points[bestSegment + 1].second) * bestFraction
-        return along
+        along += haversineMeters(aLat, aLon, bLat, bLon) * bestFraction
+        return PolylineMatch(along, snappedLat, snappedLon, bearing)
+    }
+
+    private fun bearingBetween(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
+        val dLon = Math.toRadians(lon2 - lon1)
+        val y = kotlin.math.sin(dLon) * kotlin.math.cos(Math.toRadians(lat2))
+        val x = kotlin.math.cos(Math.toRadians(lat1)) * kotlin.math.sin(Math.toRadians(lat2)) -
+                kotlin.math.sin(Math.toRadians(lat1)) * kotlin.math.cos(Math.toRadians(lat2)) * kotlin.math.cos(dLon)
+        return ((Math.toDegrees(kotlin.math.atan2(y, x)) + 360) % 360).toFloat()
     }
 
     private fun pointToSegmentDistance(pLat: Double, pLon: Double, aLat: Double, aLon: Double, bLat: Double, bLon: Double): Pair<Double, Double> {

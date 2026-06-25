@@ -245,7 +245,10 @@ fun HomeScreen(
     LaunchedEffect(uiState.lastKnownPosition, uiState.isFollowing, uiState.isNavigating) {
         val pos = uiState.lastKnownPosition ?: return@LaunchedEffect
         val map = mapInstance ?: return@LaunchedEffect
-        val feature = Feature.fromGeometry(Point.fromLngLat(pos.longitude, pos.latitude))
+        // Use snapped position during navigation, raw GPS otherwise
+        val displayLat = if (uiState.isNavigating) pos.snappedLat ?: pos.latitude else pos.latitude
+        val displayLon = if (uiState.isNavigating) pos.snappedLon ?: pos.longitude else pos.longitude
+        val feature = Feature.fromGeometry(Point.fromLngLat(displayLon, displayLat))
         if (pos.hasBearing) feature.addNumberProperty("bearing", pos.bearing.toDouble())
         val style = map.style
         (style?.getSourceAs<GeoJsonSource>("user-location"))?.setGeoJson(feature)
@@ -261,7 +264,7 @@ fun HomeScreen(
             navZoomDone = true
             map.animateCamera(CameraUpdateFactory.newCameraPosition(
                 CameraPosition.Builder()
-                    .target(LatLng(pos.latitude, pos.longitude))
+                    .target(LatLng(displayLat, displayLon))
                     .zoom(zoom)
                     .tilt(tilt)
                     .bearing(bearing)
