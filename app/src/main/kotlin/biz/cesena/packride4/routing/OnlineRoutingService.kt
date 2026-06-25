@@ -77,19 +77,30 @@ class OnlineRoutingService @Inject constructor() {
             val guidance = route.optJSONObject("guidance")
             val rawInstr = guidance?.optJSONArray("instructions")
             if (rawInstr != null) {
+                // Collect cumulative offsets first, then convert to per-segment distances
+                data class RawTomTomInstr(val text: String, val offsetM: Double, val timeMs: Long,
+                                         val sign: Int, val modifier: String, val exitNum: Int, val angle: Double)
+                val rawList = mutableListOf<RawTomTomInstr>()
                 for (i in 0 until rawInstr.length()) {
                     val instr = rawInstr.getJSONObject(i)
                     val maneuver = instr.optString("maneuver", "STRAIGHT")
                     val sign = tomTomManeuverToSign(maneuver)
                     val rawText = instr.optString("message", "").ifBlank { maneuverToText(maneuver) }
                     val text = if (maneuver == "LOCATION_DEPARTURE") "Partiamo" else rawText
-                    val distM = instr.optDouble("routeOffsetInMeters", 0.0)
+                    val offsetM = instr.optDouble("routeOffsetInMeters", 0.0)
                     val timeS = instr.optLong("travelTimeInSeconds", 0L)
                     val modifier = if (sign == 6) tomTomRoundaboutModifier(maneuver) else ""
                     val exitNum = if (sign == 6) instr.optInt("roundaboutExitNumber", 0) else 0
                     val rawAngle = instr.optDouble("turnAngleInDecimalDegrees", Double.NaN)
                     val angle = if (!rawAngle.isNaN() && sign == 6) 180.0 - rawAngle else rawAngle
-                    instructions += RouteInstruction(text, distM, timeS * 1000L, sign, modifier, exitNum, turnAngle = angle)
+                    rawList += RawTomTomInstr(text, offsetM, timeS * 1000L, sign, modifier, exitNum, angle)
+                }
+                // Convert cumulative offsets to incremental segment distances
+                for (i in rawList.indices) {
+                    val segmentDist = if (i == 0) rawList[i].offsetM
+                                      else (rawList[i].offsetM - rawList[i - 1].offsetM).coerceAtLeast(0.0)
+                    val r = rawList[i]
+                    instructions += RouteInstruction(r.text, segmentDist, r.timeMs, r.sign, r.modifier, r.exitNum, turnAngle = r.angle)
                 }
             }
             DebugLog.log("online-routing: TomTom ${instructions.size} istruzioni")

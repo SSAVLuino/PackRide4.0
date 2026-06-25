@@ -707,7 +707,7 @@ class HomeViewModel @Inject constructor(
 
         // Search from a window around the last matched segment to avoid jumping back
         val searchStart = (lastMatchedSegment - 5).coerceAtLeast(0)
-        val searchEnd = (lastMatchedSegment + 50).coerceAtMost(points.size - 1)
+        val searchEnd = (lastMatchedSegment + 200).coerceAtMost(points.size - 1)
 
         for (i in searchStart until searchEnd) {
             val (aLat, aLon) = points[i]
