@@ -24,6 +24,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -72,6 +74,12 @@ fun HomeScreen(
     var initialZoomDone by remember { mutableStateOf(false) }
     var navZoomDone by remember { mutableStateOf(false) }
     if (!uiState.isNavigating) navZoomDone = false
+
+    // Arrow overlay state: screen position + rotation
+    var arrowScreenX by remember { mutableStateOf(0f) }
+    var arrowScreenY by remember { mutableStateOf(0f) }
+    var arrowRotation by remember { mutableStateOf(0f) }
+    var arrowVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         MapLibre.getInstance(context)
@@ -252,6 +260,12 @@ fun HomeScreen(
         if (pos.hasBearing) feature.addNumberProperty("bearing", pos.bearing.toDouble())
         val style = map.style
         (style?.getSourceAs<GeoJsonSource>("user-location"))?.setGeoJson(feature)
+        // Update arrow overlay position
+        val screenPt = map.projection.toScreenLocation(LatLng(displayLat, displayLon))
+        arrowScreenX = screenPt.x
+        arrowScreenY = screenPt.y
+        arrowRotation = if (pos.hasBearing) pos.bearing else 0f
+        arrowVisible = true
         if (!initialZoomDone) {
             map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(pos.latitude, pos.longitude), 14.0))
             initialZoomDone = true
@@ -303,6 +317,17 @@ fun HomeScreen(
                             map.uiSettings.setCompassMargins(0, statusPx, 0, 0)
                             addMapLayers(style)
                         }
+                        // Update arrow screen position on every camera change
+                        map.addOnCameraMoveListener {
+                            val pos = uiState.lastKnownPosition ?: return@addOnCameraMoveListener
+                            val lat = if (uiState.isNavigating) pos.snappedLat ?: pos.latitude else pos.latitude
+                            val lon = if (uiState.isNavigating) pos.snappedLon ?: pos.longitude else pos.longitude
+                            val screenPt = map.projection.toScreenLocation(LatLng(lat, lon))
+                            arrowScreenX = screenPt.x
+                            arrowScreenY = screenPt.y
+                            arrowRotation = if (pos.hasBearing) pos.bearing else 0f
+                            arrowVisible = true
+                        }
                         val saved = viewModel.savedPosition
                         if (saved != null) {
                             map.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(saved.first, saved.second), 14.0))
@@ -316,6 +341,51 @@ fun HomeScreen(
             onRelease = { it.onPause(); it.onStop(); it.onDestroy() },
             modifier = Modifier.fillMaxSize()
         )
+
+        // ── Navigation arrow overlay (Compose, always on top) ────────────────
+        if (arrowVisible && uiState.lastKnownPosition != null) {
+            val density = context.resources.displayMetrics.density
+            val arrowSizePx = 40 * density
+            androidx.compose.foundation.Canvas(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                drawIntoCanvas { canvas ->
+                    val nCanvas = canvas.nativeCanvas
+                    val cx = arrowScreenX
+                    val cy = arrowScreenY
+                    nCanvas.save()
+                    nCanvas.rotate(arrowRotation, cx, cy)
+                    val path = android.graphics.Path().apply {
+                        moveTo(cx, cy - arrowSizePx * 0.35f)
+                        lineTo(cx + arrowSizePx * 0.21f, cy + arrowSizePx * 0.14f)
+                        lineTo(cx, cy)
+                        lineTo(cx - arrowSizePx * 0.21f, cy + arrowSizePx * 0.14f)
+                        close()
+                    }
+                    val shadowPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                        color = android.graphics.Color.argb(80, 0, 0, 0)
+                        style = android.graphics.Paint.Style.FILL
+                        maskFilter = android.graphics.BlurMaskFilter(3f * density, android.graphics.BlurMaskFilter.Blur.NORMAL)
+                    }
+                    nCanvas.save()
+                    nCanvas.translate(1f * density, 2f * density)
+                    nCanvas.drawPath(path, shadowPaint)
+                    nCanvas.restore()
+                    val fillPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                        color = android.graphics.Color.parseColor("#1a73e8")
+                        style = android.graphics.Paint.Style.FILL
+                    }
+                    nCanvas.drawPath(path, fillPaint)
+                    val borderPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                        color = android.graphics.Color.WHITE
+                        style = android.graphics.Paint.Style.STROKE
+                        strokeWidth = 1.5f * density
+                    }
+                    nCanvas.drawPath(path, borderPaint)
+                    nCanvas.restore()
+                }
+            }
+        }
 
         // ── Status bar scrim ────────────────────────────────────────────────
         Spacer(
@@ -815,46 +885,6 @@ private fun DebugLogDialog(onDismiss: () -> Unit) {
 // ── Map layer setup ──────────────────────────────────────────────────────────
 
 private fun addMapLayers(style: Style) {
-    // ── User bearing arrow icon ──
-    if (style.getImage("user-bearing-arrow") == null) {
-        val density = android.content.res.Resources.getSystem().displayMetrics.density
-        val size = (52 * density).toInt()
-        val pad = (6 * density).toInt()
-        val totalSize = size + pad * 2
-        val bmp = android.graphics.Bitmap.createBitmap(totalSize, totalSize, android.graphics.Bitmap.Config.ARGB_8888)
-        val canvas = android.graphics.Canvas(bmp)
-        val arrowPath = android.graphics.Path().apply {
-            moveTo(totalSize / 2f, pad.toFloat())
-            lineTo(totalSize / 2f + size * 0.3f, pad + size * 0.7f)
-            lineTo(totalSize / 2f, pad + size * 0.5f)
-            lineTo(totalSize / 2f - size * 0.3f, pad + size * 0.7f)
-            close()
-        }
-        // Shadow
-        val shadowPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.argb(80, 0, 0, 0)
-            this.style = android.graphics.Paint.Style.FILL
-            maskFilter = android.graphics.BlurMaskFilter(3f * density, android.graphics.BlurMaskFilter.Blur.NORMAL)
-        }
-        canvas.save()
-        canvas.translate(1f * density, 2f * density)
-        canvas.drawPath(arrowPath, shadowPaint)
-        canvas.restore()
-        // Arrow
-        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.parseColor("#1a73e8")
-            this.style = android.graphics.Paint.Style.FILL
-        }
-        canvas.drawPath(arrowPath, paint)
-        // White border
-        val border = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.WHITE
-            this.style = android.graphics.Paint.Style.STROKE
-            strokeWidth = 1.5f * density
-        }
-        canvas.drawPath(arrowPath, border)
-        style.addImage("user-bearing-arrow", bmp)
-    }
 
     // ── Waypoint pin icons ──
     fun createPinBitmap(colorHex: String): android.graphics.Bitmap {
@@ -1011,15 +1041,5 @@ private fun addMapLayers(style: Style) {
         ))
     }
 
-    // ── User location (always on top of everything) ──
-    if (style.getLayer("user-bearing") == null) {
-        style.addLayer(org.maplibre.android.style.layers.SymbolLayer("user-bearing", "user-location").withProperties(
-            PropertyFactory.iconImage("user-bearing-arrow"),
-            PropertyFactory.iconSize(1f),
-            PropertyFactory.iconRotate(org.maplibre.android.style.expressions.Expression.get("bearing")),
-            PropertyFactory.iconRotationAlignment(org.maplibre.android.style.layers.Property.ICON_ROTATION_ALIGNMENT_MAP),
-            PropertyFactory.iconAllowOverlap(true),
-            PropertyFactory.iconIgnorePlacement(true),
-        ))
-    }
+    // User arrow is now drawn as a Compose overlay (not a MapLibre layer)
 }
