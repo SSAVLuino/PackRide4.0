@@ -103,9 +103,9 @@ class NavigationVoiceService @Inject constructor(
         //   ≤90 km/h → ~60m offset, say "800 metri", second at 200m
         //   >90 km/h → ~110m offset, say "1 chilometro e mezzo", second at 400m
         return when {
-            speedKmh <= 40f  -> VoiceThresholds(440.0, "400 metri", 130.0)
-            speedKmh <= 90f  -> VoiceThresholds(860.0, "800 metri", 260.0)
-            else             -> VoiceThresholds(1610.0, "1 chilometro e mezzo", 510.0)
+            speedKmh <= 40f  -> VoiceThresholds(160.0, "150 metri", 30.0)
+            speedKmh <= 90f  -> VoiceThresholds(320.0, "300 metri", 50.0)
+            else             -> VoiceThresholds(530.0, "500 metri", 80.0)
         }
     }
 
