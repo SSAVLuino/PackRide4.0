@@ -660,7 +660,7 @@ class HomeViewModel @Inject constructor(
         val distanceAlongRoute = distanceAlongPolyline(lat, lon, route.points)
 
         var newIdx = idx
-        while (newIdx < instructions.size - 1 && distanceAlongRoute >= waypointDistances[newIdx] - 30.0) {
+        while (newIdx < instructions.size - 1 && distanceAlongRoute >= waypointDistances[newIdx] + 30.0) {
             newIdx++
         }
 
