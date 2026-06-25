@@ -55,11 +55,11 @@ class NavigationVoiceService @Inject constructor(
         if (!ttsReady) return
         val mode = userPreferences.voiceMode.value
 
-        val (firstDist, secondDist) = thresholdsForSpeed(speedKmh)
+        val t = thresholdsForSpeed(speedKmh)
 
         val phase = when {
-            distanceToManeuver <= secondDist -> AnnouncementPhase.SECOND
-            distanceToManeuver <= firstDist -> AnnouncementPhase.FIRST
+            distanceToManeuver <= t.secondTrigger -> AnnouncementPhase.SECOND
+            distanceToManeuver <= t.firstTrigger -> AnnouncementPhase.FIRST
             else -> return
         }
 
@@ -80,7 +80,7 @@ class NavigationVoiceService @Inject constructor(
         }
 
         val text = when (phase) {
-            AnnouncementPhase.FIRST -> "Tra ${formatDistanceVoice(distanceToManeuver)}, $instructionText"
+            AnnouncementPhase.FIRST -> "Tra ${t.firstLabel}, $instructionText"
             AnnouncementPhase.SECOND -> instructionText
         }
 
@@ -90,11 +90,22 @@ class NavigationVoiceService @Inject constructor(
         lastAnnouncedPhase = phase
     }
 
-    private fun thresholdsForSpeed(speedKmh: Float): Pair<Double, Double> {
+    private data class VoiceThresholds(
+        val firstTrigger: Double,
+        val firstLabel: String,
+        val secondTrigger: Double,
+    )
+
+    private fun thresholdsForSpeed(speedKmh: Float): VoiceThresholds {
+        // Trigger distances include a TTS offset (~3s of travel) so the spoken
+        // round distance matches reality by the time the phrase finishes.
+        //   ≤40 km/h → ~33m offset, say "400 metri", second at 100m
+        //   ≤90 km/h → ~60m offset, say "800 metri", second at 200m
+        //   >90 km/h → ~110m offset, say "1 chilometro e mezzo", second at 400m
         return when {
-            speedKmh <= 50f  -> 400.0 to 100.0
-            speedKmh <= 90f  -> 800.0 to 200.0
-            else             -> 1500.0 to 400.0
+            speedKmh <= 40f  -> VoiceThresholds(440.0, "400 metri", 130.0)
+            speedKmh <= 90f  -> VoiceThresholds(860.0, "800 metri", 260.0)
+            else             -> VoiceThresholds(1610.0, "1 chilometro e mezzo", 510.0)
         }
     }
 
