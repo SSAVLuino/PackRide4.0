@@ -70,6 +70,8 @@ fun HomeScreen(
 
     var mapInstance by remember { mutableStateOf<MapLibreMap?>(null) }
     var initialZoomDone by remember { mutableStateOf(false) }
+    var navZoomDone by remember { mutableStateOf(false) }
+    if (!uiState.isNavigating) navZoomDone = false
 
     LaunchedEffect(Unit) {
         MapLibre.getInstance(context)
@@ -247,12 +249,6 @@ fun HomeScreen(
         if (pos.hasBearing) feature.addNumberProperty("bearing", pos.bearing.toDouble())
         val style = map.style
         (style?.getSourceAs<GeoJsonSource>("user-location"))?.setGeoJson(feature)
-        style?.let { s ->
-            s.getLayer("user-bearing")?.let { layer ->
-                s.removeLayer(layer)
-                s.addLayer(layer)
-            }
-        }
         if (!initialZoomDone) {
             map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(pos.latitude, pos.longitude), 14.0))
             initialZoomDone = true
@@ -260,11 +256,14 @@ fun HomeScreen(
             val bearing = if (uiState.mapOrientationNorthUp) 0.0
                           else if (pos.hasBearing) pos.bearing.toDouble()
                           else map.cameraPosition.bearing
+            val zoom = if (!navZoomDone) 17.0 else map.cameraPosition.zoom
+            val tilt = if (!navZoomDone) { if (uiState.mapOrientationNorthUp) 0.0 else 45.0 } else map.cameraPosition.tilt
+            navZoomDone = true
             map.animateCamera(CameraUpdateFactory.newCameraPosition(
                 CameraPosition.Builder()
                     .target(LatLng(pos.latitude, pos.longitude))
-                    .zoom(17.0)
-                    .tilt(if (uiState.mapOrientationNorthUp) 0.0 else 45.0)
+                    .zoom(zoom)
+                    .tilt(tilt)
                     .bearing(bearing)
                     .build()
             ))
@@ -816,8 +815,8 @@ private fun addMapLayers(style: Style) {
     // ── User bearing arrow icon ──
     if (style.getImage("user-bearing-arrow") == null) {
         val density = android.content.res.Resources.getSystem().displayMetrics.density
-        val size = (40 * density).toInt()
-        val pad = (4 * density).toInt()
+        val size = (52 * density).toInt()
+        val pad = (6 * density).toInt()
         val totalSize = size + pad * 2
         val bmp = android.graphics.Bitmap.createBitmap(totalSize, totalSize, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bmp)

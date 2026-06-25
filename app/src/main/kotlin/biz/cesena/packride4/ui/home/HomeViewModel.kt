@@ -114,8 +114,8 @@ class HomeViewModel @Inject constructor(
     private var searchJob: Job? = null
 
     private val locationRequest = LocationRequest.Builder(
-        Priority.PRIORITY_HIGH_ACCURACY, 3_000L
-    ).setMinUpdateDistanceMeters(5f).build()
+        Priority.PRIORITY_HIGH_ACCURACY, 1_000L
+    ).setMinUpdateDistanceMeters(2f).build()
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
