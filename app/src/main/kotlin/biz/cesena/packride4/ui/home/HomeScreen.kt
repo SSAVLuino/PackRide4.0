@@ -812,59 +812,75 @@ private fun NavigationInstructionBanner(
     val route = uiState.route ?: return
     val currentInstruction = route.instructions.getOrNull(uiState.currentInstructionIndex)
 
-    Surface(
+    Row(
         modifier = modifier,
-        color = MaterialTheme.colorScheme.primaryContainer,
-        shadowElevation = 8.dp
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(0.dp),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        // Large icon box
+        Surface(
+            color = MaterialTheme.colorScheme.primary,
+            shadowElevation = 8.dp,
+            shape = MaterialTheme.shapes.medium,
         ) {
-            Box(contentAlignment = Alignment.BottomEnd) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.size(72.dp),
+            ) {
                 Icon(
                     painter = painterResource(maneuverIcon(currentInstruction?.sign ?: 0, currentInstruction?.modifier ?: "", currentInstruction?.exitNumber ?: 0, currentInstruction?.turnAngle ?: Double.NaN)),
                     contentDescription = null,
-                    modifier = Modifier.size(40.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    modifier = Modifier.size(48.dp),
+                    tint = MaterialTheme.colorScheme.onPrimary,
                 )
                 val exitNum = currentInstruction?.exitNumber ?: 0
                 if (exitNum > 0) {
                     Surface(
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.primaryContainer,
                         shape = MaterialTheme.shapes.extraSmall,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(18.dp).align(Alignment.BottomEnd),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Text(exitNum.toString(),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                fontSize = 9.sp)
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp)
                         }
                     }
                 }
             }
-            if (uiState.distanceToNextManeuver > 0) {
+        }
+        // Text banner
+        Surface(
+            color = MaterialTheme.colorScheme.primaryContainer,
+            shadowElevation = 8.dp,
+            modifier = Modifier.weight(1f),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (uiState.distanceToNextManeuver > 0) {
+                    Text(
+                        text = formatDistance(uiState.distanceToNextManeuver),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
                 Text(
-                    text = formatDistance(uiState.distanceToNextManeuver),
-                    style = MaterialTheme.typography.headlineSmall,
+                    text = currentInstruction?.text?.takeIf { it.isNotBlank() } ?: "Segui il percorso",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    fontWeight = FontWeight.Bold
+                    maxLines = 2,
+                    modifier = Modifier.weight(1f),
                 )
-            }
-            Text(
-                text = currentInstruction?.text?.takeIf { it.isNotBlank() } ?: "Segui il percorso",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                maxLines = 2,
-                modifier = Modifier.weight(1f)
-            )
-            IconButton(onClick = onStop) {
-                Icon(Icons.Default.Close, "Stop navigazione",
-                    tint = MaterialTheme.colorScheme.error)
+                IconButton(onClick = onStop) {
+                    Icon(Icons.Default.Close, "Stop navigazione",
+                        tint = MaterialTheme.colorScheme.error)
+                }
             }
         }
     }
