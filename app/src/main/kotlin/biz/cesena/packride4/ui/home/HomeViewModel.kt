@@ -633,6 +633,7 @@ class HomeViewModel @Inject constructor(
             isEditingRoute = false,
             selectedWaypointIndex = -1,
             fuelStationsAlongRoute = emptyList(),
+            mapOrientationNorthUp = true,
         )}
     }
 
@@ -640,13 +641,13 @@ class HomeViewModel @Inject constructor(
         voiceService.init()
         voiceService.reset()
         lastMatchedSegment = 0
-        _uiState.update { it.copy(isNavigating = true, isFollowing = true, currentInstructionIndex = 0, isEditingRoute = false, selectedWaypointIndex = -1, departureTimeMillis = System.currentTimeMillis(), distanceTraveled = 0.0) }
+        _uiState.update { it.copy(isNavigating = true, isFollowing = true, currentInstructionIndex = 0, isEditingRoute = false, selectedWaypointIndex = -1, departureTimeMillis = System.currentTimeMillis(), distanceTraveled = 0.0, mapOrientationNorthUp = false) }
         voiceService.checkAnnouncement(0, "Partiamo", 0.0, 0f)
     }
 
     fun stopNavigation() {
         voiceService.shutdown()
-        _uiState.update { it.copy(isNavigating = false, currentInstructionIndex = 0, route = null) }
+        _uiState.update { it.copy(isNavigating = false, currentInstructionIndex = 0, route = null, mapOrientationNorthUp = true) }
     }
 
     // ── Navigation advancement ────────────────────────────────────────────
@@ -680,7 +681,7 @@ class HomeViewModel @Inject constructor(
         if (distToEnd < 30.0) {
             voiceService.checkAnnouncement(instructions.size, "Sei arrivato a destinazione", 0.0, state.speedKmh)
             voiceService.shutdown()
-            _uiState.update { it.copy(isNavigating = false, currentInstructionIndex = 0, route = null) }
+            _uiState.update { it.copy(isNavigating = false, currentInstructionIndex = 0, route = null, mapOrientationNorthUp = true) }
             return
         }
 

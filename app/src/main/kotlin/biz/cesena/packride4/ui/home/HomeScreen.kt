@@ -287,7 +287,20 @@ fun HomeScreen(
                     .build()
             ))
         } else if (uiState.isFollowing) {
-            map.animateCamera(CameraUpdateFactory.newLatLng(LatLng(pos.latitude, pos.longitude)))
+            val currentTilt = map.cameraPosition.tilt
+            val currentBearing = map.cameraPosition.bearing
+            if (currentTilt > 1.0 || currentBearing > 1.0) {
+                map.animateCamera(CameraUpdateFactory.newCameraPosition(
+                    CameraPosition.Builder()
+                        .target(LatLng(pos.latitude, pos.longitude))
+                        .zoom(map.cameraPosition.zoom)
+                        .tilt(0.0)
+                        .bearing(0.0)
+                        .build()
+                ))
+            } else {
+                map.animateCamera(CameraUpdateFactory.newLatLng(LatLng(pos.latitude, pos.longitude)))
+            }
         }
     }
 
