@@ -85,7 +85,9 @@ class OnlineRoutingService @Inject constructor() {
                     val instr = rawInstr.getJSONObject(i)
                     val maneuver = instr.optString("maneuver", "STRAIGHT")
                     val sign = tomTomManeuverToSign(maneuver)
-                    val rawText = instr.optString("message", "").ifBlank { maneuverToText(maneuver) }
+                    val street = instr.optString("street", "")
+                    val via = if (street.isNotBlank()) " su $street" else ""
+                    val rawText = instr.optString("message", "").ifBlank { maneuverToText(maneuver) + via }
                     val text = if (maneuver == "LOCATION_DEPARTURE") "Partiamo" else rawText
                     val offsetM = instr.optDouble("routeOffsetInMeters", 0.0)
                     val timeS = instr.optLong("travelTimeInSeconds", 0L)
@@ -141,10 +143,10 @@ class OnlineRoutingService @Inject constructor() {
                     val mod = maneuver.optString("modifier", "straight")
                     val sign = osrmToSign(type, mod)
                     val streetName = step.optString("name", "").ifBlank { "" }
-                    val text = osrmStepText(type, mod, streetName)
+                    val exitNum = if (sign == 6) maneuver.optInt("exit", 0) else 0
+                    val text = osrmStepText(type, mod, streetName, exitNum)
                     val stepDist = step.optDouble("distance", 0.0)
                     val stepTime = (step.optDouble("duration", 0.0) * 1000).toLong()
-                    val exitNum = if (sign == 6) maneuver.optInt("exit", 0) else 0
                     instructions += RouteInstruction(text, stepDist, stepTime, sign, mod, exitNum)
                 }
             }
@@ -182,16 +184,37 @@ class OnlineRoutingService @Inject constructor() {
     }
 
     private fun maneuverToText(maneuver: String): String = when (maneuver) {
-        "TURN_SHARP_LEFT"  -> "Svolta decisamente a sinistra"
-        "TURN_LEFT"        -> "Svolta a sinistra"
-        "TURN_SLIGHT_LEFT" -> "Tieniti a sinistra"
-        "TURN_SLIGHT_RIGHT"-> "Tieniti a destra"
-        "TURN_RIGHT"       -> "Svolta a destra"
-        "TURN_SHARP_RIGHT" -> "Svolta decisamente a destra"
-        "ARRIVE", "ARRIVE_LEFT", "ARRIVE_RIGHT" -> "Sei arrivato"
-        "STRAIGHT"         -> "Prosegui dritto"
+        "TURN_SHARP_LEFT"   -> "Svolta decisamente a sinistra"
+        "TURN_LEFT"         -> "Svolta a sinistra"
+        "TURN_SLIGHT_LEFT"  -> "Tieniti a sinistra"
+        "TURN_SLIGHT_RIGHT" -> "Tieniti a destra"
+        "TURN_RIGHT"        -> "Svolta a destra"
+        "TURN_SHARP_RIGHT"  -> "Svolta decisamente a destra"
+        "KEEP_LEFT"         -> "Tieniti a sinistra"
+        "KEEP_RIGHT"        -> "Tieniti a destra"
+        "STRAIGHT"          -> "Prosegui dritto"
+        "FOLLOW"            -> "Prosegui"
         "LOCATION_DEPARTURE" -> "Partiamo"
-        else               -> maneuver.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }
+        "ARRIVE", "ARRIVE_LEFT", "ARRIVE_RIGHT" -> "Sei arrivato"
+        "ENTER_MOTORWAY_LEFT", "ENTER_MOTORWAY_RIGHT" -> "Entra in autostrada"
+        "EXIT_MOTORWAY_LEFT", "MOTORWAY_EXIT_LEFT" -> "Esci a sinistra"
+        "EXIT_MOTORWAY_RIGHT", "MOTORWAY_EXIT_RIGHT" -> "Esci a destra"
+        "TAKE_EXIT"         -> "Prendi l'uscita"
+        "U_TURN", "UTURN"   -> "Inversione a U"
+        "WAYPOINT_LEFT", "WAYPOINT_RIGHT", "WAYPOINT_REACHED" -> "Tappa raggiunta"
+        "ROUNDABOUT_CROSS"  -> "Attraversa la rotonda"
+        "ROUNDABOUT_BACK"   -> "Alla rotonda torna indietro"
+        "ENTER_ROUNDABOUT"  -> "Entra nella rotonda"
+        "EXIT_ROUNDABOUT"   -> "Esci dalla rotonda"
+        "MERGE"             -> "Immettiti"
+        "FORK_LEFT"         -> "Al bivio tieniti a sinistra"
+        "FORK_RIGHT"        -> "Al bivio tieniti a destra"
+        "SWITCH_PARALLEL_ROAD" -> "Cambia carreggiata"
+        "SWITCH_MAIN_ROAD"  -> "Resta sulla strada principale"
+        else -> {
+            DebugLog.log("tomtom: unmapped maneuver '$maneuver'")
+            maneuver.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }
+        }
     }
 
     // ── OSRM step helpers ─────────────────────────────────────────────────────
@@ -209,11 +232,20 @@ class OnlineRoutingService @Inject constructor() {
         else                                    -> 0
     }
 
-    private fun osrmStepText(type: String, modifier: String, street: String): String {
+    private fun osrmStepText(type: String, modifier: String, street: String, exitNumber: Int = 0): String {
         val via = if (street.isNotBlank()) " su $street" else ""
         return when {
             type == "arrive"        -> "Sei arrivato"
             type == "depart"        -> "Partiamo"
+            type == "roundabout" || type == "rotary" -> {
+                if (exitNumber > 0) "Alla rotonda prendi la $exitNumber° uscita$via"
+                else "Alla rotonda$via"
+            }
+            type == "merge"         -> "Immettiti$via"
+            type == "fork" && modifier.contains("left")  -> "Al bivio tieniti a sinistra$via"
+            type == "fork" && modifier.contains("right") -> "Al bivio tieniti a destra$via"
+            type == "on ramp" || type == "off ramp" -> "Prendi la rampa$via"
+            modifier == "uturn"       -> "Inversione a U"
             modifier == "sharp left"  -> "Svolta decisamente a sinistra$via"
             modifier == "left"        -> "Svolta a sinistra$via"
             modifier == "slight left" -> "Tieniti a sinistra$via"
