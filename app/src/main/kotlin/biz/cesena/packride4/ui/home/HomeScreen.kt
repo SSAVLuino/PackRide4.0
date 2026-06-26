@@ -592,16 +592,25 @@ fun HomeScreen(
             }
         }
 
-        // ── Navigation instruction banner (TOP, only when navigating) ───────
+        // ── Navigation instruction banner + progress (TOP, only when navigating) ──
         if (uiState.isNavigating && uiState.route != null) {
-            NavigationInstructionBanner(
-                uiState = uiState,
-                onStop = { viewModel.stopNavigation() },
+            Column(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
-                    .padding(start = contentStart, end = contentEnd, top = contentTop)
-            )
+                    .padding(start = contentStart, end = contentEnd, top = contentTop),
+            ) {
+                NavigationInstructionBanner(
+                    uiState = uiState,
+                    onStop = { viewModel.stopNavigation() },
+                )
+                Spacer(Modifier.height(4.dp))
+                RouteProgressBar(
+                    route = uiState.route!!,
+                    remainingDistance = uiState.remainingDistance,
+                    waypoints = uiState.waypoints,
+                )
+            }
         }
 
         // ── Route ready panel (above bottom bar) ─────────────────────────────
@@ -939,6 +948,133 @@ private fun DebugLogDialog(onDismiss: () -> Unit) {
         confirmButton = { TextButton(onClick = onDismiss) { Text("Chiudi") } },
         dismissButton = { TextButton(onClick = { DebugLog.clear() }) { Text("Pulisci") } }
     )
+}
+
+// ── Route progress bar ──────────────────────────────────────────────────────
+
+@Composable
+private fun RouteProgressBar(
+    route: biz.cesena.packride4.routing.RouteResult,
+    remainingDistance: Double,
+    waypoints: List<RouteWaypoint>,
+    modifier: Modifier = Modifier,
+) {
+    val totalDist = route.distanceMeters
+    val progress = if (totalDist > 0) ((totalDist - remainingDistance) / totalDist).toFloat().coerceIn(0f, 1f) else 0f
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+        shape = MaterialTheme.shapes.small,
+        shadowElevation = 2.dp,
+    ) {
+        val primaryColor = MaterialTheme.colorScheme.primary
+        val trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+        val onSurface = MaterialTheme.colorScheme.onSurface
+
+        androidx.compose.foundation.Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(28.dp)
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+            val w = size.width
+            val h = size.height
+            val cy = h / 2
+            val barY = cy
+            val barH = 4.dp.toPx()
+            val iconSize = 8.dp.toPx()
+
+            // Track background
+            drawLine(
+                color = trackColor,
+                start = androidx.compose.ui.geometry.Offset(iconSize * 2, barY),
+                end = androidx.compose.ui.geometry.Offset(w - iconSize * 2, barY),
+                strokeWidth = barH,
+                cap = androidx.compose.ui.graphics.StrokeCap.Round,
+            )
+
+            // Progress fill
+            val progressEnd = iconSize * 2 + (w - iconSize * 4) * progress
+            drawLine(
+                color = primaryColor,
+                start = androidx.compose.ui.geometry.Offset(iconSize * 2, barY),
+                end = androidx.compose.ui.geometry.Offset(progressEnd, barY),
+                strokeWidth = barH,
+                cap = androidx.compose.ui.graphics.StrokeCap.Round,
+            )
+
+            // Start arrow ▶
+            val arrowPath = androidx.compose.ui.graphics.Path().apply {
+                moveTo(2.dp.toPx(), cy - iconSize)
+                lineTo(2.dp.toPx() + iconSize * 1.5f, cy)
+                lineTo(2.dp.toPx(), cy + iconSize)
+                close()
+            }
+            drawPath(arrowPath, color = primaryColor)
+
+            // Finish flag 🏁
+            val flagX = w - iconSize * 1.5f
+            val flagSize = iconSize * 1.2f
+            // Pole
+            drawLine(
+                color = onSurface,
+                start = androidx.compose.ui.geometry.Offset(flagX, cy - flagSize),
+                end = androidx.compose.ui.geometry.Offset(flagX, cy + flagSize),
+                strokeWidth = 1.5.dp.toPx(),
+            )
+            // Checkered flag (simple)
+            drawRect(
+                color = onSurface,
+                topLeft = androidx.compose.ui.geometry.Offset(flagX, cy - flagSize),
+                size = androidx.compose.ui.geometry.Size(flagSize, flagSize),
+            )
+            drawRect(
+                color = androidx.compose.ui.graphics.Color.White,
+                topLeft = androidx.compose.ui.geometry.Offset(flagX + flagSize / 2, cy - flagSize),
+                size = androidx.compose.ui.geometry.Size(flagSize / 2, flagSize / 2),
+            )
+            drawRect(
+                color = androidx.compose.ui.graphics.Color.White,
+                topLeft = androidx.compose.ui.geometry.Offset(flagX, cy - flagSize / 2),
+                size = androidx.compose.ui.geometry.Size(flagSize / 2, flagSize / 2),
+            )
+
+            // Waypoint flags (intermediate only)
+            if (waypoints.size > 2 && totalDist > 0) {
+                val intermediates = waypoints.drop(1).dropLast(1)
+                val waypointCount = intermediates.size
+                for (i in intermediates.indices) {
+                    val frac = (i + 1).toFloat() / (waypoints.size - 1).toFloat()
+                    val x = iconSize * 2 + (w - iconSize * 4) * frac
+                    // Small flag
+                    drawLine(
+                        color = onSurface,
+                        start = androidx.compose.ui.geometry.Offset(x, cy - iconSize * 0.8f),
+                        end = androidx.compose.ui.geometry.Offset(x, cy + iconSize * 0.8f),
+                        strokeWidth = 1.dp.toPx(),
+                    )
+                    drawRect(
+                        color = androidx.compose.ui.graphics.Color(0xFFF9A825),
+                        topLeft = androidx.compose.ui.geometry.Offset(x, cy - iconSize * 0.8f),
+                        size = androidx.compose.ui.geometry.Size(iconSize * 0.7f, iconSize * 0.6f),
+                    )
+                }
+            }
+
+            // Current position dot
+            drawCircle(
+                color = primaryColor,
+                radius = iconSize * 0.6f,
+                center = androidx.compose.ui.geometry.Offset(progressEnd, barY),
+            )
+            drawCircle(
+                color = androidx.compose.ui.graphics.Color.White,
+                radius = iconSize * 0.3f,
+                center = androidx.compose.ui.geometry.Offset(progressEnd, barY),
+            )
+        }
+    }
 }
 
 // ── Instruction list (fullscreen, after route calculation) ───────────────────
