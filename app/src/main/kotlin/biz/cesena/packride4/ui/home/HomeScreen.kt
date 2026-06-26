@@ -81,6 +81,7 @@ fun HomeScreen(
     var arrowRotation by remember { mutableStateOf(0f) }
     var arrowVisible by remember { mutableStateOf(false) }
     var cameraBearing by remember { mutableStateOf(0.0) }
+    var cameraZoom by remember { mutableStateOf(0.0) }
 
     LaunchedEffect(Unit) {
         MapLibre.getInstance(context)
@@ -267,6 +268,7 @@ fun HomeScreen(
         arrowScreenY = screenPt.y
         arrowRotation = if (pos.hasBearing) pos.bearing else 0f
         cameraBearing = map.cameraPosition.bearing
+        cameraZoom = map.cameraPosition.zoom
         arrowVisible = true
         if (!initialZoomDone) {
             map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(pos.latitude, pos.longitude), 14.0))
@@ -503,6 +505,18 @@ fun HomeScreen(
                 contentColor = MaterialTheme.colorScheme.onSurface,
             ) {
                 Text("+", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            }
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+            ) {
+                Text(
+                    "${"%.1f".format(cameraZoom)}",
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
             }
             SmallFloatingActionButton(
                 onClick = { mapInstance?.animateCamera(CameraUpdateFactory.zoomOut()) },
