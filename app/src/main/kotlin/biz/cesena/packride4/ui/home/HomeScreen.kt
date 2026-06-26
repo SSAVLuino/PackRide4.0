@@ -3,6 +3,7 @@ package biz.cesena.packride4.ui.home
 import android.Manifest
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
@@ -605,17 +606,25 @@ fun HomeScreen(
 
         // ── Route ready panel (above bottom bar) ─────────────────────────────
         if (!uiState.isNavigating && uiState.route != null) {
+            var showInstructionList by remember { mutableStateOf(false) }
             RouteReadyPanel(
                 route = uiState.route!!,
                 destinationName = uiState.destinationName,
                 onStart = { viewModel.startNavigation() },
                 onCancel = { viewModel.clearRoute() },
-                onRecalculate = { engine -> viewModel.recalculateWithEngine(engine) },
+                onShowInstructions = { showInstructionList = true },
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     .padding(start = contentStart, end = contentEnd, top = contentTop)
             )
+            if (showInstructionList) {
+                InstructionListPanel(
+                    route = uiState.route!!,
+                    destinationName = uiState.destinationName,
+                    onClose = { showInstructionList = false },
+                )
+            }
         }
 
         // ── Bottom bar (always visible) ──────────────────────────────────────
@@ -747,7 +756,7 @@ private fun RouteReadyPanel(
     destinationName: String,
     onStart: () -> Unit,
     onCancel: () -> Unit,
-    onRecalculate: (String) -> Unit = {},
+    onShowInstructions: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -764,7 +773,10 @@ private fun RouteReadyPanel(
             IconButton(onClick = onCancel) {
                 Icon(Icons.Default.Close, "Cancella", tint = MaterialTheme.colorScheme.error)
             }
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier
+                .weight(1f)
+                .clickable(onClick = onShowInstructions)
+            ) {
                 if (destinationName.isNotBlank()) {
                     Text(destinationName,
                         style = MaterialTheme.typography.titleSmall,
@@ -772,7 +784,7 @@ private fun RouteReadyPanel(
                         maxLines = 1)
                 }
                 Text(
-                    "${formatDistance(route.distanceMeters)}  ·  ${formatDuration(route.timeMillis)}",
+                    "${formatDistance(route.distanceMeters)}  ·  ${formatDuration(route.timeMillis)}  ▼",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -911,6 +923,83 @@ private fun DebugLogDialog(onDismiss: () -> Unit) {
         confirmButton = { TextButton(onClick = onDismiss) { Text("Chiudi") } },
         dismissButton = { TextButton(onClick = { DebugLog.clear() }) { Text("Pulisci") } }
     )
+}
+
+// ── Instruction list (fullscreen, after route calculation) ───────────────────
+
+@Composable
+private fun InstructionListPanel(
+    route: biz.cesena.packride4.routing.RouteResult,
+    destinationName: String,
+    onClose: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(16.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        destinationName.ifBlank { "Percorso" },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                    )
+                    Text(
+                        "${formatDistance(route.distanceMeters)}  ·  ${formatDuration(route.timeMillis)}  ·  ${route.instructions.size} manovre",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Default.Close, contentDescription = "Chiudi")
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                items(route.instructions) { instr ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Icon(
+                            painter = painterResource(maneuverIcon(instr.sign, instr.modifier, instr.exitNumber, instr.turnAngle)),
+                            contentDescription = null,
+                            modifier = Modifier.size(28.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                instr.text,
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 2,
+                            )
+                        }
+                        Text(
+                            formatDistance(instr.distanceMeters),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                }
+            }
+        }
+    }
 }
 
 // ── Map layer setup ──────────────────────────────────────────────────────────
