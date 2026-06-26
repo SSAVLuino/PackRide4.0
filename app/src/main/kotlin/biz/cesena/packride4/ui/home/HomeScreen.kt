@@ -594,25 +594,15 @@ fun HomeScreen(
 
         // ── Navigation instruction banner + progress (TOP, only when navigating) ──
         if (uiState.isNavigating && uiState.route != null) {
-            Column(
+            NavigationInstructionBanner(
+                uiState = uiState,
+                onStop = { viewModel.stopNavigation() },
+                showProgressBar = uiState.showProgressBar,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     .padding(start = contentStart, end = contentEnd, top = contentTop),
-            ) {
-                NavigationInstructionBanner(
-                    uiState = uiState,
-                    onStop = { viewModel.stopNavigation() },
-                )
-                if (uiState.showProgressBar) {
-                    Spacer(Modifier.height(4.dp))
-                    RouteProgressBar(
-                        route = uiState.route!!,
-                        remainingDistance = uiState.remainingDistance,
-                        waypoints = uiState.waypoints,
-                    )
-                }
-            }
+            )
         }
 
         // ── Route ready panel (above bottom bar) ─────────────────────────────
@@ -818,6 +808,7 @@ private fun RouteReadyPanel(
 private fun NavigationInstructionBanner(
     uiState: HomeUiState,
     onStop: () -> Unit,
+    showProgressBar: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val route = uiState.route ?: return
@@ -862,35 +853,45 @@ private fun NavigationInstructionBanner(
                 }
             }
         }
-        // Text banner
+        // Text banner + optional progress bar
         Surface(
             color = MaterialTheme.colorScheme.primaryContainer,
             shadowElevation = 8.dp,
             modifier = Modifier.weight(1f),
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                if (uiState.distanceToNextManeuver > 0) {
+            Column {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    if (uiState.distanceToNextManeuver > 0) {
+                        Text(
+                            text = formatDistance(uiState.distanceToNextManeuver),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                     Text(
-                        text = formatDistance(uiState.distanceToNextManeuver),
-                        style = MaterialTheme.typography.titleMedium,
+                        text = currentInstruction?.text?.takeIf { it.isNotBlank() } ?: "Segui il percorso",
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        modifier = Modifier.weight(1f),
                     )
+                    IconButton(onClick = onStop) {
+                        Icon(Icons.Default.Close, "Stop navigazione",
+                            tint = MaterialTheme.colorScheme.error)
+                    }
                 }
-                Text(
-                    text = currentInstruction?.text?.takeIf { it.isNotBlank() } ?: "Segui il percorso",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    maxLines = 2,
-                    modifier = Modifier.weight(1f),
-                )
-                IconButton(onClick = onStop) {
-                    Icon(Icons.Default.Close, "Stop navigazione",
-                        tint = MaterialTheme.colorScheme.error)
+                if (showProgressBar) {
+                    RouteProgressBar(
+                        route = route,
+                        remainingDistance = uiState.remainingDistance,
+                        waypoints = uiState.waypoints,
+                        modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 6.dp),
+                    )
                 }
             }
         }
@@ -964,21 +965,14 @@ private fun RouteProgressBar(
     val totalDist = route.distanceMeters
     val progress = if (totalDist > 0) ((totalDist - remainingDistance) / totalDist).toFloat().coerceIn(0f, 1f) else 0f
 
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-        shape = MaterialTheme.shapes.small,
-        shadowElevation = 2.dp,
-    ) {
-        val primaryColor = MaterialTheme.colorScheme.primary
-        val trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-        val onSurface = MaterialTheme.colorScheme.onSurface
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+    val onSurface = MaterialTheme.colorScheme.onSurface
 
-        androidx.compose.foundation.Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(28.dp)
-                .padding(horizontal = 8.dp, vertical = 4.dp)
+    androidx.compose.foundation.Canvas(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(24.dp)
         ) {
             val w = size.width
             val h = size.height
@@ -1077,7 +1071,6 @@ private fun RouteProgressBar(
             )
         }
     }
-}
 
 // ── Instruction list (fullscreen, after route calculation) ───────────────────
 
