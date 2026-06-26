@@ -148,6 +148,12 @@ fun HomeScreen(
                 route.points.map { (lat, lon) -> Point.fromLngLat(lon, lat) }
             )
             routeSource?.setGeoJson(Feature.fromGeometry(line))
+            // Zoom to fit entire route when not navigating
+            if (!uiState.isNavigating && route.points.size >= 2) {
+                val boundsBuilder = org.maplibre.android.geometry.LatLngBounds.Builder()
+                route.points.forEach { (lat, lon) -> boundsBuilder.include(LatLng(lat, lon)) }
+                map.animateCamera(CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 100))
+            }
         }
     }
 
