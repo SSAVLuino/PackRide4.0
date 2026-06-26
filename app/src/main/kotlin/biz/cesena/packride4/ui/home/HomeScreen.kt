@@ -604,12 +604,14 @@ fun HomeScreen(
                     uiState = uiState,
                     onStop = { viewModel.stopNavigation() },
                 )
-                Spacer(Modifier.height(4.dp))
-                RouteProgressBar(
-                    route = uiState.route!!,
-                    remainingDistance = uiState.remainingDistance,
-                    waypoints = uiState.waypoints,
-                )
+                if (uiState.showProgressBar) {
+                    Spacer(Modifier.height(4.dp))
+                    RouteProgressBar(
+                        route = uiState.route!!,
+                        remainingDistance = uiState.remainingDistance,
+                        waypoints = uiState.waypoints,
+                    )
+                }
             }
         }
 

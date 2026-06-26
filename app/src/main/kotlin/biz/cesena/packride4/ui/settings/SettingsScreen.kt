@@ -28,6 +28,7 @@ fun SettingsScreen(
 ) {
     val useOfflineMap by viewModel.useOfflineMap.collectAsState()
     val voiceMode by viewModel.voiceMode.collectAsState()
+    val showProgressBar by viewModel.showProgressBar.collectAsState()
     var showDebugLog by remember { mutableStateOf(false) }
 
     if (showDebugLog) {
@@ -127,6 +128,17 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            ListItem(
+                headlineContent = { Text("Barra di progresso") },
+                supportingContent = { Text("Mostra avanzamento percorso durante la navigazione") },
+                trailingContent = {
+                    Switch(
+                        checked = showProgressBar,
+                        onCheckedChange = { viewModel.setShowProgressBar(it) }
+                    )
+                }
+            )
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 

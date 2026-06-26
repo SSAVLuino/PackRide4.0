@@ -88,6 +88,7 @@ data class HomeUiState(
     val widgetLeftNav: String = "km_remaining",
     val widgetRightNav: String = "altitude",
     val selectingWidgetSide: String? = null,
+    val showProgressBar: Boolean = true,
 )
 
 @HiltViewModel
@@ -137,7 +138,13 @@ class HomeViewModel @Inject constructor(
             widgetRightIdle = userPreferences.getWidgetSelection("right", false),
             widgetLeftNav = userPreferences.getWidgetSelection("left", true),
             widgetRightNav = userPreferences.getWidgetSelection("right", true),
+            showProgressBar = userPreferences.showProgressBar.value,
         )}
+        viewModelScope.launch {
+            userPreferences.showProgressBar.collect { show ->
+                _uiState.update { it.copy(showProgressBar = show) }
+            }
+        }
         startMBTilesServer()
         registerMbtFilesInDb()
         observeMapSource()

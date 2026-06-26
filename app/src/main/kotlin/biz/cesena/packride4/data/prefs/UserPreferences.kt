@@ -45,6 +45,14 @@ class UserPreferences @Inject constructor(
         _voiceMode.value = value
     }
 
+    private val _showProgressBar = MutableStateFlow(prefs.getBoolean(KEY_SHOW_PROGRESS_BAR, true))
+    val showProgressBar: StateFlow<Boolean> = _showProgressBar.asStateFlow()
+
+    fun setShowProgressBar(value: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_PROGRESS_BAR, value).apply()
+        _showProgressBar.value = value
+    }
+
     fun getWidgetSelection(side: String, navigating: Boolean): String {
         val key = "widget_${side}_${if (navigating) "nav" else "idle"}"
         val default = when {
@@ -66,5 +74,6 @@ class UserPreferences @Inject constructor(
         private const val KEY_LAST_LAT = "last_lat"
         private const val KEY_LAST_LON = "last_lon"
         private const val KEY_VOICE_MODE = "voice_announcement_mode"
+        private const val KEY_SHOW_PROGRESS_BAR = "show_progress_bar"
     }
 }
