@@ -80,6 +80,7 @@ fun HomeScreen(
     var arrowScreenY by remember { mutableStateOf(0f) }
     var arrowRotation by remember { mutableStateOf(0f) }
     var arrowVisible by remember { mutableStateOf(false) }
+    var cameraBearing by remember { mutableStateOf(0.0) }
 
     LaunchedEffect(Unit) {
         MapLibre.getInstance(context)
@@ -265,6 +266,7 @@ fun HomeScreen(
         arrowScreenX = screenPt.x
         arrowScreenY = screenPt.y
         arrowRotation = if (pos.hasBearing) pos.bearing else 0f
+        cameraBearing = map.cameraPosition.bearing
         arrowVisible = true
         if (!initialZoomDone) {
             map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(pos.latitude, pos.longitude), 14.0))
@@ -326,6 +328,7 @@ fun HomeScreen(
                             arrowScreenX = screenPt.x
                             arrowScreenY = screenPt.y
                             arrowRotation = if (pos.hasBearing) pos.bearing else 0f
+                            cameraBearing = map.cameraPosition.bearing
                             arrowVisible = true
                         }
                         val saved = viewModel.savedPosition
@@ -345,7 +348,7 @@ fun HomeScreen(
         // ── Navigation arrow overlay (Compose, always on top) ────────────────
         if (arrowVisible && uiState.lastKnownPosition != null) {
             val density = context.resources.displayMetrics.density
-            val arrowSizePx = 40 * density
+            val arrowSizePx = 80 * density
             androidx.compose.foundation.Canvas(
                 modifier = Modifier.fillMaxSize()
             ) {
@@ -354,7 +357,8 @@ fun HomeScreen(
                     val cx = arrowScreenX
                     val cy = arrowScreenY
                     nCanvas.save()
-                    nCanvas.rotate(arrowRotation, cx, cy)
+                    val displayRotation = arrowRotation - cameraBearing.toFloat()
+                    nCanvas.rotate(displayRotation, cx, cy)
                     val path = android.graphics.Path().apply {
                         moveTo(cx, cy - arrowSizePx * 0.35f)
                         lineTo(cx + arrowSizePx * 0.21f, cy + arrowSizePx * 0.14f)
