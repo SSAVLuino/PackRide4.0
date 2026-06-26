@@ -825,12 +825,12 @@ private fun NavigationInstructionBanner(
         ) {
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier.size(72.dp),
+                modifier = Modifier.size(80.dp),
             ) {
                 Icon(
                     painter = painterResource(maneuverIcon(currentInstruction?.sign ?: 0, currentInstruction?.modifier ?: "", currentInstruction?.exitNumber ?: 0, currentInstruction?.turnAngle ?: Double.NaN)),
                     contentDescription = null,
-                    modifier = Modifier.size(48.dp),
+                    modifier = Modifier.size(68.dp),
                     tint = MaterialTheme.colorScheme.onPrimary,
                 )
                 val exitNum = currentInstruction?.exitNumber ?: 0
@@ -858,7 +858,7 @@ private fun NavigationInstructionBanner(
             modifier = Modifier.weight(1f),
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
