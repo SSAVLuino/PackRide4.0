@@ -612,9 +612,9 @@ fun HomeScreen(
                 onCancel = { viewModel.clearRoute() },
                 onRecalculate = { engine -> viewModel.recalculateWithEngine(engine) },
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
+                    .align(Alignment.TopCenter)
                     .fillMaxWidth()
-                    .padding(start = contentStart, end = contentEnd, bottom = BOTTOM_BAR_HEIGHT + 8.dp)
+                    .padding(start = contentStart, end = contentEnd, top = contentTop)
             )
         }
 
