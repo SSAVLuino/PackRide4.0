@@ -29,19 +29,22 @@ class OfflineGeocodingService @Inject constructor(
     var userLat: Double = 0.0
     var userLon: Double = 0.0
 
-    fun search(query: String, limit: Int = 6): List<GeocodingResult> {
+    fun search(query: String, limit: Int = 10): List<GeocodingResult> {
         if (query.length < 3) return emptyList()
 
         val searchId = ++currentSearchId
         val results = mutableListOf<GeocodingResult>()
         val trimmed = query.trim()
+        val isStreetSearch = trimmed.lowercase().startsWith("via ") ||
+                trimmed.lowercase().startsWith("piazza ") ||
+                trimmed.lowercase().startsWith("corso ") ||
+                trimmed.lowercase().startsWith("viale ")
 
         val dir = geocodingDir()
         if (!dir.exists()) return emptyList()
 
         val dbFiles = dir.listFiles()?.filter { it.name.endsWith(".db") } ?: return emptyList()
 
-        // Fetch more than needed, then sort by distance and trim
         val fetchLimit = limit * 5
 
         for (dbFile in dbFiles) {
@@ -49,11 +52,16 @@ class OfflineGeocodingService @Inject constructor(
             val db = getDb(dbFile) ?: continue
             ensureIndex(db)
             try {
+                val typeFilter = if (isStreetSearch) {
+                    "AND type IN ('street','address')"
+                } else {
+                    "AND type IN ('city','town','village','hamlet','suburb','street')"
+                }
                 val cursor = db.rawQuery(
                     """
                     SELECT name, type, category, lat, lon, city, street
                     FROM places
-                    WHERE name LIKE ?
+                    WHERE name LIKE ? $typeFilter
                     LIMIT ?
                     """.trimIndent(),
                     arrayOf("$trimmed%", fetchLimit.toString())
@@ -64,9 +72,13 @@ class OfflineGeocodingService @Inject constructor(
             }
         }
 
-        // Sort by distance from user position
+        // Calculate distance and sort by nearest
         if (userLat != 0.0 && userLon != 0.0) {
-            results.sortBy { haversine(userLat, userLon, it.lat, it.lon) }
+            results.forEach { r ->
+                val dist = haversine(userLat, userLon, r.lat, r.lon)
+                results[results.indexOf(r)] = r.copy(distanceKm = dist / 1000.0)
+            }
+            results.sortBy { it.distanceKm }
         }
 
         DebugLog.log("offline-geocoding: ${results.size} results for \"$query\"")
@@ -76,12 +88,12 @@ class OfflineGeocodingService @Inject constructor(
     private fun parseResults(cursor: android.database.Cursor, results: MutableList<GeocodingResult>) {
         while (cursor.moveToNext()) {
             val name = cursor.getString(0)
-            val category = cursor.getString(2) ?: ""
+            val type = cursor.getString(1) ?: ""
             val lat = cursor.getDouble(3)
             val lon = cursor.getDouble(4)
             val city = cursor.getString(5) ?: ""
             val street = cursor.getString(6) ?: ""
-            val displayName = if (category.isNotBlank()) "$name ($category)" else name
+            val displayName = name
             val address = listOf(street, city).filter { it.isNotBlank() }.joinToString(", ")
             results.add(GeocodingResult(displayName, address, lat, lon))
         }

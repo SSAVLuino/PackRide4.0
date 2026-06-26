@@ -210,6 +210,16 @@ fun RoutePlannerSheet(
                                 Icon(Icons.Default.Place, null,
                                     tint = MaterialTheme.colorScheme.primary)
                             },
+                            trailingContent = {
+                                if (result.distanceKm > 0) {
+                                    Text(
+                                        if (result.distanceKm >= 1.0) "${"%.0f".format(result.distanceKm)} km"
+                                        else "${(result.distanceKm * 1000).toInt()} m",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            },
                             modifier = Modifier.clickable { onSelectResult(result) }
                         )
                         HorizontalDivider()

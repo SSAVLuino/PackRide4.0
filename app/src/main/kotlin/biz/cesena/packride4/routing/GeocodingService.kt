@@ -15,7 +15,8 @@ data class GeocodingResult(
     val name: String,
     val address: String,
     val lat: Double,
-    val lon: Double
+    val lon: Double,
+    val distanceKm: Double = 0.0,
 )
 
 @Singleton
@@ -53,12 +54,26 @@ class GeocodingService @Inject constructor(
                     ?: addr?.optString("freeformAddress")
                     ?: ""
                 val address = addr?.optString("freeformAddress") ?: ""
-                GeocodingResult(name, address, pos.getDouble("lat"), pos.getDouble("lon"))
-            }.also { DebugLog.log("geocoding: ${it.size} results for \"$query\"") }
+                val lat = pos.getDouble("lat")
+                val lon = pos.getDouble("lon")
+                val distKm = if (userLat != 0.0 || userLon != 0.0) haversine(userLat, userLon, lat, lon) / 1000.0 else 0.0
+                GeocodingResult(name, address, lat, lon, distKm)
+            }.sortedBy { it.distanceKm }
+            .also { DebugLog.log("geocoding: ${it.size} results for \"$query\"") }
         } catch (e: Exception) {
             DebugLog.log("geocoding error: ${e::class.simpleName}: ${e.message}")
             emptyList()
         }
+    }
+
+    private fun haversine(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val r = 6_371_000.0
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = kotlin.math.sin(dLat / 2).let { it * it } +
+                kotlin.math.cos(Math.toRadians(lat1)) * kotlin.math.cos(Math.toRadians(lat2)) *
+                kotlin.math.sin(dLon / 2).let { it * it }
+        return r * 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
     }
 
     private fun fetchJson(urlString: String): String? {
