@@ -88,7 +88,7 @@ class OnlineRoutingService @Inject constructor() {
                     val street = instr.optString("street", "")
                     val via = if (street.isNotBlank()) " su $street" else ""
                     val rawText = instr.optString("message", "").ifBlank { maneuverToText(maneuver) + via }
-                    val text = if (maneuver == "LOCATION_DEPARTURE") "Partiamo" else rawText
+                    val text = if (maneuver == "LOCATION_DEPARTURE" || rawText.lowercase().startsWith("depart")) "Partiamo" else rawText
                     val offsetM = instr.optDouble("routeOffsetInMeters", 0.0)
                     val timeS = instr.optLong("travelTimeInSeconds", 0L)
                     val modifier = if (sign == 6) tomTomRoundaboutModifier(maneuver) else ""
