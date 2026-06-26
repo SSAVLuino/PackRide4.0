@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material3.*
@@ -94,12 +95,15 @@ fun BottomBar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 SmallFloatingActionButton(
-                    onClick = onNavigateClick,
+                    onClick = if (uiState.isNavigating) ({}) else onNavigateClick,
                     shape = CircleShape,
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 ) {
-                    Icon(Icons.Filled.Navigation, contentDescription = "Dove andiamo?")
+                    Icon(
+                        if (uiState.isNavigating) Icons.Filled.Flag else Icons.Filled.Navigation,
+                        contentDescription = if (uiState.isNavigating) "In navigazione" else "Dove andiamo?",
+                    )
                 }
                 Spacer(Modifier.width(8.dp))
                 Surface(
