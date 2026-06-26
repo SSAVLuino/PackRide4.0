@@ -821,11 +821,11 @@ private fun NavigationInstructionBanner(
     val currentInstruction = route.instructions.getOrNull(uiState.currentInstructionIndex)
 
     Row(
-        modifier = modifier,
+        modifier = modifier.height(IntrinsicSize.Max),
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(0.dp),
     ) {
-        // Large icon box
+        // Large icon box — stretches to match right column height
         Surface(
             color = MaterialTheme.colorScheme.primary,
             shadowElevation = 8.dp,
@@ -833,7 +833,9 @@ private fun NavigationInstructionBanner(
         ) {
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier.size(80.dp),
+                modifier = Modifier
+                    .width(80.dp)
+                    .fillMaxHeight(),
             ) {
                 Icon(
                     painter = painterResource(maneuverIcon(currentInstruction?.sign ?: 0, currentInstruction?.modifier ?: "", currentInstruction?.exitNumber ?: 0, currentInstruction?.turnAngle ?: Double.NaN)),
@@ -859,13 +861,13 @@ private fun NavigationInstructionBanner(
                 }
             }
         }
-        // Text banner + optional progress bar
-        Surface(
-            color = MaterialTheme.colorScheme.primaryContainer,
-            shadowElevation = 8.dp,
-            modifier = Modifier.weight(1f),
-        ) {
-            Column {
+        // Right column: text banner + separate progress bar
+        Column(modifier = Modifier.weight(1f)) {
+            // Text banner
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shadowElevation = 8.dp,
+            ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -891,12 +893,20 @@ private fun NavigationInstructionBanner(
                             tint = MaterialTheme.colorScheme.error)
                     }
                 }
-                if (showProgressBar) {
+            }
+            // Progress bar — staccata, sotto al testo
+            if (showProgressBar) {
+                Spacer(Modifier.height(4.dp))
+                Surface(
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                    shadowElevation = 2.dp,
+                    shape = MaterialTheme.shapes.small,
+                ) {
                     RouteProgressBar(
                         route = route,
                         remainingDistance = uiState.remainingDistance,
                         waypoints = uiState.waypoints,
-                        modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 6.dp),
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
                     )
                 }
             }
