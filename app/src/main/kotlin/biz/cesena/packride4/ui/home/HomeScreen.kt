@@ -504,10 +504,11 @@ fun HomeScreen(
         }
 
         // ── Left column (zoom + speed limit) ────────────────────────────────
+        val topBarHeight = if (uiState.isNavigating && uiState.route != null) 120.dp else 0.dp
         Column(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = contentStart),
+                .padding(start = contentStart, top = topBarHeight, bottom = BOTTOM_BAR_HEIGHT),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -517,18 +518,6 @@ fun HomeScreen(
                 contentColor = MaterialTheme.colorScheme.onSurface,
             ) {
                 Text("+", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            }
-            Surface(
-                shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-            ) {
-                Text(
-                    "${"%.1f".format(cameraZoom)}",
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
             }
             SmallFloatingActionButton(
                 onClick = { mapInstance?.animateCamera(CameraUpdateFactory.zoomOut()) },
@@ -550,7 +539,7 @@ fun HomeScreen(
         Column(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .padding(end = contentEnd),
+                .padding(end = contentEnd, top = topBarHeight, bottom = BOTTOM_BAR_HEIGHT),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
