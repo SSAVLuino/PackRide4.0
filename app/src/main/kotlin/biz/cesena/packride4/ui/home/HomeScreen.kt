@@ -286,6 +286,10 @@ fun HomeScreen(
                           else map.cameraPosition.bearing
             val zoom = if (!navZoomDone) 17.0 else map.cameraPosition.zoom
             val tilt = if (!navZoomDone) { if (uiState.mapOrientationNorthUp) 0.0 else 45.0 } else map.cameraPosition.tilt
+            // Shift focal point to 75% from top so more road ahead is visible
+            val mapHeight = map.height
+            val bottomPad = (mapHeight * 0.50).toInt()
+            map.setPadding(0, 0, 0, bottomPad)
             navZoomDone = true
             map.animateCamera(CameraUpdateFactory.newCameraPosition(
                 CameraPosition.Builder()
@@ -296,6 +300,7 @@ fun HomeScreen(
                     .build()
             ))
         } else if (uiState.isFollowing) {
+            map.setPadding(0, 0, 0, 0)
             val currentTilt = map.cameraPosition.tilt
             val currentBearing = map.cameraPosition.bearing
             if (currentTilt > 1.0 || currentBearing > 1.0) {
