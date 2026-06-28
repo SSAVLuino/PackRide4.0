@@ -519,6 +519,20 @@ fun HomeScreen(
             ) {
                 Text("+", fontWeight = FontWeight.Bold, fontSize = 18.sp)
             }
+            if (!uiState.isNavigating || uiState.route == null) {
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                ) {
+                    Text(
+                        "${"%.1f".format(cameraZoom)}",
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
             SmallFloatingActionButton(
                 onClick = { mapInstance?.animateCamera(CameraUpdateFactory.zoomOut()) },
                 containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
