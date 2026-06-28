@@ -349,6 +349,14 @@ class HomeViewModel @Inject constructor(
         )}
 
         viewModelScope.launch {
+            // Wait for graph loading if not ready yet (max 5s)
+            if (!routingManager.isReady.value) {
+                DebugLog.log("routing: waiting for graph to load...")
+                kotlinx.coroutines.withTimeoutOrNull(5000L) {
+                    routingManager.isReady.first { it }
+                }
+                DebugLog.log("routing: ready=${routingManager.isReady.value}, loaded=${routingManager.loadedCount()}")
+            }
             val first = points.first()
             val last = points.last()
             val result = if (routingManager.canRouteLocally(first.first, first.second, last.first, last.second, AVAILABLE_REGIONS)) {
