@@ -104,10 +104,11 @@ class OnlineRoutingService @Inject constructor() {
                     val angle = if (!rawAngle.isNaN() && sign == 6) 180.0 - rawAngle else rawAngle
                     rawList += RawTomTomInstr(text, offsetM, timeS * 1000L, sign, modifier, exitNum, angle)
                 }
-                // Convert cumulative offsets to incremental segment distances
+                // Convert to GH-style distances: each instruction's distance = from here to next maneuver
                 for (i in rawList.indices) {
-                    val segmentDist = if (i == 0) rawList[i].offsetM
-                                      else (rawList[i].offsetM - rawList[i - 1].offsetM).coerceAtLeast(0.0)
+                    val segmentDist = if (i < rawList.size - 1)
+                        (rawList[i + 1].offsetM - rawList[i].offsetM).coerceAtLeast(0.0)
+                    else 0.0
                     val r = rawList[i]
                     instructions += RouteInstruction(r.text, segmentDist, r.timeMs, r.sign, r.modifier, r.exitNum, turnAngle = r.angle)
                 }
