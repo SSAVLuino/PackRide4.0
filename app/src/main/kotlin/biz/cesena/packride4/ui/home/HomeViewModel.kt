@@ -483,6 +483,13 @@ class HomeViewModel @Inject constructor(
     fun handleMapTap(lat: Double, lon: Double, zoom: Double = 14.0): Boolean {
         val state = _uiState.value
 
+        // Debug: log speed limit at tapped point
+        if (routingManager.isReady.value) {
+            viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                val limit = routingManager.getSpeedLimit(lat, lon)
+                DebugLog.log("tap-debug: lat=${"%.6f".format(lat)} lon=${"%.6f".format(lon)} speedLimit=$limit")
+            }
+        }
 
         if (!state.isEditingRoute || state.route == null) return false
         val tapRadius = 500.0 / Math.pow(2.0, (zoom - 10.0).coerceAtLeast(0.0))
