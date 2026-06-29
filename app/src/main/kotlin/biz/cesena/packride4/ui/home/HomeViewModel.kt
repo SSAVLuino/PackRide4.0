@@ -706,7 +706,7 @@ class HomeViewModel @Inject constructor(
         val distanceAlongRoute = match.distanceAlong
 
         var newIdx = idx
-        while (newIdx < instructions.size - 1 && distanceAlongRoute >= waypointDistances[newIdx]) {
+        while (newIdx < instructions.size - 1 && distanceAlongRoute >= waypointDistances[newIdx] + 30.0) {
             newIdx++
         }
 

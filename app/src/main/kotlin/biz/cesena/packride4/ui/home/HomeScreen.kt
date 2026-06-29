@@ -826,7 +826,12 @@ private fun NavigationInstructionBanner(
     modifier: Modifier = Modifier
 ) {
     val route = uiState.route ?: return
-    val currentInstruction = route.instructions.getOrNull(uiState.currentInstructionIndex)
+    val idx = uiState.currentInstructionIndex
+    // When current segment is a non-turn (sign=0), show the next maneuver instead
+    val displayIdx = if (idx < route.instructions.size - 1 &&
+        (route.instructions[idx].sign == 0 || route.instructions[idx].sign == 4))
+        idx + 1 else idx
+    val currentInstruction = route.instructions.getOrNull(displayIdx)
 
     Row(
         modifier = modifier.height(IntrinsicSize.Max),
