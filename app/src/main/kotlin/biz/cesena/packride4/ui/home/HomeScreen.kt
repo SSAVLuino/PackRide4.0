@@ -927,7 +927,7 @@ private fun SpeedLimitSign(limit: Int, isOfficial: Boolean = true, modifier: Mod
     val borderColor = if (isOfficial) Color.Red else Color.Gray
     val textColor = if (isOfficial) Color.Black else Color.Gray
     Surface(
-        modifier = modifier.size(48.dp),
+        modifier = modifier.size(56.dp),
         shape = CircleShape,
         color = Color.White,
         shadowElevation = 4.dp,
@@ -936,7 +936,7 @@ private fun SpeedLimitSign(limit: Int, isOfficial: Boolean = true, modifier: Mod
         Box(contentAlignment = Alignment.Center) {
             Text(
                 "$limit",
-                fontSize = 16.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = textColor
             )
