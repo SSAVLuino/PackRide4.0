@@ -1265,7 +1265,7 @@ private fun addMapLayers(style: Style) {
         val canvas = android.graphics.Canvas(bmp)
         val s = size.toFloat()
         val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.parseColor("#e08830")
+            color = android.graphics.Color.parseColor("#333333")
             this.style = android.graphics.Paint.Style.FILL
         }
         // Pump body
@@ -1273,7 +1273,7 @@ private fun addMapLayers(style: Style) {
         canvas.drawRoundRect(body, 2f * density, 2f * density, paint)
         // Nozzle arm
         val arm = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.parseColor("#e08830")
+            color = android.graphics.Color.parseColor("#333333")
             strokeWidth = 2.5f * density
             strokeCap = android.graphics.Paint.Cap.ROUND
             this.style = android.graphics.Paint.Style.STROKE
