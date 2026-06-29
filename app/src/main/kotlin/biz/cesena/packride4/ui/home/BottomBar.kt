@@ -70,6 +70,7 @@ fun BottomBar(
     onMenuClick: () -> Unit,
     onLeftWidgetClick: () -> Unit,
     onRightWidgetClick: () -> Unit,
+    onManeuverPanelClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val leftKey = if (uiState.isNavigating) uiState.widgetLeftNav else uiState.widgetLeftIdle
@@ -95,14 +96,20 @@ fun BottomBar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 SmallFloatingActionButton(
-                    onClick = if (uiState.isNavigating) ({}) else onNavigateClick,
+                    onClick = if (uiState.isNavigating) onManeuverPanelClick else onNavigateClick,
                     shape = CircleShape,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor = if (uiState.isNavigating && uiState.showManeuverPanel)
+                        MaterialTheme.colorScheme.tertiary
+                    else
+                        MaterialTheme.colorScheme.primary,
+                    contentColor = if (uiState.isNavigating && uiState.showManeuverPanel)
+                        MaterialTheme.colorScheme.onTertiary
+                    else
+                        MaterialTheme.colorScheme.onPrimary,
                 ) {
                     Icon(
-                        if (uiState.isNavigating) Icons.Filled.Flag else Icons.Filled.Navigation,
-                        contentDescription = if (uiState.isNavigating) "In navigazione" else "Dove andiamo?",
+                        if (uiState.isNavigating) Icons.Filled.List else Icons.Filled.Navigation,
+                        contentDescription = if (uiState.isNavigating) "Manovre" else "Dove andiamo?",
                     )
                 }
                 Spacer(Modifier.width(8.dp))

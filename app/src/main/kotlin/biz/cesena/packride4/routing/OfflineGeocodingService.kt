@@ -99,7 +99,12 @@ class OfflineGeocodingService @Inject constructor(
         }
     }
 
-    data class PoiResult(val name: String, val category: String, val lat: Double, val lon: Double, val distanceMeters: Double = 0.0)
+    data class PoiResult(
+        val name: String, val category: String, val lat: Double, val lon: Double,
+        val distanceMeters: Double = 0.0,
+        val distanceAlongRoute: Double = 0.0,
+        val distanceFromTrack: Double = 0.0,
+    )
 
     fun findPoisNearby(lat: Double, lon: Double, radiusMeters: Double = 1000.0, limit: Int = 50): List<PoiResult> {
         val dir = geocodingDir()
@@ -209,8 +214,11 @@ class OfflineGeocodingService @Inject constructor(
                     while (it.moveToNext()) {
                         val lat = it.getDouble(2)
                         val lon = it.getDouble(3)
-                        if (distanceToPolyline(lat, lon, routePoints) <= radiusMeters) {
-                            results.add(PoiResult(it.getString(0), it.getString(1), lat, lon))
+                        val fromTrack = distanceToPolyline(lat, lon, routePoints)
+                        if (fromTrack <= radiusMeters) {
+                            val alongRoute = distanceAlongPolyline(lat, lon, routePoints)
+                            results.add(PoiResult(it.getString(0), it.getString(1), lat, lon,
+                                distanceAlongRoute = alongRoute, distanceFromTrack = fromTrack))
                         }
                     }
                 }
@@ -219,8 +227,32 @@ class OfflineGeocodingService @Inject constructor(
             }
         }
 
+        results.sortBy { it.distanceAlongRoute }
         DebugLog.log("offline-geocoding: found ${results.size} fuel stations along route")
         return results
+    }
+
+    private fun distanceAlongPolyline(lat: Double, lon: Double, points: List<Pair<Double, Double>>): Double {
+        var minDist = Double.MAX_VALUE
+        var bestSegment = 0
+        var bestT = 0.0
+        for (i in 0 until points.size - 1) {
+            val (aLat, aLon) = points[i]
+            val (bLat, bLon) = points[i + 1]
+            val dx = bLon - aLon; val dy = bLat - aLat
+            val t = if (dx == 0.0 && dy == 0.0) 0.0
+                else (((lon - aLon) * dx + (lat - aLat) * dy) / (dx * dx + dy * dy)).coerceIn(0.0, 1.0)
+            val d = haversine(lat, lon, aLat + t * dy, aLon + t * dx)
+            if (d < minDist) { minDist = d; bestSegment = i; bestT = t }
+        }
+        var along = 0.0
+        for (i in 0 until bestSegment) {
+            along += haversine(points[i].first, points[i].second, points[i + 1].first, points[i + 1].second)
+        }
+        along += haversine(points[bestSegment].first, points[bestSegment].second,
+            points[bestSegment].first + bestT * (points[bestSegment + 1].first - points[bestSegment].first),
+            points[bestSegment].second + bestT * (points[bestSegment + 1].second - points[bestSegment].second))
+        return along
     }
 
     private fun distanceToPolyline(lat: Double, lon: Double, points: List<Pair<Double, Double>>): Double {

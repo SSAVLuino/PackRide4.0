@@ -75,6 +75,7 @@ data class HomeUiState(
     val fuelStationsAlongRoute: List<OfflineGeocodingService.PoiResult> = emptyList(),
     val debugPois: List<OfflineGeocodingService.PoiResult> = emptyList(),
     val isRouteCalculating: Boolean = false,
+    val showManeuverPanel: Boolean = false,
     // Layout redesign state
     val altitudeMeters: Double = 0.0,
     val mapOrientationNorthUp: Boolean = true,
@@ -662,7 +663,7 @@ class HomeViewModel @Inject constructor(
 
     fun stopNavigation() {
         voiceService.shutdown()
-        _uiState.update { it.copy(isNavigating = false, currentInstructionIndex = 0, route = null, mapOrientationNorthUp = true) }
+        _uiState.update { it.copy(isNavigating = false, currentInstructionIndex = 0, route = null, mapOrientationNorthUp = true, showManeuverPanel = false) }
     }
 
     // ── Navigation advancement ────────────────────────────────────────────
@@ -696,7 +697,7 @@ class HomeViewModel @Inject constructor(
         if (distToEnd < 30.0) {
             voiceService.checkAnnouncement(instructions.size, "Sei arrivato a destinazione", 0.0, state.speedKmh)
             voiceService.shutdown()
-            _uiState.update { it.copy(isNavigating = false, currentInstructionIndex = 0, route = null, mapOrientationNorthUp = true) }
+            _uiState.update { it.copy(isNavigating = false, currentInstructionIndex = 0, route = null, mapOrientationNorthUp = true, showManeuverPanel = false) }
             return
         }
 
@@ -868,6 +869,10 @@ class HomeViewModel @Inject constructor(
 
     fun toggleMapOrientation() {
         _uiState.update { it.copy(mapOrientationNorthUp = !it.mapOrientationNorthUp) }
+    }
+
+    fun toggleManeuverPanel() {
+        _uiState.update { it.copy(showManeuverPanel = !it.showManeuverPanel) }
     }
 
     fun toggleMenu() {

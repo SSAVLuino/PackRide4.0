@@ -288,8 +288,10 @@ fun HomeScreen(
             val tilt = if (!navZoomDone) { if (uiState.mapOrientationNorthUp) 0.0 else 45.0 } else map.cameraPosition.tilt
             // Shift focal point to 75% from top so more road ahead is visible
             val mapHeight = map.height
+            val mapWidth = map.width
             val topPad = (mapHeight * 0.50).toInt()
-            @Suppress("DEPRECATION") map.setPadding(0, topPad, 0, 0)
+            val leftPad = if (uiState.showManeuverPanel) (mapWidth * 0.20).toInt() else 0
+            @Suppress("DEPRECATION") map.setPadding(leftPad, topPad, 0, 0)
             navZoomDone = true
             map.animateCamera(CameraUpdateFactory.newCameraPosition(
                 CameraPosition.Builder()
@@ -619,6 +621,17 @@ fun HomeScreen(
             )
         }
 
+        // ── Navigation maneuver side panel (LEFT, toggled by flag button) ──
+        if (uiState.isNavigating && uiState.route != null && uiState.showManeuverPanel) {
+            NavigationManeuverPanel(
+                uiState = uiState,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .fillMaxWidth(0.20f)
+                    .padding(top = topBarHeight, bottom = BOTTOM_BAR_HEIGHT),
+            )
+        }
+
         // ── Route ready panel (above bottom bar) ─────────────────────────────
         if (!uiState.isNavigating && uiState.route != null) {
             var showInstructionList by remember { mutableStateOf(false) }
@@ -649,6 +662,7 @@ fun HomeScreen(
             onMenuClick = { viewModel.toggleMenu() },
             onLeftWidgetClick = { viewModel.openWidgetSelector("left") },
             onRightWidgetClick = { viewModel.openWidgetSelector("right") },
+            onManeuverPanelClick = { viewModel.toggleManeuverPanel() },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
 
@@ -1095,6 +1109,131 @@ private fun RouteProgressBar(
             )
         }
     }
+
+// ── Navigation maneuver side panel ──────────────────────────────────────────
+
+sealed class ManeuverListItem {
+    data class Instruction(val instr: biz.cesena.packride4.routing.RouteInstruction, val cumulativeDistance: Double) : ManeuverListItem()
+    data class FuelStation(val poi: biz.cesena.packride4.routing.OfflineGeocodingService.PoiResult) : ManeuverListItem()
+}
+
+@Composable
+private fun NavigationManeuverPanel(
+    uiState: HomeUiState,
+    modifier: Modifier = Modifier,
+) {
+    val route = uiState.route ?: return
+    val startIdx = uiState.currentInstructionIndex + 1
+    val instructions = route.instructions
+    if (startIdx >= instructions.size) return
+
+    // Compute cumulative distance at each instruction
+    val cumulDist = mutableListOf<Double>()
+    var acc = 0.0
+    for (instr in instructions) {
+        cumulDist.add(acc)
+        acc += instr.distanceMeters
+    }
+
+    // Build interleaved list: instructions from startIdx + fuel stations between them
+    val items = mutableListOf<ManeuverListItem>()
+    val fuelStations = uiState.fuelStationsAlongRoute
+
+    for (i in startIdx until instructions.size) {
+        // Add fuel stations between previous instruction and this one
+        val prevDist = cumulDist[i]
+        val nextDist = if (i + 1 < cumulDist.size) cumulDist[i + 1] else acc
+        for (fuel in fuelStations) {
+            if (fuel.distanceAlongRoute >= prevDist && fuel.distanceAlongRoute < nextDist) {
+                items.add(ManeuverListItem.FuelStation(fuel))
+            }
+        }
+        items.add(ManeuverListItem.Instruction(instructions[i], cumulDist[i]))
+    }
+
+    Surface(
+        modifier = modifier
+            .fillMaxHeight()
+            .statusBarsPadding()
+            .navigationBarsPadding(),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+        shadowElevation = 8.dp,
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .padding(horizontal = 6.dp, vertical = 4.dp),
+        ) {
+            items(items.size) { index ->
+                when (val item = items[index]) {
+                    is ManeuverListItem.Instruction -> {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Icon(
+                                painter = painterResource(maneuverIcon(item.instr.sign, item.instr.modifier, item.instr.exitNumber, item.instr.turnAngle)),
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    item.instr.text,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 1,
+                                )
+                            }
+                            Text(
+                                formatDistance(item.instr.distanceMeters),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+                    }
+                    is ManeuverListItem.FuelStation -> {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text("⛽", fontSize = 14.sp)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    item.poi.name.ifBlank { "Distributore" },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 1,
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    formatDistance(item.poi.distanceAlongRoute),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                if (item.poi.distanceFromTrack > 50) {
+                                    Text(
+                                        "↔ ${formatDistance(item.poi.distanceFromTrack)}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.outline,
+                                        fontSize = 9.sp,
+                                    )
+                                }
+                            }
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+                    }
+                }
+            }
+        }
+    }
+}
 
 // ── Instruction list (fullscreen, after route calculation) ───────────────────
 
