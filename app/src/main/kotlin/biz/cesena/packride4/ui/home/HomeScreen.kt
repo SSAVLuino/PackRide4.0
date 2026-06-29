@@ -544,17 +544,10 @@ fun HomeScreen(
             ) {
                 Text("−", fontWeight = FontWeight.Bold, fontSize = 18.sp)
             }
-            if (uiState.isNavigating && uiState.route != null) {
-                val currentInstruction = uiState.route!!.instructions.getOrNull(uiState.currentInstructionIndex)
-                val limit = currentInstruction?.speedLimitKmh ?: 0
-                if (limit > 0) {
-                    SpeedLimitSign(limit = limit)
-                }
-            }
         }
         } // hideLeftButtons
 
-        // ── Right column (GPS follow + orientation) ─────────────────────────
+        // ── Right column (GPS follow + orientation + speed limit) ───────────
         Column(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
@@ -593,20 +586,11 @@ fun HomeScreen(
                     fontWeight = FontWeight.Bold, fontSize = 14.sp
                 )
             }
-            if (biz.cesena.packride4.BuildConfig.DEBUG) {
-                SmallFloatingActionButton(
-                    onClick = {
-                        val map = mapInstance ?: return@SmallFloatingActionButton
-                        val bounds = map.projection.visibleRegion.latLngBounds
-                        viewModel.debugSearchVisiblePois(
-                            bounds.latitudeSouth, bounds.longitudeWest, bounds.latitudeNorth, bounds.longitudeEast
-                        )
-                    },
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                ) {
-                    Icon(Icons.Default.Place, "Debug POI",
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                        modifier = Modifier.size(20.dp))
+            if (uiState.isNavigating && uiState.route != null) {
+                val currentInstruction = uiState.route!!.instructions.getOrNull(uiState.currentInstructionIndex)
+                val limit = currentInstruction?.speedLimitKmh ?: 0
+                if (limit > 0) {
+                    SpeedLimitSign(limit = limit)
                 }
             }
         }
