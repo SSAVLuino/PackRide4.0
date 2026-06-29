@@ -507,6 +507,8 @@ fun HomeScreen(
 
         // ── Left column (zoom + speed limit) ────────────────────────────────
         val topBarHeight = if (uiState.isNavigating && uiState.route != null) 120.dp else 0.dp
+        val hideLeftButtons = uiState.isNavigating && uiState.showManeuverPanel
+        if (!hideLeftButtons) {
         Column(
             modifier = Modifier
                 .align(Alignment.CenterStart)
@@ -550,6 +552,7 @@ fun HomeScreen(
                 }
             }
         }
+        } // hideLeftButtons
 
         // ── Right column (GPS follow + orientation) ─────────────────────────
         Column(
