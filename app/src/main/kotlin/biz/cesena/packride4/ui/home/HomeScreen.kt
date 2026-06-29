@@ -1257,29 +1257,38 @@ private fun addMapLayers(style: Style) {
         ))
     }
 
-    // ── Fuel station icon (orange circle with white "F") ──
+    // ── Fuel station icon (small fuel pump) ──
     if (style.getImage("fuel-pin") == null) {
         val density = android.content.res.Resources.getSystem().displayMetrics.density
-        val size = (36 * density).toInt()
+        val size = (28 * density).toInt()
         val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bmp)
-        val border = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.parseColor("#c07020")
+        val s = size.toFloat()
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.parseColor("#e08830")
             this.style = android.graphics.Paint.Style.FILL
         }
-        canvas.drawCircle(size / 2f, size / 2f, size / 2f, border)
-        val bg = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.parseColor("#f5a623")
-            this.style = android.graphics.Paint.Style.FILL
+        // Pump body
+        val body = android.graphics.RectF(s * 0.18f, s * 0.22f, s * 0.58f, s * 0.82f)
+        canvas.drawRoundRect(body, 2f * density, 2f * density, paint)
+        // Nozzle arm
+        val arm = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.parseColor("#e08830")
+            strokeWidth = 2.5f * density
+            strokeCap = android.graphics.Paint.Cap.ROUND
+            this.style = android.graphics.Paint.Style.STROKE
         }
-        canvas.drawCircle(size / 2f, size / 2f, size / 2f - 2f * density, bg)
-        val txt = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        canvas.drawLine(s * 0.58f, s * 0.32f, s * 0.75f, s * 0.32f, arm)
+        canvas.drawLine(s * 0.75f, s * 0.32f, s * 0.75f, s * 0.55f, arm)
+        canvas.drawLine(s * 0.75f, s * 0.55f, s * 0.65f, s * 0.55f, arm)
+        // Fuel gauge window on body
+        val window = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.WHITE
-            textSize = 18f * density
-            textAlign = android.graphics.Paint.Align.CENTER
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            this.style = android.graphics.Paint.Style.FILL
         }
-        canvas.drawText("F", size / 2f, size / 2f + 7f * density, txt)
+        canvas.drawRect(s * 0.25f, s * 0.32f, s * 0.51f, s * 0.50f, window)
+        // Base
+        canvas.drawRect(s * 0.12f, s * 0.82f, s * 0.64f, s * 0.88f, paint)
         style.addImage("fuel-pin", bmp)
     }
 
