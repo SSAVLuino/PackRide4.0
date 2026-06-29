@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -1100,8 +1101,11 @@ private fun RouteProgressBar(
 // ── Navigation maneuver side panel ──────────────────────────────────────────
 
 sealed class ManeuverListItem {
-    data class Instruction(val instr: biz.cesena.packride4.routing.RouteInstruction, val cumulativeDistance: Double) : ManeuverListItem()
-    data class FuelStation(val poi: biz.cesena.packride4.routing.OfflineGeocodingService.PoiResult) : ManeuverListItem()
+    data class Instruction(val instr: biz.cesena.packride4.routing.RouteInstruction) : ManeuverListItem()
+    data class FuelStation(
+        val poi: biz.cesena.packride4.routing.OfflineGeocodingService.PoiResult,
+        val distFromPrevManeuver: Double,
+    ) : ManeuverListItem()
 }
 
 @Composable
@@ -1114,7 +1118,6 @@ private fun NavigationManeuverPanel(
     val instructions = route.instructions
     if (startIdx >= instructions.size) return
 
-    // Compute cumulative distance at each instruction
     val cumulDist = mutableListOf<Double>()
     var acc = 0.0
     for (instr in instructions) {
@@ -1122,101 +1125,101 @@ private fun NavigationManeuverPanel(
         acc += instr.distanceMeters
     }
 
-    // Build interleaved list: instructions from startIdx + fuel stations between them
     val items = mutableListOf<ManeuverListItem>()
     val fuelStations = uiState.fuelStationsAlongRoute
 
     for (i in startIdx until instructions.size) {
-        // Add fuel stations between previous instruction and this one
         val prevDist = cumulDist[i]
         val nextDist = if (i + 1 < cumulDist.size) cumulDist[i + 1] else acc
         for (fuel in fuelStations) {
             if (fuel.distanceAlongRoute >= prevDist && fuel.distanceAlongRoute < nextDist) {
-                items.add(ManeuverListItem.FuelStation(fuel))
+                items.add(ManeuverListItem.FuelStation(fuel, distFromPrevManeuver = fuel.distanceAlongRoute - prevDist))
             }
         }
-        items.add(ManeuverListItem.Instruction(instructions[i], cumulDist[i]))
+        items.add(ManeuverListItem.Instruction(instructions[i]))
     }
 
-    Surface(
+    LazyColumn(
         modifier = modifier
             .fillMaxHeight()
             .statusBarsPadding()
-            .navigationBarsPadding(),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-        shadowElevation = 8.dp,
+            .navigationBarsPadding()
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        LazyColumn(
-            modifier = Modifier
-                .padding(horizontal = 6.dp, vertical = 4.dp),
+        items(items.size) { index ->
+            when (val item = items[index]) {
+                is ManeuverListItem.Instruction -> ManeuverBanner(item.instr)
+                is ManeuverListItem.FuelStation -> FuelBanner(item.poi, item.distFromPrevManeuver)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ManeuverBanner(instr: biz.cesena.packride4.routing.RouteInstruction) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
+        shadowElevation = 2.dp,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(items.size) { index ->
-                when (val item = items[index]) {
-                    is ManeuverListItem.Instruction -> {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Icon(
-                                painter = painterResource(maneuverIcon(item.instr.sign, item.instr.modifier, item.instr.exitNumber, item.instr.turnAngle)),
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    item.instr.text,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    maxLines = 1,
-                                )
-                            }
-                            Text(
-                                formatDistance(item.instr.distanceMeters),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
-                    }
-                    is ManeuverListItem.FuelStation -> {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 3.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Text("⛽", fontSize = 14.sp)
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    item.poi.name.ifBlank { "Distributore" },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    maxLines = 1,
-                                    color = MaterialTheme.colorScheme.tertiary,
-                                )
-                            }
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(
-                                    formatDistance(item.poi.distanceAlongRoute),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                if (item.poi.distanceFromTrack > 50) {
-                                    Text(
-                                        "↔ ${formatDistance(item.poi.distanceFromTrack)}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.outline,
-                                        fontSize = 9.sp,
-                                    )
-                                }
-                            }
-                        }
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
-                    }
+            Icon(
+                painter = painterResource(maneuverIcon(instr.sign, instr.modifier, instr.exitNumber, instr.turnAngle)),
+                contentDescription = null,
+                modifier = Modifier.size(28.dp),
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+            Text(
+                formatDistance(instr.distanceMeters),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FuelBanner(
+    poi: biz.cesena.packride4.routing.OfflineGeocodingService.PoiResult,
+    distFromPrevManeuver: Double,
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.9f),
+        shadowElevation = 2.dp,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text("⛽", fontSize = 16.sp)
+            Column {
+                if (poi.distanceFromTrack > 50) {
+                    Text(
+                        "↔ ${formatDistance(poi.distanceFromTrack)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    )
+                } else {
+                    Text(
+                        "sulla via",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    )
                 }
+                Text(
+                    "+${formatDistance(distFromPrevManeuver)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
+                )
             }
         }
     }
