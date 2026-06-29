@@ -26,7 +26,8 @@ data class MapRegionUi(
     val downloadProgress: Int? = null,
     val hasRoutingPbf: Boolean = false,
     val routingProgress: Int? = null,
-    val isRoutingReady: Boolean = false
+    val isRoutingReady: Boolean = false,
+    val hasUpdate: Boolean = false,
 )
 
 data class CountryUi(
@@ -34,7 +35,9 @@ data class CountryUi(
     val isRoutingReady: Boolean = false,
     val routingProgress: Int? = null,
     val isGeocodingReady: Boolean = false,
-    val geocodingProgress: Int? = null
+    val geocodingProgress: Int? = null,
+    val hasRoutingUpdate: Boolean = false,
+    val hasGeocodingUpdate: Boolean = false,
 )
 
 data class MapManagerUiState(
@@ -98,7 +101,8 @@ class MapManagerViewModel @Inject constructor(
                 downloadProgress = progress[entry.id],
                 hasRoutingPbf = country?.graphUrl != null,
                 routingProgress = routingProgress[entry.countryId],
-                isRoutingReady = routingReady && graphOnDisk
+                isRoutingReady = routingReady && graphOnDisk,
+                hasUpdate = (entry.id in downloadedIds) && downloadManager.hasUpdate("region-${entry.id}", entry.dataRelease),
             )
         }
         val countryUiList = countries.map { country ->
@@ -109,7 +113,9 @@ class MapManagerViewModel @Inject constructor(
                 isRoutingReady = routingReady && graphOnDisk,
                 routingProgress = routingProgress[country.id],
                 isGeocodingReady = downloadManager.isGeocodingReady(country.id),
-                geocodingProgress = geocodingProgress[country.id]
+                geocodingProgress = geocodingProgress[country.id],
+                hasRoutingUpdate = graphOnDisk && downloadManager.hasUpdate("routing-${country.id}", country.dataRelease),
+                hasGeocodingUpdate = downloadManager.isGeocodingReady(country.id) && downloadManager.hasUpdate("geocoding-${country.id}", country.dataRelease),
             )
         }
         MapManagerUiState(
@@ -191,6 +197,41 @@ class MapManagerViewModel @Inject constructor(
                 graphDir.deleteRecursively()
                 routingManager.reset(graphDir)
             }
+        }
+    }
+
+    fun updateRoutingData(countryId: String) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val graphDir = java.io.File(context.filesDir, "routing/graph-$countryId")
+            if (graphDir.exists()) {
+                graphDir.deleteRecursively()
+                routingManager.reset(graphDir)
+            }
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                downloadRoutingData(countryId)
+            }
+        }
+    }
+
+    fun updateGeocodingData(countryId: String) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val dbFile = java.io.File(context.filesDir, "geocoding/geocoding-$countryId.db")
+            if (dbFile.exists()) dbFile.delete()
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                downloadGeocodingData(countryId)
+            }
+        }
+    }
+
+    fun updateRegion(regionId: String) {
+        viewModelScope.launch {
+            val entity = db.mapRegionDao().getById(regionId)
+            if (entity != null) {
+                java.io.File(entity.filePath).takeIf { it.exists() }?.delete()
+                db.mapRegionDao().deleteById(regionId)
+            }
+            val region = _remoteRegions.value.find { it.id == regionId } ?: return@launch
+            downloadManager.startDownloadFromUrl(regionId, region.name, region.mbtilesUrl, region.bbox)
         }
     }
 

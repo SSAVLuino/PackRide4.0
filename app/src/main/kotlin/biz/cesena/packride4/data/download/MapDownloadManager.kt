@@ -107,6 +107,7 @@ class MapDownloadManager @Inject constructor(
     private val db: AppDatabase,
     private val routingManager: biz.cesena.packride4.routing.RoutingManager
 ) {
+    private val prefs = context.getSharedPreferences("download_dates", Context.MODE_PRIVATE)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var activeDownloads = 0
     private var currentDownloadName = ""
@@ -235,6 +236,7 @@ class MapDownloadManager @Inject constructor(
                         bboxMaxLat = bboxParts.getOrElse(3) { 0.0 }
                     )
                 )
+                saveDownloadDate("region-$regionId")
                 setProgress(regionId, null)
             } catch (e: Exception) {
                 setProgress(regionId, null)
@@ -282,6 +284,7 @@ class MapDownloadManager @Inject constructor(
                 biz.cesena.packride4.debug.DebugLog.log("routing: extracted to $graphDir, files=$files")
                 routingManager.loadPrebuiltGraph(graphDir, countryId)
                 biz.cesena.packride4.debug.DebugLog.log("routing: loadPrebuiltGraph done, isReady=${routingManager.isReady.value}")
+                saveDownloadDate("routing-$countryId")
                 setRoutingProgress(countryId, null)
             } catch (e: Exception) {
                 setRoutingProgress(countryId, null)
@@ -326,6 +329,7 @@ class MapDownloadManager @Inject constructor(
 
                 if (expectedDb.exists()) {
                     biz.cesena.packride4.debug.DebugLog.log("geocoding DB ready: ${expectedDb.absolutePath} (${expectedDb.length() / 1024 / 1024}MB)")
+                    saveDownloadDate("geocoding-$countryId")
                 } else {
                     _errorMessage.value = "Estrazione dati ricerca per $name non riuscita"
                 }
@@ -340,6 +344,18 @@ class MapDownloadManager @Inject constructor(
 
     fun isGeocodingReady(countryId: String): Boolean =
         File(File(context.filesDir, "geocoding"), "geocoding-$countryId.db").exists()
+
+    fun saveDownloadDate(key: String) {
+        prefs.edit().putString(key, java.time.LocalDate.now().toString()).apply()
+    }
+
+    fun getDownloadDate(key: String): String? = prefs.getString(key, null)
+
+    fun hasUpdate(key: String, remoteRelease: String?): Boolean {
+        if (remoteRelease.isNullOrBlank()) return false
+        val localDate = getDownloadDate(key) ?: return false
+        return remoteRelease > localDate
+    }
 
     fun notifyGeocodingChanged() {
         // Force re-emission by toggling a dummy entry

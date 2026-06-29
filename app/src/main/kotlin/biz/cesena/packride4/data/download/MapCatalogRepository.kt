@@ -22,7 +22,8 @@ data class MapCountry(
     val graphUrl: String? = null,
     val geocodingUrl: String? = null,
     val graphSizeMb: Double = 0.0,
-    val geocodingSizeMb: Double = 0.0
+    val geocodingSizeMb: Double = 0.0,
+    val dataRelease: String? = null,
 )
 
 data class MapRegionRemote(
@@ -31,7 +32,8 @@ data class MapRegionRemote(
     val name: String,
     val mbtilesUrl: String,
     val mbtilesSizeMb: Double = 0.0,
-    val bbox: String
+    val bbox: String,
+    val dataRelease: String? = null,
 )
 
 @Singleton
@@ -54,7 +56,8 @@ class MapCatalogRepository @Inject constructor(
                 graphUrl = obj.optString("graph_url").ifBlank { null },
                 geocodingUrl = obj.optString("geocoding_url").ifBlank { null },
                 graphSizeMb = obj.optDouble("graph_size_mb", 0.0),
-                geocodingSizeMb = obj.optDouble("geocoding_size_mb", 0.0)
+                geocodingSizeMb = obj.optDouble("geocoding_size_mb", 0.0),
+                dataRelease = obj.optString("data_release").ifBlank { null },
             )
         }.also { DebugLog.log("catalog: ${it.size} countries") }
     }
@@ -69,7 +72,8 @@ class MapCatalogRepository @Inject constructor(
                 name = obj.getString("name"),
                 mbtilesUrl = obj.getString("mbtiles_url"),
                 mbtilesSizeMb = obj.optDouble("mbtiles_size_mb", 0.0),
-                bbox = obj.getString("bbox")
+                bbox = obj.getString("bbox"),
+                dataRelease = obj.optString("data_release").ifBlank { null },
             )
         }.also { DebugLog.log("catalog: ${it.size} regions") }
     }

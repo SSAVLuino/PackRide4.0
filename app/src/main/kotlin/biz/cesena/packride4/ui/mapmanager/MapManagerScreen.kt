@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -115,7 +116,10 @@ fun MapManagerScreen(
                             onDeleteRouting = { viewModel.deleteCountryData(countryUi.country.id) },
                             onDeleteGeocoding = { viewModel.deleteGeocodingData(countryUi.country.id) },
                             onDownloadRegion = { viewModel.downloadRegion(it) },
-                            onDeleteRegion = { viewModel.deleteRegion(it) }
+                            onDeleteRegion = { viewModel.deleteRegion(it) },
+                            onUpdateRouting = { viewModel.updateRoutingData(countryUi.country.id) },
+                            onUpdateGeocoding = { viewModel.updateGeocodingData(countryUi.country.id) },
+                            onUpdateRegion = { viewModel.updateRegion(it) },
                         )
                     }
                 }
@@ -133,7 +137,10 @@ private fun CountryCard(
     onDeleteRouting: () -> Unit,
     onDeleteGeocoding: () -> Unit,
     onDownloadRegion: (String) -> Unit,
-    onDeleteRegion: (String) -> Unit
+    onDeleteRegion: (String) -> Unit,
+    onUpdateRouting: () -> Unit = {},
+    onUpdateGeocoding: () -> Unit = {},
+    onUpdateRegion: (String) -> Unit = {},
 ) {
     val country = countryUi.country
     var expanded by remember { mutableStateOf(false) }
@@ -187,10 +194,14 @@ private fun CountryCard(
                         }
                         when {
                             countryUi.isRoutingReady -> {
-                                Icon(Icons.Default.CheckCircle, null,
-                                    tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Pronto", style = MaterialTheme.typography.bodySmall)
+                                if (countryUi.hasRoutingUpdate) {
+                                    TextButton(onClick = onUpdateRouting) { Text("Aggiorna") }
+                                } else {
+                                    Icon(Icons.Default.CheckCircle, null,
+                                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Pronto", style = MaterialTheme.typography.bodySmall)
+                                }
                                 IconButton(onClick = onDeleteRouting, modifier = Modifier.size(32.dp)) {
                                     Icon(Icons.Default.Delete, "Elimina",
                                         tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
@@ -228,10 +239,14 @@ private fun CountryCard(
                         }
                         when {
                             countryUi.isGeocodingReady -> {
-                                Icon(Icons.Default.CheckCircle, null,
-                                    tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Pronto", style = MaterialTheme.typography.bodySmall)
+                                if (countryUi.hasGeocodingUpdate) {
+                                    TextButton(onClick = onUpdateGeocoding) { Text("Aggiorna") }
+                                } else {
+                                    Icon(Icons.Default.CheckCircle, null,
+                                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Pronto", style = MaterialTheme.typography.bodySmall)
+                                }
                                 IconButton(onClick = onDeleteGeocoding, modifier = Modifier.size(32.dp)) {
                                     Icon(Icons.Default.Delete, "Elimina",
                                         tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
@@ -266,7 +281,8 @@ private fun CountryCard(
                     RegionRow(
                         region = region,
                         onDownload = { onDownloadRegion(region.id) },
-                        onDelete = { onDeleteRegion(region.id) }
+                        onDelete = { onDeleteRegion(region.id) },
+                        onUpdate = { onUpdateRegion(region.id) },
                     )
                 }
 
@@ -280,7 +296,8 @@ private fun CountryCard(
 private fun RegionRow(
     region: MapRegionUi,
     onDownload: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onUpdate: () -> Unit = {},
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
@@ -307,7 +324,11 @@ private fun RegionRow(
                 Text("${region.downloadProgress}%", style = MaterialTheme.typography.labelSmall)
             }
             region.isDownloaded -> {
-                Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                if (region.hasUpdate) {
+                    TextButton(onClick = onUpdate) { Text("Aggiorna", fontSize = 12.sp) }
+                } else {
+                    Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                }
                 IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Default.Delete, "Elimina", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                 }
