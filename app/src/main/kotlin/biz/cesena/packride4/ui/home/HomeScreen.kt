@@ -907,8 +907,14 @@ private fun NavigationInstructionBanner(
                             fontWeight = FontWeight.Bold,
                         )
                     }
+                    val instrText = currentInstruction?.let { instr ->
+                        val base = instr.text.takeIf { it.isNotBlank() } ?: "Segui il percorso"
+                        if (instr.sign == 0 && instr.distanceMeters > 500) {
+                            "$base per ${formatDistance(instr.distanceMeters)}"
+                        } else base
+                    } ?: "Segui il percorso"
                     Text(
-                        text = currentInstruction?.text?.takeIf { it.isNotBlank() } ?: "Segui il percorso",
+                        text = instrText,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                         maxLines = 2,
