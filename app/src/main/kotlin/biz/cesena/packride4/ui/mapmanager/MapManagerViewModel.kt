@@ -192,21 +192,19 @@ class MapManagerViewModel @Inject constructor(
 
     fun deleteCountryData(countryId: String) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            routingManager.reset(regionId = countryId)
             val graphDir = java.io.File(context.filesDir, "routing/graph-$countryId")
             if (graphDir.exists()) {
                 graphDir.deleteRecursively()
-                routingManager.reset(graphDir)
             }
         }
     }
 
     fun updateRoutingData(countryId: String) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            routingManager.reset(regionId = countryId)
             val graphDir = java.io.File(context.filesDir, "routing/graph-$countryId")
-            if (graphDir.exists()) {
-                graphDir.deleteRecursively()
-                routingManager.reset(graphDir)
-            }
+            if (graphDir.exists()) graphDir.deleteRecursively()
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                 downloadRoutingData(countryId)
             }

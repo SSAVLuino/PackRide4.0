@@ -80,14 +80,17 @@ class RoutingManager @Inject constructor() {
         }
     }
 
-    /** Unloads the graph at [graphDir] (or all graphs if null). */
-    suspend fun reset(graphDir: File? = null) = withContext(Dispatchers.IO) {
-        if (graphDir == null) {
+    /** Unloads the graph at [graphDir] or by [regionId] (or all graphs if both null). */
+    suspend fun reset(graphDir: File? = null, regionId: String? = null) = withContext(Dispatchers.IO) {
+        if (graphDir == null && regionId == null) {
             hoppers.values.forEach { it.close() }
             hoppers.clear()
             regionToPath.clear()
+        } else if (regionId != null) {
+            val key = regionToPath.remove(regionId)
+            if (key != null) hoppers.remove(key)?.close()
         } else {
-            val key = graphDir.absolutePath
+            val key = graphDir!!.absolutePath
             hoppers.remove(key)?.close()
             regionToPath.entries.removeIf { it.value == key }
         }
