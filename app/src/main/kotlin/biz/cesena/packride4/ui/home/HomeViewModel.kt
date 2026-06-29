@@ -731,10 +731,11 @@ class HomeViewModel @Inject constructor(
         val distToNextManeuver = if (newIdx < waypointDistances.size)
             (waypointDistances[newIdx] - distanceAlongRoute).coerceAtLeast(0.0) else 0.0
 
-        // Voice announcement for upcoming instruction
-        if (newIdx < instructions.size) {
-            val nextInstr = instructions[newIdx]
-            voiceService.checkAnnouncement(newIdx, nextInstr.text, distToNextManeuver, state.speedKmh)
+        // Voice announcement for upcoming instruction (next maneuver, not current segment)
+        val voiceIdx = if (newIdx < instructions.size - 1) newIdx + 1 else newIdx
+        if (voiceIdx < instructions.size) {
+            val nextInstr = instructions[voiceIdx]
+            voiceService.checkAnnouncement(voiceIdx, nextInstr.text, distToNextManeuver, state.speedKmh)
         }
 
         // Calculate remaining distance from total (never modify route.distanceMeters)
