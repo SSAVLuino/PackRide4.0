@@ -194,8 +194,10 @@ class RoutingManager @Inject constructor() {
                                 if (isRb) {
                                     val ri = ghInstr as com.graphhopper.util.RoundaboutInstruction
                                     put("exitNumber", ri.exitNumber)
-                                    put("turnAngleRad", ri.turnAngle)
-                                    put("turnAngleDeg", Math.toDegrees(ri.turnAngle))
+                                    if (!ri.turnAngle.isNaN()) {
+                                        put("turnAngleRad", ri.turnAngle)
+                                        put("turnAngleDeg", Math.toDegrees(ri.turnAngle))
+                                    }
                                     put("isRoundabout", true)
                                 }
                             })
