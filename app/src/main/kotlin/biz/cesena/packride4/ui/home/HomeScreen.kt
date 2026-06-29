@@ -590,7 +590,7 @@ fun HomeScreen(
                 )
             }
             if (uiState.currentSpeedLimit > 0) {
-                SpeedLimitSign(limit = uiState.currentSpeedLimit)
+                SpeedLimitSign(limit = uiState.currentSpeedLimit, isOfficial = uiState.isSpeedLimitOfficial)
             }
         }
 
@@ -923,20 +923,22 @@ private fun NavigationInstructionBanner(
 }
 
 @Composable
-private fun SpeedLimitSign(limit: Int, modifier: Modifier = Modifier) {
+private fun SpeedLimitSign(limit: Int, isOfficial: Boolean = true, modifier: Modifier = Modifier) {
+    val borderColor = if (isOfficial) Color.Red else Color.Gray
+    val textColor = if (isOfficial) Color.Black else Color.Gray
     Surface(
         modifier = modifier.size(48.dp),
         shape = CircleShape,
         color = Color.White,
         shadowElevation = 4.dp,
-        border = BorderStroke(3.dp, Color.Red)
+        border = BorderStroke(3.dp, borderColor)
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
                 "$limit",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black
+                color = textColor
             )
         }
     }

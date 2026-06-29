@@ -199,7 +199,9 @@ class RoutingManager @Inject constructor() {
         null
     }
 
-    fun getSpeedLimit(lat: Double, lon: Double): Int {
+    data class SpeedLimitResult(val limit: Int, val isOfficial: Boolean)
+
+    fun getSpeedLimit(lat: Double, lon: Double): SpeedLimitResult {
         for ((_, gh) in hoppers) {
             try {
                 val snap = gh.locationIndex.findClosest(lat, lon,
@@ -210,7 +212,7 @@ class RoutingManager @Inject constructor() {
                 val speed = edge.get(maxSpeedEnc)
                 if (speed > 0 && speed.isFinite() && speed < 999) {
                     DebugLog.log("speed-limit: max_speed=${speed.toInt()} snap.dist=${snap.queryDistance.toInt()}m")
-                    return speed.toInt()
+                    return SpeedLimitResult(speed.toInt(), true)
                 }
                 // Fallback: infer from road_class (Italian defaults)
                 try {
@@ -218,13 +220,13 @@ class RoutingManager @Inject constructor() {
                     val roadClass = edge.get(roadClassEnc)
                     val inferred = italianDefaultSpeed(roadClass)
                     DebugLog.log("speed-limit: road_class=$roadClass inferred=$inferred snap.dist=${snap.queryDistance.toInt()}m")
-                    return inferred
+                    return SpeedLimitResult(inferred, false)
                 } catch (_: Exception) {}
             } catch (e: Exception) {
                 DebugLog.log("speed-limit: error ${e::class.simpleName}: ${e.message}")
             }
         }
-        return 0
+        return SpeedLimitResult(0, false)
     }
 
     private fun italianDefaultSpeed(roadClass: com.graphhopper.routing.ev.RoadClass): Int = when (roadClass) {

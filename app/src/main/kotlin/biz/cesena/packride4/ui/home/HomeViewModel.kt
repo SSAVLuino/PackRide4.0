@@ -77,6 +77,7 @@ data class HomeUiState(
     val isRouteCalculating: Boolean = false,
     val showManeuverPanel: Boolean = false,
     val currentSpeedLimit: Int = 0,
+    val isSpeedLimitOfficial: Boolean = false,
     // Layout redesign state
     val altitudeMeters: Double = 0.0,
     val mapOrientationNorthUp: Boolean = true,
@@ -132,8 +133,8 @@ class HomeViewModel @Inject constructor(
                 if (_uiState.value.isNavigating) advanceNavigation(loc.latitude, loc.longitude)
                 if (routingManager.isReady.value) {
                     viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        val limit = routingManager.getSpeedLimit(loc.latitude, loc.longitude)
-                        _uiState.update { it.copy(currentSpeedLimit = limit) }
+                        val result = routingManager.getSpeedLimit(loc.latitude, loc.longitude)
+                        _uiState.update { it.copy(currentSpeedLimit = result.limit, isSpeedLimitOfficial = result.isOfficial) }
                     }
                 }
             }
@@ -486,8 +487,8 @@ class HomeViewModel @Inject constructor(
         // Debug: log speed limit at tapped point
         if (routingManager.isReady.value) {
             viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                val limit = routingManager.getSpeedLimit(lat, lon)
-                DebugLog.log("tap-debug: lat=${"%.6f".format(lat)} lon=${"%.6f".format(lon)} speedLimit=$limit")
+                val result = routingManager.getSpeedLimit(lat, lon)
+                DebugLog.log("tap-debug: lat=${"%.6f".format(lat)} lon=${"%.6f".format(lon)} speedLimit=${result.limit} official=${result.isOfficial}")
             }
         }
 
