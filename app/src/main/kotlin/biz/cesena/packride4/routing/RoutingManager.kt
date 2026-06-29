@@ -140,15 +140,22 @@ class RoutingManager @Inject constructor() {
 
                 // Build per-point speed limit lookup from path details
                 val speedByPoint = mutableMapOf<Int, Int>()
-                path.pathDetails["max_speed"]?.forEach { detail ->
+                val rawDetails = path.pathDetails["max_speed"]
+                DebugLog.log("routing: max_speed details count=${rawDetails?.size ?: 0}")
+                rawDetails?.take(5)?.forEach { detail ->
+                    DebugLog.log("routing: max_speed sample [${detail.first}-${detail.last}] value=${detail.value} type=${detail.value?.javaClass?.simpleName}")
+                }
+                rawDetails?.forEach { detail ->
                     val from = detail.first
                     val to = detail.last
                     val kmh = when (val v = detail.value) {
                         is Number -> v.toInt()
+                        is String -> v.toIntOrNull() ?: 0
                         else -> 0
                     }
                     if (kmh > 0) for (i in from until to) speedByPoint[i] = kmh
                 }
+                DebugLog.log("routing: speedByPoint entries=${speedByPoint.size}")
 
                 // Map instructions — RoundaboutInstruction gives exit number
                 var pointIndex = 0
