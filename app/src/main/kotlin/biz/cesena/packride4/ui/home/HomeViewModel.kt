@@ -174,6 +174,7 @@ class HomeViewModel @Inject constructor(
                     } else {
                         RouteWaypoint("Posizione GPS", isGps = true, isSet = false)
                     }
+                    val fuel = offlineGeocodingService.findFuelAlongRoute(result.points)
                     _uiState.update { it.copy(
                         route = result,
                         destinationName = saved.name,
@@ -181,6 +182,7 @@ class HomeViewModel @Inject constructor(
                         isEditingRoute = true,
                         selectedWaypointIndex = -1,
                         showRoutePlanner = false,
+                        fuelStationsAlongRoute = fuel,
                         waypoints = listOf(
                             origin,
                             RouteWaypoint(saved.name, saved.destinationLat, saved.destinationLon, isSet = true),
