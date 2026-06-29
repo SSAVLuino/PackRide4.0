@@ -85,7 +85,10 @@ class NavigationVoiceService @Inject constructor(
         }
 
         DebugLog.log("voice: announce phase=$phase idx=$instructionIndex dist=${distanceToManeuver.toInt()}m speed=${speedKmh.toInt()}km/h")
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "nav_$instructionIndex$phase")
+        val params = android.os.Bundle().apply {
+            putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.3f)
+        }
+        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "nav_$instructionIndex$phase")
         lastAnnouncedInstruction = instructionIndex
         lastAnnouncedPhase = phase
     }
