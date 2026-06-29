@@ -288,8 +288,8 @@ fun HomeScreen(
             val tilt = if (!navZoomDone) { if (uiState.mapOrientationNorthUp) 0.0 else 45.0 } else map.cameraPosition.tilt
             // Shift focal point to 75% from top so more road ahead is visible
             val mapHeight = map.height
-            val bottomPad = (mapHeight * 0.50).toInt()
-            @Suppress("DEPRECATION") map.setPadding(0, 0, 0, bottomPad)
+            val topPad = (mapHeight * 0.50).toInt()
+            @Suppress("DEPRECATION") map.setPadding(0, topPad, 0, 0)
             navZoomDone = true
             map.animateCamera(CameraUpdateFactory.newCameraPosition(
                 CameraPosition.Builder()
