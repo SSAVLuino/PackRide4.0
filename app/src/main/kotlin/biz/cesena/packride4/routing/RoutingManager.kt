@@ -210,11 +210,13 @@ class RoutingManager @Inject constructor() {
                     return speed.toInt()
                 }
                 // Fallback: infer from road_class (Italian defaults)
-                val roadClassEnc = gh.encodingManager.getEnumEncodedValue<com.graphhopper.routing.ev.RoadClass>("road_class", com.graphhopper.routing.ev.RoadClass::class.java)
-                val roadClass = edge.get(roadClassEnc)
-                val inferred = italianDefaultSpeed(roadClass)
-                DebugLog.log("speed-limit: road_class=$roadClass inferred=$inferred snap.dist=${snap.queryDistance.toInt()}m")
-                return inferred
+                try {
+                    val roadClassEnc = gh.encodingManager.getEnumEncodedValue<com.graphhopper.routing.ev.RoadClass>("road_class", com.graphhopper.routing.ev.RoadClass::class.java)
+                    val roadClass = edge.get(roadClassEnc)
+                    val inferred = italianDefaultSpeed(roadClass)
+                    DebugLog.log("speed-limit: road_class=$roadClass inferred=$inferred snap.dist=${snap.queryDistance.toInt()}m")
+                    return inferred
+                } catch (_: Exception) {}
             } catch (e: Exception) {
                 DebugLog.log("speed-limit: error ${e::class.simpleName}: ${e.message}")
             }
