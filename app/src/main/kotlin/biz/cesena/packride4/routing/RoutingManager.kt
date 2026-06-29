@@ -206,7 +206,7 @@ class RoutingManager @Inject constructor() {
                 val maxSpeedEnc = gh.encodingManager.getDecimalEncodedValue("max_speed")
                 val speed = edge.get(maxSpeedEnc)
                 DebugLog.log("speed-limit: edge speed=$speed snap.dist=${snap.queryDistance.toInt()}m")
-                if (speed > 0 && speed < 999) return speed.toInt()
+                if (speed > 0 && speed.isFinite() && speed < 999) return speed.toInt()
             } catch (e: Exception) {
                 DebugLog.log("speed-limit: error ${e::class.simpleName}: ${e.message}")
             }
