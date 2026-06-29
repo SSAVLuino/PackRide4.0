@@ -699,7 +699,7 @@ class HomeViewModel @Inject constructor(
         if (distToEnd < 30.0) {
             voiceService.checkAnnouncement(instructions.size, "Sei arrivato a destinazione", 0.0, state.speedKmh)
             voiceService.shutdown()
-            _uiState.update { it.copy(isNavigating = false, currentInstructionIndex = 0, route = null, mapOrientationNorthUp = true, showManeuverPanel = false) }
+            _uiState.update { it.copy(isNavigating = false, currentInstructionIndex = 0, showManeuverPanel = false) }
             return
         }
 
