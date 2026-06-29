@@ -888,14 +888,14 @@ private fun NavigationInstructionBanner(
                     if (uiState.distanceToNextManeuver > 0) {
                         Text(
                             text = formatDistance(uiState.distanceToNextManeuver),
-                            style = MaterialTheme.typography.titleMedium,
+                            fontSize = 22.sp,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                             fontWeight = FontWeight.Bold,
                         )
                     }
                     Text(
                         text = currentInstruction?.text?.takeIf { it.isNotBlank() } ?: "Segui il percorso",
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                         maxLines = 2,
                         modifier = Modifier.weight(1f),
@@ -1157,7 +1157,7 @@ private fun NavigationManeuverPanel(
             .navigationBarsPadding()
             .padding(horizontal = 4.dp, vertical = 4.dp)
             .onSizeChanged { size ->
-                val bannerHeightPx = with(density) { 48.dp.toPx() }
+                val bannerHeightPx = with(density) { 56.dp.toPx() }
                 maxItems.intValue = (size.height / bannerHeightPx).toInt().coerceAtLeast(2)
             },
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -1186,15 +1186,23 @@ private fun ManeuverBanner(instr: biz.cesena.packride4.routing.RouteInstruction)
             Icon(
                 painter = painterResource(maneuverIcon(instr.sign, instr.modifier, instr.exitNumber, instr.turnAngle)),
                 contentDescription = null,
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(32.dp),
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
             )
-            Text(
-                formatDistance(instr.distanceMeters),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
+            Column {
+                Text(
+                    formatDistance(instr.distanceMeters),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                Text(
+                    instr.text,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                )
+            }
         }
     }
 }

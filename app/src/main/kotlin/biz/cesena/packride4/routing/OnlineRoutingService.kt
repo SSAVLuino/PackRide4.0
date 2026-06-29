@@ -87,12 +87,19 @@ class OnlineRoutingService @Inject constructor() {
                     val sign = tomTomManeuverToSign(maneuver)
                     val street = instr.optString("street", "")
                     val via = if (street.isNotBlank()) " su $street" else ""
-                    val rawText = instr.optString("message", "").ifBlank { maneuverToText(maneuver) + via }
-                    val text = if (maneuver == "LOCATION_DEPARTURE" || rawText.lowercase().startsWith("depart")) "Partiamo" else rawText
+                    val exitNum = if (sign == 6) instr.optInt("roundaboutExitNumber", 0) else 0
+                    val text = when {
+                        maneuver == "LOCATION_DEPARTURE" -> "Partiamo"
+                        sign == 6 -> {
+                            val exitSuffix = if (exitNum > 0) " prendi la $exitNum° uscita" else ""
+                            "Alla rotonda$exitSuffix$via"
+                        }
+                        else -> instr.optString("message", "").ifBlank { maneuverToText(maneuver) + via }
+                            .let { if (it.lowercase().startsWith("depart")) "Partiamo" else it }
+                    }
                     val offsetM = instr.optDouble("routeOffsetInMeters", 0.0)
                     val timeS = instr.optLong("travelTimeInSeconds", 0L)
                     val modifier = if (sign == 6) tomTomRoundaboutModifier(maneuver) else ""
-                    val exitNum = if (sign == 6) instr.optInt("roundaboutExitNumber", 0) else 0
                     val rawAngle = instr.optDouble("turnAngleInDecimalDegrees", Double.NaN)
                     val angle = if (!rawAngle.isNaN() && sign == 6) 180.0 - rawAngle else rawAngle
                     rawList += RawTomTomInstr(text, offsetM, timeS * 1000L, sign, modifier, exitNum, angle)
@@ -207,6 +214,9 @@ class OnlineRoutingService @Inject constructor() {
         "ENTER_ROUNDABOUT"  -> "Entra nella rotonda"
         "EXIT_ROUNDABOUT"   -> "Esci dalla rotonda"
         "MERGE"             -> "Immettiti"
+        "BEAR_LEFT"         -> "Tieniti a sinistra"
+        "BEAR_RIGHT"        -> "Tieniti a destra"
+        "DEPART"            -> "Partiamo"
         "FORK_LEFT"         -> "Al bivio tieniti a sinistra"
         "FORK_RIGHT"        -> "Al bivio tieniti a destra"
         "SWITCH_PARALLEL_ROAD" -> "Cambia carreggiata"
