@@ -16,6 +16,7 @@ object DebugLog {
     val lines: StateFlow<List<String>> = _lines
 
     fun log(message: String) {
+        if (!biz.cesena.packride4.BuildConfig.DEBUG) return
         val entry = "${timeFormat.format(Date())}  $message"
         _lines.value = (_lines.value + entry).takeLast(MAX_LINES)
         Log.d("PackRideDebug", message)
