@@ -6,7 +6,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material3.*
@@ -109,7 +109,7 @@ fun BottomBar(
                         MaterialTheme.colorScheme.onPrimary,
                 ) {
                     Icon(
-                        if (uiState.isNavigating) Icons.Filled.List else Icons.Filled.Navigation,
+                        if (uiState.isNavigating) Icons.AutoMirrored.Filled.List else Icons.Filled.Navigation,
                         contentDescription = if (uiState.isNavigating) "Manovre" else "Dove andiamo?",
                     )
                 }
