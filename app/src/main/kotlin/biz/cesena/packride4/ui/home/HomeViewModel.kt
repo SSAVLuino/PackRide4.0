@@ -78,6 +78,7 @@ data class HomeUiState(
     val showManeuverPanel: Boolean = false,
     val currentSpeedLimit: Int = 0,
     val isSpeedLimitOfficial: Boolean = false,
+    val isSimulatedGps: Boolean = false,
     // Layout redesign state
     val altitudeMeters: Double = 0.0,
     val mapOrientationNorthUp: Boolean = true,
@@ -124,6 +125,7 @@ class HomeViewModel @Inject constructor(
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
             result.lastLocation?.let { loc ->
+                if (_uiState.value.isSimulatedGps) return
                 _uiState.update { it.copy(
                     lastKnownPosition = GpsPosition(loc.latitude, loc.longitude, loc.accuracy, loc.bearing, loc.hasBearing(), loc.altitude, loc.speed),
                     speedKmh = if (loc.hasSpeed()) loc.speed * 3.6f else it.speedKmh,
@@ -483,6 +485,11 @@ class HomeViewModel @Inject constructor(
 
     fun handleMapTap(lat: Double, lon: Double, zoom: Double = 14.0): Boolean {
         val state = _uiState.value
+
+        if (state.isSimulatedGps) {
+            simulateGpsPosition(lat, lon)
+            return true
+        }
 
         // Debug: log speed limit at tapped point
         if (routingManager.isReady.value) {
@@ -888,6 +895,24 @@ class HomeViewModel @Inject constructor(
 
     fun toggleMapOrientation() {
         _uiState.update { it.copy(mapOrientationNorthUp = !it.mapOrientationNorthUp) }
+    }
+
+    fun toggleSimulatedGps() {
+        _uiState.update { it.copy(isSimulatedGps = !it.isSimulatedGps) }
+    }
+
+    fun simulateGpsPosition(lat: Double, lon: Double) {
+        _uiState.update { it.copy(
+            lastKnownPosition = GpsPosition(lat, lon, 5f, 0f, false, it.altitudeMeters, 0f),
+        )}
+        if (_uiState.value.isNavigating) advanceNavigation(lat, lon)
+        if (routingManager.isReady.value) {
+            viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                val result = routingManager.getSpeedLimit(lat, lon)
+                _uiState.update { it.copy(currentSpeedLimit = result.limit, isSpeedLimitOfficial = result.isOfficial) }
+            }
+        }
+        DebugLog.log("sim-gps: lat=${"%.6f".format(lat)} lon=${"%.6f".format(lon)} instrIdx=${_uiState.value.currentInstructionIndex} distNext=${_uiState.value.distanceToNextManeuver.toInt()}m")
     }
 
     fun toggleManeuverPanel() {

@@ -592,6 +592,21 @@ fun HomeScreen(
             if (uiState.currentSpeedLimit > 0) {
                 SpeedLimitSign(limit = uiState.currentSpeedLimit, isOfficial = uiState.isSpeedLimitOfficial)
             }
+            if (biz.cesena.packride4.BuildConfig.DEBUG) {
+                SmallFloatingActionButton(
+                    onClick = { viewModel.toggleSimulatedGps() },
+                    containerColor = if (uiState.isSimulatedGps)
+                        MaterialTheme.colorScheme.error
+                    else
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                    contentColor = if (uiState.isSimulatedGps)
+                        MaterialTheme.colorScheme.onError
+                    else
+                        MaterialTheme.colorScheme.onSurface,
+                ) {
+                    Text("SIM", fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                }
+            }
         }
 
         // ── Navigation instruction banner + progress (TOP, only when navigating) ──
