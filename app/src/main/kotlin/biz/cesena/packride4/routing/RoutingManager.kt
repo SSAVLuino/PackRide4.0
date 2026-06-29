@@ -25,7 +25,6 @@ data class RouteInstruction(
     val sign: Int = 0,        // GraphHopper sign: -3 sharp-left … 3 sharp-right, 4 finish, 6 roundabout
     val modifier: String = "", // OSRM modifier for roundabout/fork/ramp variants
     val exitNumber: Int = 0,  // roundabout exit number (1-8), 0 = unknown
-    val speedLimitKmh: Int = 0, // max speed for this segment (0 = unknown)
     val turnAngle: Double = Double.NaN // roundabout turn angle in degrees (from GH)
 )
 
@@ -129,7 +128,6 @@ class RoutingManager @Inject constructor() {
                 val req = GHRequest()
                 points.forEach { (lat, lon) -> req.addPoint(com.graphhopper.util.shapes.GHPoint(lat, lon)) }
                 req.profile = "car"
-                req.pathDetails = listOf("max_speed")
                 val rsp = gh.route(req)
                 if (rsp.hasErrors()) {
                     DebugLog.log("routing: graph $key failed: ${rsp.errors.first()::class.simpleName}")
@@ -138,27 +136,7 @@ class RoutingManager @Inject constructor() {
                 val path = rsp.best
                 val routePoints = path.points.map { it.lat to it.lon }
 
-                // Build per-point speed limit lookup from path details
-                val speedByPoint = mutableMapOf<Int, Int>()
-                val rawDetails = path.pathDetails["max_speed"]
-                DebugLog.log("routing: max_speed details count=${rawDetails?.size ?: 0}")
-                rawDetails?.take(5)?.forEach { detail ->
-                    DebugLog.log("routing: max_speed sample [${detail.first}-${detail.last}] value=${detail.value} type=${detail.value?.javaClass?.simpleName}")
-                }
-                rawDetails?.forEach { detail ->
-                    val from = detail.first
-                    val to = detail.last
-                    val kmh = when (val v = detail.value) {
-                        is Number -> v.toInt()
-                        is String -> v.toIntOrNull() ?: 0
-                        else -> 0
-                    }
-                    if (kmh > 0) for (i in from until to) speedByPoint[i] = kmh
-                }
-                DebugLog.log("routing: speedByPoint entries=${speedByPoint.size}")
-
                 // Map instructions — RoundaboutInstruction gives exit number
-                var pointIndex = 0
                 val instructions = path.instructions.mapIndexed { idx, ghInstr ->
                     val isRoundabout = ghInstr is com.graphhopper.util.RoundaboutInstruction
                     val exitNum = if (isRoundabout)
@@ -169,8 +147,6 @@ class RoutingManager @Inject constructor() {
                     if (isRoundabout) {
                         DebugLog.log("routing: roundabout sign=${ghInstr.sign} exit=$exitNum angleRad=$turnAngleRad angleDeg=${"%.1f".format(turnAngle)} name=${ghInstr.name}")
                     }
-                    val speed = speedByPoint[pointIndex] ?: 0
-                    pointIndex += ghInstr.points.size()
                     val instrText = if (idx == 0 && ghInstr.sign == 0) "Partiamo"
                         else ghInstructionText(ghInstr.sign, ghInstr.name, exitNum)
                     RouteInstruction(
@@ -179,7 +155,6 @@ class RoutingManager @Inject constructor() {
                         timeMillis = ghInstr.time,
                         sign = ghInstr.sign,
                         exitNumber = exitNum,
-                        speedLimitKmh = speed,
                         turnAngle = turnAngle,
                     )
                 }
