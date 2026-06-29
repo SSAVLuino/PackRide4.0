@@ -475,6 +475,19 @@ class HomeViewModel @Inject constructor(
 
     fun handleMapTap(lat: Double, lon: Double, zoom: Double = 14.0): Boolean {
         val state = _uiState.value
+
+        // Debug: log speed limits when tapping on map (not navigating)
+        if (!state.isNavigating && state.route != null) {
+            val instructions = state.route!!.instructions
+            if (instructions.any { it.speedLimitKmh > 0 }) {
+                instructions.forEachIndexed { idx, it ->
+                    if (it.speedLimitKmh > 0) DebugLog.log("tap-debug: instr[$idx] speed=${it.speedLimitKmh} ${it.text}")
+                }
+            } else {
+                DebugLog.log("tap-debug: NO instructions have speed limits (engine=${state.route!!.engineTag})")
+            }
+        }
+
         if (!state.isEditingRoute || state.route == null) return false
         val tapRadius = 500.0 / Math.pow(2.0, (zoom - 10.0).coerceAtLeast(0.0))
 
