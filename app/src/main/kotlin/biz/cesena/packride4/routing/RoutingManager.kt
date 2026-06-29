@@ -205,13 +205,34 @@ class RoutingManager @Inject constructor() {
                 val edge = snap.closestEdge
                 val maxSpeedEnc = gh.encodingManager.getDecimalEncodedValue("max_speed")
                 val speed = edge.get(maxSpeedEnc)
-                DebugLog.log("speed-limit: edge speed=$speed snap.dist=${snap.queryDistance.toInt()}m")
-                if (speed > 0 && speed.isFinite() && speed < 999) return speed.toInt()
+                if (speed > 0 && speed.isFinite() && speed < 999) {
+                    DebugLog.log("speed-limit: max_speed=${speed.toInt()} snap.dist=${snap.queryDistance.toInt()}m")
+                    return speed.toInt()
+                }
+                // Fallback: infer from road_class (Italian defaults)
+                val roadClassEnc = gh.encodingManager.getEnumEncodedValue<com.graphhopper.routing.ev.RoadClass>("road_class", com.graphhopper.routing.ev.RoadClass::class.java)
+                val roadClass = edge.get(roadClassEnc)
+                val inferred = italianDefaultSpeed(roadClass)
+                DebugLog.log("speed-limit: road_class=$roadClass inferred=$inferred snap.dist=${snap.queryDistance.toInt()}m")
+                return inferred
             } catch (e: Exception) {
                 DebugLog.log("speed-limit: error ${e::class.simpleName}: ${e.message}")
             }
         }
         return 0
+    }
+
+    private fun italianDefaultSpeed(roadClass: com.graphhopper.routing.ev.RoadClass): Int = when (roadClass) {
+        com.graphhopper.routing.ev.RoadClass.MOTORWAY -> 130
+        com.graphhopper.routing.ev.RoadClass.TRUNK -> 110
+        com.graphhopper.routing.ev.RoadClass.PRIMARY -> 90
+        com.graphhopper.routing.ev.RoadClass.SECONDARY -> 90
+        com.graphhopper.routing.ev.RoadClass.TERTIARY -> 50
+        com.graphhopper.routing.ev.RoadClass.RESIDENTIAL -> 50
+        com.graphhopper.routing.ev.RoadClass.LIVING_STREET -> 30
+        com.graphhopper.routing.ev.RoadClass.SERVICE -> 30
+        com.graphhopper.routing.ev.RoadClass.UNCLASSIFIED -> 50
+        else -> 50
     }
 
     private fun ghInstructionText(sign: Int, streetName: String, exitNumber: Int): String {

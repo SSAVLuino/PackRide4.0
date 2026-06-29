@@ -32,6 +32,7 @@ public class BuildGraph {
         gh.setGraphHopperLocation(graphDir);
         gh.setProfiles(profile);
         gh.setElevation(false);
+        gh.setEncodedValuesString("max_speed,road_class,road_environment");
         gh.importOrLoad();
 
         System.out.println("Graph built successfully at: " + graphDir);
