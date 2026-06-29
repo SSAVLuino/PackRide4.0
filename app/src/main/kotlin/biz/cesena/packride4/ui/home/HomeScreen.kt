@@ -589,12 +589,8 @@ fun HomeScreen(
                     fontWeight = FontWeight.Bold, fontSize = 14.sp
                 )
             }
-            if (uiState.isNavigating && uiState.route != null) {
-                val currentInstruction = uiState.route!!.instructions.getOrNull(uiState.currentInstructionIndex)
-                val limit = currentInstruction?.speedLimitKmh ?: 0
-                if (limit > 0) {
-                    SpeedLimitSign(limit = limit)
-                }
+            if (uiState.currentSpeedLimit > 0) {
+                SpeedLimitSign(limit = uiState.currentSpeedLimit)
             }
         }
 

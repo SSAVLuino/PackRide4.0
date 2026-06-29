@@ -76,6 +76,7 @@ data class HomeUiState(
     val debugPois: List<OfflineGeocodingService.PoiResult> = emptyList(),
     val isRouteCalculating: Boolean = false,
     val showManeuverPanel: Boolean = false,
+    val currentSpeedLimit: Int = 0,
     // Layout redesign state
     val altitudeMeters: Double = 0.0,
     val mapOrientationNorthUp: Boolean = true,
@@ -129,6 +130,12 @@ class HomeViewModel @Inject constructor(
                 )}
                 userPreferences.saveLastPosition(loc.latitude, loc.longitude)
                 if (_uiState.value.isNavigating) advanceNavigation(loc.latitude, loc.longitude)
+                if (routingManager.isReady.value) {
+                    viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        val limit = routingManager.getSpeedLimit(loc.latitude, loc.longitude)
+                        _uiState.update { it.copy(currentSpeedLimit = limit) }
+                    }
+                }
             }
         }
     }

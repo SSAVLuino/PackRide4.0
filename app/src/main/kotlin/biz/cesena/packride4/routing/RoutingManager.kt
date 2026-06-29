@@ -221,6 +221,21 @@ class RoutingManager @Inject constructor() {
         null
     }
 
+    fun getSpeedLimit(lat: Double, lon: Double): Int {
+        for ((_, gh) in hoppers) {
+            try {
+                val snap = gh.locationIndex.findClosest(lat, lon,
+                    com.graphhopper.routing.util.EdgeFilter.ALL_EDGES)
+                if (!snap.isValid) continue
+                val edge = snap.closestEdge
+                val maxSpeedEnc = gh.encodingManager.getDecimalEncodedValue("max_speed")
+                val speed = edge.get(maxSpeedEnc)
+                if (speed > 0 && speed < 999) return speed.toInt()
+            } catch (_: Exception) {}
+        }
+        return 0
+    }
+
     private fun ghInstructionText(sign: Int, streetName: String, exitNumber: Int): String {
         val via = if (streetName.isNotBlank()) " su $streetName" else ""
         return when (sign) {
