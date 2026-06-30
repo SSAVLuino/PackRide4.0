@@ -45,7 +45,7 @@ data class HomeUiState(
     val lastKnownPosition: GpsPosition? = null,
     val hasOfflineMaps: Boolean = false,
     val isTracking: Boolean = false,
-    val isFollowing: Boolean = false,
+    val isFollowing: Boolean = true,
     val mapStyleJson: String = ShortbreadStyle.online,
     val isRoutingReady: Boolean = false,
     val route: RouteResult? = null,

@@ -346,7 +346,7 @@ fun HomeScreen(
                     mapView.addOnDidFailLoadingMapListener { e -> DebugLog.log("map FAILED: $e") }
                     // D-pad / remote control panning doesn't go through the touch gesture
                     // detector, so it needs its own signal to stop auto-recentering.
-                    mapView.setOnKeyListener { _, keyCode, event ->
+                    mapView.setOnKeyListener { v, keyCode, event ->
                         if (event.action == android.view.KeyEvent.ACTION_DOWN &&
                             (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT ||
                              keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT ||
@@ -354,6 +354,18 @@ fun HomeScreen(
                              keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN)
                         ) {
                             viewModel.setFollowing(false)
+                            // MapLibre processes the key pan after we return false, so post
+                            // the arrow recalculation to run on the next looper iteration
+                            // when the camera has already moved — same live update as touch drag.
+                            v.post {
+                                val pos = uiState.lastKnownPosition ?: return@post
+                                val map = mapInstance ?: return@post
+                                val lat = if (uiState.isNavigating) pos.snappedLat ?: pos.latitude else pos.latitude
+                                val lon = if (uiState.isNavigating) pos.snappedLon ?: pos.longitude else pos.longitude
+                                val screenPt = map.projection.toScreenLocation(LatLng(lat, lon))
+                                arrowScreenX = screenPt.x
+                                arrowScreenY = screenPt.y
+                            }
                         }
                         false
                     }
