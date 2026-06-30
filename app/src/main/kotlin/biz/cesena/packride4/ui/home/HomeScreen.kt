@@ -379,14 +379,20 @@ fun HomeScreen(
                             cameraBearing = map.cameraPosition.bearing
                             arrowVisible = true
                         }
-                        // Any manually-driven camera movement (touch drag, telecomando/D-pad,
-                        // trackball, etc.) should stop auto-recentering, exactly like dragging
-                        // with a finger does, so the manual pan isn't immediately undone.
+                        // A real pan (finger drag or D-pad) should stop auto-recentering;
+                        // pinch-zoom and tilt gestures use separate listeners and never reach
+                        // here, so follow mode stays on for those. Small accidental touches are
+                        // tolerated up to a threshold before we treat it as an intentional pan.
+                        val panThresholdPx = ctx.resources.displayMetrics.density * 24
                         map.addOnMoveListener(object : MapLibreMap.OnMoveListener {
-                            override fun onMoveBegin(detector: org.maplibre.android.gestures.MoveGestureDetector) {
-                                viewModel.setFollowing(false)
+                            override fun onMoveBegin(detector: org.maplibre.android.gestures.MoveGestureDetector) {}
+                            override fun onMove(detector: org.maplibre.android.gestures.MoveGestureDetector) {
+                                val delta = detector.deltaSinceStart
+                                val distance = kotlin.math.hypot(delta.x.toDouble(), delta.y.toDouble())
+                                if (distance > panThresholdPx) {
+                                    viewModel.setFollowing(false)
+                                }
                             }
-                            override fun onMove(detector: org.maplibre.android.gestures.MoveGestureDetector) {}
                             override fun onMoveEnd(detector: org.maplibre.android.gestures.MoveGestureDetector) {}
                         })
                         val saved = viewModel.savedPosition
