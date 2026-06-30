@@ -306,15 +306,18 @@ fun HomeScreen(
             ))
         } else if (uiState.isFollowing) {
             @Suppress("DEPRECATION") map.setPadding(0, 0, 0, 0)
+            val bearing = if (uiState.mapOrientationNorthUp) 0.0
+                          else if (pos.hasBearing) pos.bearing.toDouble()
+                          else map.cameraPosition.bearing
             val currentTilt = map.cameraPosition.tilt
             val currentBearing = map.cameraPosition.bearing
-            if (currentTilt > 1.0 || currentBearing > 1.0) {
+            if (currentTilt > 1.0 || Math.abs(currentBearing - bearing) > 1.0) {
                 map.animateCamera(CameraUpdateFactory.newCameraPosition(
                     CameraPosition.Builder()
                         .target(LatLng(pos.latitude, pos.longitude))
                         .zoom(map.cameraPosition.zoom)
                         .tilt(0.0)
-                        .bearing(0.0)
+                        .bearing(bearing)
                         .build()
                 ))
             } else {
@@ -576,10 +579,13 @@ fun HomeScreen(
             }
             SmallFloatingActionButton(
                 onClick = {
+                    val newNorthUp = !uiState.mapOrientationNorthUp
                     viewModel.toggleMapOrientation()
-                    if (!uiState.mapOrientationNorthUp) {
-                        mapInstance?.animateCamera(CameraUpdateFactory.bearingTo(0.0))
-                    }
+                    val pos = uiState.lastKnownPosition
+                    val bearing = if (newNorthUp) 0.0
+                                  else if (pos?.hasBearing == true) pos.bearing.toDouble()
+                                  else mapInstance?.cameraPosition?.bearing ?: 0.0
+                    mapInstance?.animateCamera(CameraUpdateFactory.bearingTo(bearing))
                 },
                 containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
                 contentColor = MaterialTheme.colorScheme.onSurface,
