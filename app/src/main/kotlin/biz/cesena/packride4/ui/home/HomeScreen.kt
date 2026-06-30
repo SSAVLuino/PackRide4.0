@@ -384,12 +384,17 @@ fun HomeScreen(
                         // here, so follow mode stays on for those. Small accidental touches are
                         // tolerated up to a threshold before we treat it as an intentional pan.
                         val panThresholdPx = ctx.resources.displayMetrics.density * 24
+                        var moveStartFocal: android.graphics.PointF? = null
                         map.addOnMoveListener(object : MapLibreMap.OnMoveListener {
-                            override fun onMoveBegin(detector: org.maplibre.android.gestures.MoveGestureDetector) {}
+                            override fun onMoveBegin(detector: org.maplibre.android.gestures.MoveGestureDetector) {
+                                moveStartFocal = detector.focalPoint
+                            }
                             override fun onMove(detector: org.maplibre.android.gestures.MoveGestureDetector) {
+                                val start = moveStartFocal ?: return
+                                val current = detector.focalPoint
                                 val distance = kotlin.math.hypot(
-                                    detector.distanceXSinceStart.toDouble(),
-                                    detector.distanceYSinceStart.toDouble()
+                                    (current.x - start.x).toDouble(),
+                                    (current.y - start.y).toDouble()
                                 )
                                 if (distance > panThresholdPx) {
                                     viewModel.setFollowing(false)
