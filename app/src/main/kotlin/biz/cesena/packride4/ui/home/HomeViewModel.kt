@@ -894,6 +894,10 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(isFollowing = !it.isFollowing) }
     }
 
+    fun setFollowing(following: Boolean) {
+        _uiState.update { it.copy(isFollowing = following) }
+    }
+
     fun toggleMapOrientation() {
         _uiState.update { it.copy(mapOrientationNorthUp = !it.mapOrientationNorthUp) }
     }

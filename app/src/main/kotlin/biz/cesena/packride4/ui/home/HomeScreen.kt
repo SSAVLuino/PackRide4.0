@@ -344,6 +344,19 @@ fun HomeScreen(
             factory = { ctx ->
                 MapView(ctx).also { mapView ->
                     mapView.addOnDidFailLoadingMapListener { e -> DebugLog.log("map FAILED: $e") }
+                    // D-pad / remote control panning doesn't go through the touch gesture
+                    // detector, so it needs its own signal to stop auto-recentering.
+                    mapView.setOnKeyListener { _, keyCode, event ->
+                        if (event.action == android.view.KeyEvent.ACTION_DOWN &&
+                            (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT ||
+                             keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT ||
+                             keyCode == android.view.KeyEvent.KEYCODE_DPAD_UP ||
+                             keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN)
+                        ) {
+                            viewModel.setFollowing(false)
+                        }
+                        false
+                    }
                     mapView.getMapAsync { map ->
                         mapInstance = map
                         map.setStyle(Style.Builder().fromJson(uiState.mapStyleJson)) { style ->
@@ -366,6 +379,16 @@ fun HomeScreen(
                             cameraBearing = map.cameraPosition.bearing
                             arrowVisible = true
                         }
+                        // Any manually-driven camera movement (touch drag, telecomando/D-pad,
+                        // trackball, etc.) should stop auto-recentering, exactly like dragging
+                        // with a finger does, so the manual pan isn't immediately undone.
+                        map.addOnMoveListener(object : MapLibreMap.OnMoveListener {
+                            override fun onMoveBegin(detector: org.maplibre.android.gestures.MoveGestureDetector) {
+                                viewModel.setFollowing(false)
+                            }
+                            override fun onMove(detector: org.maplibre.android.gestures.MoveGestureDetector) {}
+                            override fun onMoveEnd(detector: org.maplibre.android.gestures.MoveGestureDetector) {}
+                        })
                         val saved = viewModel.savedPosition
                         if (saved != null) {
                             map.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(saved.first, saved.second), 14.0))
