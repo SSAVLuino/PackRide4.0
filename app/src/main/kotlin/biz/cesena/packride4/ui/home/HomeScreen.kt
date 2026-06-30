@@ -387,8 +387,10 @@ fun HomeScreen(
                         map.addOnMoveListener(object : MapLibreMap.OnMoveListener {
                             override fun onMoveBegin(detector: org.maplibre.android.gestures.MoveGestureDetector) {}
                             override fun onMove(detector: org.maplibre.android.gestures.MoveGestureDetector) {
-                                val delta = detector.deltaSinceStart
-                                val distance = kotlin.math.hypot(delta.x.toDouble(), delta.y.toDouble())
+                                val distance = kotlin.math.hypot(
+                                    detector.distanceXSinceStart.toDouble(),
+                                    detector.distanceYSinceStart.toDouble()
+                                )
                                 if (distance > panThresholdPx) {
                                     viewModel.setFollowing(false)
                                 }
