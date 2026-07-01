@@ -17,9 +17,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import biz.cesena.packride4.data.prefs.RecentDestination
 import biz.cesena.packride4.routing.GeocodingResult
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,6 +33,7 @@ fun RoutePlannerSheet(
     searchQuery: String,
     searchResults: List<GeocodingResult>,
     searchLoading: Boolean,
+    recentDestinations: List<RecentDestination> = emptyList(),
     onClose: () -> Unit,
     onAddWaypoint: () -> Unit,
     onRemoveWaypoint: (Int) -> Unit,
@@ -209,41 +213,74 @@ fun RoutePlannerSheet(
                 }
             }
 
-            // ── Search results (when editing a waypoint) ─────────────────────
+            // ── Recents / search results (when editing a waypoint) ───────────
             if (editingIndex >= 0) {
                 HorizontalDivider()
                 if (searchLoading) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 }
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth().weight(1f)
-                ) {
-                    items(searchResults) { result ->
-                        ListItem(
-                            headlineContent = { Text(result.name, maxLines = 1) },
-                            supportingContent = {
-                                Text(result.address,
-                                    maxLines = 1,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            },
-                            leadingContent = {
-                                Icon(Icons.Default.Place, null,
-                                    tint = MaterialTheme.colorScheme.primary)
-                            },
-                            trailingContent = {
-                                if (result.distanceKm > 0) {
-                                    Text(
-                                        if (result.distanceKm >= 1.0) "${"%.0f".format(result.distanceKm)} km"
-                                        else "${(result.distanceKm * 1000).toInt()} m",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
+                val showRecents = searchQuery.isBlank() && recentDestinations.isNotEmpty()
+                LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                    if (showRecents) {
+                        item {
+                            Text(
+                                "Recenti",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = androidx.compose.ui.Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                            )
+                        }
+                        items(recentDestinations) { recent ->
+                            ListItem(
+                                headlineContent = { Text(recent.name, maxLines = 1) },
+                                leadingContent = {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = androidx.compose.ui.Modifier
+                                            .size(20.dp)
+                                            .graphicsLayer(rotationZ = 225f))
+                                },
+                                modifier = Modifier.clickable {
+                                    onSelectResult(GeocodingResult(
+                                        name = recent.name,
+                                        address = "",
+                                        lat = recent.lat,
+                                        lon = recent.lon,
+                                        distanceKm = 0.0,
+                                    ))
                                 }
-                            },
-                            modifier = Modifier.clickable { onSelectResult(result) }
-                        )
-                        HorizontalDivider()
+                            )
+                            HorizontalDivider()
+                        }
+                    } else {
+                        items(searchResults) { result ->
+                            ListItem(
+                                headlineContent = { Text(result.name, maxLines = 1) },
+                                supportingContent = {
+                                    Text(result.address,
+                                        maxLines = 1,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                },
+                                leadingContent = {
+                                    Icon(Icons.Default.Place, null,
+                                        tint = MaterialTheme.colorScheme.primary)
+                                },
+                                trailingContent = {
+                                    if (result.distanceKm > 0) {
+                                        Text(
+                                            if (result.distanceKm >= 1.0) "${"%.0f".format(result.distanceKm)} km"
+                                            else "${(result.distanceKm * 1000).toInt()} m",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.clickable { onSelectResult(result) }
+                            )
+                            HorizontalDivider()
+                        }
                     }
                 }
             }

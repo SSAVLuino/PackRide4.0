@@ -5,8 +5,14 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
+
+@Serializable
+data class RecentDestination(val name: String, val lat: Double, val lon: Double)
 
 @Singleton
 class UserPreferences @Inject constructor(
@@ -69,11 +75,24 @@ class UserPreferences @Inject constructor(
         prefs.edit().putString(key, value).apply()
     }
 
+    fun getRecentDestinations(): List<RecentDestination> {
+        val json = prefs.getString(KEY_RECENT_DESTINATIONS, null) ?: return emptyList()
+        return try { Json.decodeFromString(json) } catch (_: Exception) { emptyList() }
+    }
+
+    fun saveRecentDestination(name: String, lat: Double, lon: Double) {
+        val current = getRecentDestinations().toMutableList()
+        current.removeAll { it.lat == lat && it.lon == lon }
+        current.add(0, RecentDestination(name, lat, lon))
+        prefs.edit().putString(KEY_RECENT_DESTINATIONS, Json.encodeToString(current.take(10))).apply()
+    }
+
     companion object {
         private const val KEY_USE_OFFLINE_MAP = "use_offline_map"
         private const val KEY_LAST_LAT = "last_lat"
         private const val KEY_LAST_LON = "last_lon"
         private const val KEY_VOICE_MODE = "voice_announcement_mode"
         private const val KEY_SHOW_PROGRESS_BAR = "show_progress_bar"
+        private const val KEY_RECENT_DESTINATIONS = "recent_destinations"
     }
 }

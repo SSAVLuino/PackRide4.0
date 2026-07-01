@@ -63,6 +63,7 @@ data class HomeUiState(
     val plannerSearchResults: List<GeocodingResult> = emptyList(),
     val plannerSearchLoading: Boolean = false,
     val plannerEditingIndex: Int = -1,
+    val recentDestinations: List<biz.cesena.packride4.data.prefs.RecentDestination> = emptyList(),
     // Map editing state (Phase 2)
     val isEditingRoute: Boolean = false,
     val selectedWaypointIndex: Int = -1,
@@ -237,6 +238,7 @@ class HomeViewModel @Inject constructor(
             plannerEditingIndex = -1,
             plannerSearchQuery = "",
             plannerSearchResults = emptyList(),
+            recentDestinations = userPreferences.getRecentDestinations(),
         )}
     }
 
@@ -364,7 +366,13 @@ class HomeViewModel @Inject constructor(
         }
 
         val points = wps.filter { it.isSet }.map { it.lat to it.lon }
-        val destName = wps.last().label.ifBlank { "Percorso" }
+        val destWp = wps.last()
+        val destName = destWp.label.ifBlank { "Percorso" }
+
+        // Persist destination to recent history (non-GPS waypoints only)
+        if (!destWp.isGps && destWp.isSet) {
+            userPreferences.saveRecentDestination(destName, destWp.lat, destWp.lon)
+        }
 
         _uiState.update { it.copy(
             isRouteCalculating = true,

@@ -772,6 +772,7 @@ fun HomeScreen(
                     onRemoveWaypoint = { viewModel.removeWaypoint(it) },
                     onStartEditing = { viewModel.startEditingWaypoint(it) },
                     onSearchChange = { viewModel.onPlannerSearchChange(it) },
+                    recentDestinations = uiState.recentDestinations,
                     onSelectResult = { viewModel.selectPlannerResult(it) },
                     onResetOriginToGps = { viewModel.resetOriginToGps() },
                     onCalculate = { viewModel.computeRouteFromWaypoints() },
