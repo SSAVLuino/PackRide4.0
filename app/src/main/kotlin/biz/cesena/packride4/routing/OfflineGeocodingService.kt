@@ -72,19 +72,40 @@ class OfflineGeocodingService @Inject constructor(
                     "AND type IN ('city','town','village','hamlet','suburb','street')"
                 }
                 val cityFilter = if (cityPart != null) "AND city LIKE ?" else ""
-                val args = if (cityPart != null)
-                    arrayOf("%$streetPart%", "$cityPart%", fetchLimit.toString())
-                else
-                    arrayOf("%$streetPart%", fetchLimit.toString())
 
+                // For street searches use the type prefix to hit the index, then filter
+                // by the significant keyword. For generic searches use contains.
+                val SKIP_WORDS = setOf("del","della","dei","delle","di","d","le","la","lo","gli","il","un","una")
+                val nameCondition: String
+                val nameArgs: List<String>
+                if (isStreetSearch) {
+                    val prefix = streetPart.lowercase().let { s ->
+                        listOf("viale ","corso ","piazza ","strada ","vicolo ","via ").firstOrNull { s.startsWith(it) } ?: "via "
+                    }
+                    val keywords = streetPart.substring(prefix.length)
+                        .split(" ")
+                        .filter { it.length > 2 && it.lowercase() !in SKIP_WORDS }
+                    if (keywords.isNotEmpty()) {
+                        nameCondition = "name LIKE ? AND " + keywords.joinToString(" AND ") { "name LIKE ?" }
+                        nameArgs = listOf("${prefix.trim()}%") + keywords.map { "%$it%" }
+                    } else {
+                        nameCondition = "name LIKE ?"
+                        nameArgs = listOf("${prefix.trim()}%")
+                    }
+                } else {
+                    nameCondition = "name LIKE ?"
+                    nameArgs = listOf("%$streetPart%")
+                }
+
+                val allArgs = (nameArgs + listOfNotNull(cityPart?.let { "$it%" }) + fetchLimit.toString()).toTypedArray()
                 val cursor = db.rawQuery(
                     """
                     SELECT name, type, category, lat, lon, city, street
                     FROM places
-                    WHERE name LIKE ? $typeFilter $cityFilter
+                    WHERE $nameCondition $typeFilter $cityFilter
                     LIMIT ?
                     """.trimIndent(),
-                    args
+                    allArgs
                 )
                 cursor.use { parseResults(it, results) }
             } catch (e: Exception) {
