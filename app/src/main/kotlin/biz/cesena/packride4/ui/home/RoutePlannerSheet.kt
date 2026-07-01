@@ -2,8 +2,10 @@ package biz.cesena.packride4.ui.home
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -242,15 +244,22 @@ fun RoutePlannerSheet(
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = androidx.compose.ui.Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
-                            }
-                            items(favorites) { fav ->
-                                ListItem(
-                                    headlineContent = { Text("${fav.icon}  ${fav.name}", maxLines = 1) },
-                                    modifier = Modifier.clickable {
-                                        onSelectResult(GeocodingResult(
-                                            name = fav.name, address = "", lat = fav.lat, lon = fav.lon, distanceKm = 0.0))
+                                LazyRow(
+                                    contentPadding = PaddingValues(horizontal = 12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                ) {
+                                    items(favorites, key = { it.id }) { fav ->
+                                        FilterChip(
+                                            selected = false,
+                                            onClick = {
+                                                onSelectResult(GeocodingResult(
+                                                    name = fav.name, address = "", lat = fav.lat, lon = fav.lon, distanceKm = 0.0))
+                                            },
+                                            label = { Text("${fav.icon} ${fav.name}", maxLines = 1) },
+                                        )
                                     }
-                                )
+                                }
                                 HorizontalDivider()
                             }
                         }
