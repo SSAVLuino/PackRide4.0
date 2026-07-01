@@ -24,8 +24,6 @@ import biz.cesena.packride4.ui.common.maneuverIcon
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -1196,49 +1194,49 @@ private fun NavigationManeuverPanel(
     val instructions = route.instructions
     if (startIdx >= instructions.size) return
 
-    val cumulDist = mutableListOf<Double>()
-    var acc = 0.0
-    for (instr in instructions) {
-        cumulDist.add(acc)
-        acc += instr.distanceMeters
+    val cumulDist = remember(instructions) {
+        var acc = 0.0
+        instructions.map { instr -> acc.also { acc += instr.distanceMeters } }
     }
+    val totalDist = cumulDist.lastOrNull()?.let { it + instructions.last().distanceMeters } ?: 0.0
 
     val fuelStations = uiState.fuelStationsAlongRoute
 
-    // Estimate how many banners fit: ~44dp per banner + 4dp spacing
-    val density = LocalDensity.current
-    val maxItems = remember { mutableIntStateOf(10) }
-
+    // Build a flat ordered list of upcoming instructions + fuel stops.
+    // No item cap here — LazyColumn clips naturally to whatever height the
+    // panel is given, and always shows the first N items that fit on screen.
+    // When an instruction is completed (startIdx advances), the list is rebuilt
+    // from the new startIdx so the next instruction fills the freed slot.
     val items = remember(startIdx, instructions, fuelStations) {
         val list = mutableListOf<ManeuverListItem>()
         for (i in startIdx until instructions.size) {
             val prevDist = cumulDist[i]
-            val nextDist = if (i + 1 < cumulDist.size) cumulDist[i + 1] else acc
+            val nextDist = if (i + 1 < cumulDist.size) cumulDist[i + 1] else totalDist
             for (fuel in fuelStations) {
                 if (fuel.distanceAlongRoute >= prevDist && fuel.distanceAlongRoute < nextDist) {
                     list.add(ManeuverListItem.FuelStation(fuel, distFromPrevManeuver = fuel.distanceAlongRoute - prevDist))
-                    if (list.size >= maxItems.intValue) break
                 }
             }
             list.add(ManeuverListItem.Instruction(instructions[i]))
-            if (list.size >= maxItems.intValue) break
         }
         list
     }
 
-    Column(
+    LazyColumn(
         modifier = modifier
             .fillMaxHeight()
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(horizontal = 4.dp, vertical = 4.dp)
-            .onSizeChanged { size ->
-                val bannerHeightPx = with(density) { 56.dp.toPx() }
-                maxItems.intValue = (size.height / bannerHeightPx).toInt().coerceAtLeast(2)
-            },
+            .padding(horizontal = 4.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
+        userScrollEnabled = false,
     ) {
-        items.forEach { item ->
+        items(items, key = { item ->
+            when (item) {
+                is ManeuverListItem.Instruction -> "instr_${item.instr.text}_${item.instr.distanceMeters}"
+                is ManeuverListItem.FuelStation -> "fuel_${item.poi.distanceAlongRoute}"
+            }
+        }) { item ->
             when (item) {
                 is ManeuverListItem.Instruction -> ManeuverBanner(item.instr)
                 is ManeuverListItem.FuelStation -> FuelBanner(item.poi, item.distFromPrevManeuver)
