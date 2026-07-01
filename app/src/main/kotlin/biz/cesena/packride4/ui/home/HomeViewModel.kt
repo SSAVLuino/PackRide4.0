@@ -325,6 +325,8 @@ class HomeViewModel @Inject constructor(
                 val results = geocodingService.search(query, pos?.latitude ?: 0.0, pos?.longitude ?: 0.0)
                 DebugLog.log("search: ${results.size} results for \"$query\"")
                 _uiState.update { it.copy(plannerSearchResults = results, plannerSearchLoading = false) }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e  // let cancellation propagate; new job will manage loading state
             } catch (e: Exception) {
                 DebugLog.log("search error: ${e::class.simpleName}: ${e.message}")
                 _uiState.update { it.copy(plannerSearchResults = emptyList(), plannerSearchLoading = false) }
