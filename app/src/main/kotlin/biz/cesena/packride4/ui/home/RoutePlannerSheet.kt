@@ -191,9 +191,14 @@ fun RoutePlannerSheet(
                             }
                             // Star: save set non-GPS waypoint as favorite
                             if (wp.isSet && !wp.isGps) {
-                                IconButton(onClick = { saveFavTarget = wp }) {
+                                val isFaved = favorites.any { f ->
+                                    kotlin.math.abs(f.lat - wp.lat) < 0.0001 &&
+                                    kotlin.math.abs(f.lon - wp.lon) < 0.0001
+                                }
+                                IconButton(onClick = { if (!isFaved) saveFavTarget = wp }) {
                                     Icon(Icons.Default.Star, "Salva come preferito",
-                                        tint = MaterialTheme.colorScheme.tertiary)
+                                        tint = if (isFaved) androidx.compose.ui.graphics.Color(0xFFFFD700)
+                                               else MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                             // Remove button for intermediate waypoints
