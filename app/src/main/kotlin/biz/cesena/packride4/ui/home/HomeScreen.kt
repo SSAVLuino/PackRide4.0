@@ -73,6 +73,7 @@ fun HomeScreen(
     }
 
     var mapInstance by remember { mutableStateOf<MapLibreMap?>(null) }
+    var mapStyleReady by remember { mutableStateOf(false) }
     var initialZoomDone by remember { mutableStateOf(false) }
     var navZoomDone by remember { mutableStateOf(false) }
     if (!uiState.isNavigating) navZoomDone = false
@@ -137,7 +138,7 @@ fun HomeScreen(
     }
 
     // Route line on map
-    LaunchedEffect(mapInstance, uiState.route) {
+    LaunchedEffect(mapInstance, mapStyleReady, uiState.route) {
         val map = mapInstance ?: return@LaunchedEffect
         val style = map.style ?: return@LaunchedEffect
         val routeSource = style.getSourceAs<GeoJsonSource>("route")
@@ -149,11 +150,23 @@ fun HomeScreen(
                 route.points.map { (lat, lon) -> Point.fromLngLat(lon, lat) }
             )
             routeSource?.setGeoJson(Feature.fromGeometry(line))
-            // Zoom to fit entire route when not navigating
+            // Zoom to fit entire route when not navigating.
+            // Wait for a valid map size before calling newLatLngBounds — the
+            // call silently fails or clips incorrectly when width/height are 0.
             if (!uiState.isNavigating && route.points.size >= 2) {
                 val boundsBuilder = org.maplibre.android.geometry.LatLngBounds.Builder()
                 route.points.forEach { (lat, lon) -> boundsBuilder.include(LatLng(lat, lon)) }
-                map.animateCamera(CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 100))
+                val bounds = boundsBuilder.build()
+                if (map.width > 0 && map.height > 0) {
+                    map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100))
+                } else {
+                    // Map not laid out yet — retry after one frame
+                    mapViewRef?.post {
+                        if (map.width > 0 && map.height > 0) {
+                            map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100))
+                        }
+                    }
+                }
             }
         }
     }
@@ -376,6 +389,7 @@ fun HomeScreen(
                             val statusPx = (ctx.resources.displayMetrics.density * 56).toInt()
                             map.uiSettings.setCompassMargins(0, statusPx, 0, 0)
                             addMapLayers(style)
+                            mapStyleReady = true
                         }
                         // Update arrow screen position on every camera change
                         map.addOnCameraMoveListener {
