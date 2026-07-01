@@ -235,6 +235,8 @@ public class BuildGeocodingDb {
         try (Statement stmt = conn.createStatement()) {
             stmt.execute("CREATE INDEX idx_places_name ON places(name COLLATE NOCASE)");
             stmt.execute("CREATE INDEX idx_places_city ON places(city COLLATE NOCASE)");
+            stmt.execute("CREATE INDEX idx_places_type_name ON places(type, name COLLATE NOCASE)");
+            stmt.execute("CREATE INDEX idx_places_type_city_name ON places(type, city COLLATE NOCASE, name COLLATE NOCASE)");
         }
 
         insertPs.close();
