@@ -7,7 +7,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Star
@@ -31,7 +30,6 @@ fun FavoritesScreen(
     onDelete: (String) -> Unit,
 ) {
     var editingFav by remember { mutableStateOf<FavoritePlace?>(null) }
-    var showAddDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -42,17 +40,13 @@ fun FavoritesScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Indietro")
                     }
                 },
-                actions = {
-                    IconButton(onClick = { showAddDialog = true }) {
-                        Icon(Icons.Default.Add, "Aggiungi preferito")
-                    }
-                }
+                actions = {}
             )
         }
     ) { padding ->
         if (favorites.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("Nessun preferito. Premi + per aggiungerne uno.",
+                Text("Nessun preferito. Tieni premuto sulla mappa per aggiungerne uno.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -81,17 +75,6 @@ fun FavoritesScreen(
                 }
             }
         }
-    }
-
-    if (showAddDialog) {
-        FavoriteEditDialog(
-            initial = null,
-            onDismiss = { showAddDialog = false },
-            onConfirm = { name, icon ->
-                showAddDialog = false
-            },
-            onConfirmWithCoords = null,
-        )
     }
 
     editingFav?.let { fav ->

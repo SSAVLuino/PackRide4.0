@@ -252,7 +252,7 @@ fun HomeScreen(
         }
     }
 
-    // Map click/long-click listeners for route editing
+    // Map click listener (only when route editing or simulated GPS)
     DisposableEffect(mapInstance, uiState.isEditingRoute, uiState.isSimulatedGps) {
         val map = mapInstance ?: return@DisposableEffect onDispose {}
         if (!uiState.isEditingRoute && !uiState.isSimulatedGps) return@DisposableEffect onDispose {}
@@ -260,16 +260,18 @@ fun HomeScreen(
         val clickListener = org.maplibre.android.maps.MapLibreMap.OnMapClickListener { latLng ->
             viewModel.handleMapTap(latLng.latitude, latLng.longitude, map.cameraPosition.zoom)
         }
+        map.addOnMapClickListener(clickListener)
+        onDispose { map.removeOnMapClickListener(clickListener) }
+    }
+
+    // Long-press listener: always active (route editing + non-navigation favorite saving)
+    DisposableEffect(mapInstance) {
+        val map = mapInstance ?: return@DisposableEffect onDispose {}
         val longClickListener = org.maplibre.android.maps.MapLibreMap.OnMapLongClickListener { latLng ->
             viewModel.handleMapLongPress(latLng.latitude, latLng.longitude, map.cameraPosition.zoom)
         }
-        map.addOnMapClickListener(clickListener)
         map.addOnMapLongClickListener(longClickListener)
-
-        onDispose {
-            map.removeOnMapClickListener(clickListener)
-            map.removeOnMapLongClickListener(longClickListener)
-        }
+        onDispose { map.removeOnMapLongClickListener(longClickListener) }
     }
 
     // GPS dot + follow camera + initial zoom
@@ -852,6 +854,17 @@ fun HomeScreen(
             }
         }
 
+        // ── Long-press context sheet ──────────────────────────────────────────
+        uiState.pendingLongPress?.let { (lat, lon) ->
+            LongPressSheet(
+                lat = lat, lon = lon,
+                onDismiss = { viewModel.dismissLongPress() },
+                onSaveFavorite = { fav ->
+                    viewModel.saveFavorite(fav)
+                    viewModel.dismissLongPress()
+                },
+            )
+        }
     }
 }
 
