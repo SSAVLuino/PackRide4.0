@@ -35,10 +35,24 @@ class OfflineGeocodingService @Inject constructor(
         val searchId = ++currentSearchId
         val results = mutableListOf<GeocodingResult>()
         val trimmed = query.trim()
-        val isStreetSearch = trimmed.lowercase().startsWith("via ") ||
-                trimmed.lowercase().startsWith("piazza ") ||
-                trimmed.lowercase().startsWith("corso ") ||
-                trimmed.lowercase().startsWith("viale ")
+
+        // Split on comma: "via del piano, montagnola" → street + city filter
+        val commaIndex = trimmed.indexOf(',')
+        val streetPart: String
+        val cityPart: String?
+        if (commaIndex >= 0) {
+            streetPart = trimmed.substring(0, commaIndex).trim()
+            cityPart = trimmed.substring(commaIndex + 1).trim().takeIf { it.isNotEmpty() }
+        } else {
+            streetPart = trimmed
+            cityPart = null
+        }
+
+        val isStreetSearch = streetPart.lowercase().let { s ->
+            s.startsWith("via ") || s.startsWith("piazza ") ||
+            s.startsWith("corso ") || s.startsWith("viale ") ||
+            s.startsWith("vicolo ") || s.startsWith("strada ")
+        }
 
         val dir = geocodingDir()
         if (!dir.exists()) return emptyList()
@@ -57,14 +71,20 @@ class OfflineGeocodingService @Inject constructor(
                 } else {
                     "AND type IN ('city','town','village','hamlet','suburb','street')"
                 }
+                val cityFilter = if (cityPart != null) "AND city LIKE ?" else ""
+                val args = if (cityPart != null)
+                    arrayOf("%$streetPart%", "$cityPart%", fetchLimit.toString())
+                else
+                    arrayOf("%$streetPart%", fetchLimit.toString())
+
                 val cursor = db.rawQuery(
                     """
                     SELECT name, type, category, lat, lon, city, street
                     FROM places
-                    WHERE name LIKE ? $typeFilter
+                    WHERE name LIKE ? $typeFilter $cityFilter
                     LIMIT ?
                     """.trimIndent(),
-                    arrayOf("$trimmed%", fetchLimit.toString())
+                    args
                 )
                 cursor.use { parseResults(it, results) }
             } catch (e: Exception) {
