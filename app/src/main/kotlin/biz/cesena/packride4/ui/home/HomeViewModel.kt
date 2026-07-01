@@ -64,6 +64,7 @@ data class HomeUiState(
     val plannerSearchLoading: Boolean = false,
     val plannerEditingIndex: Int = -1,
     val recentDestinations: List<biz.cesena.packride4.data.prefs.RecentDestination> = emptyList(),
+    val favorites: List<biz.cesena.packride4.data.prefs.FavoritePlace> = emptyList(),
     // Map editing state (Phase 2)
     val isEditingRoute: Boolean = false,
     val selectedWaypointIndex: Int = -1,
@@ -239,6 +240,7 @@ class HomeViewModel @Inject constructor(
             plannerSearchQuery = "",
             plannerSearchResults = emptyList(),
             recentDestinations = userPreferences.getRecentDestinations(),
+            favorites = userPreferences.getFavorites(),
         )}
     }
 
@@ -271,6 +273,16 @@ class HomeViewModel @Inject constructor(
             wps[0] = origin
             state.copy(waypoints = wps)
         }
+    }
+
+    fun saveFavorite(fav: biz.cesena.packride4.data.prefs.FavoritePlace) {
+        userPreferences.saveFavorite(fav)
+        _uiState.update { it.copy(favorites = userPreferences.getFavorites()) }
+    }
+
+    fun deleteFavorite(id: String) {
+        userPreferences.deleteFavorite(id)
+        _uiState.update { it.copy(favorites = userPreferences.getFavorites()) }
     }
 
     fun removeWaypoint(index: Int) {
@@ -428,6 +440,7 @@ class HomeViewModel @Inject constructor(
                     isEditingRoute = true,
                     selectedWaypointIndex = -1,
                     fuelStationsAlongRoute = fuel,
+                    isFollowing = false,
                 )}
             } else {
                 _uiState.update { it.copy(
@@ -617,6 +630,7 @@ class HomeViewModel @Inject constructor(
                     isEditingRoute = true,
                     selectedWaypointIndex = -1,
                     fuelStationsAlongRoute = fuel,
+                    isFollowing = false,
                 )}
             } else {
                 _uiState.update { it.copy(isRouteCalculating = false, routeError = "Impossibile ricalcolare il percorso") }
@@ -672,7 +686,7 @@ class HomeViewModel @Inject constructor(
                         instructionsJson = SavedRoute.serializeInstructions(result.instructions),
                     ))
                 }
-                _uiState.update { it.copy(route = result, isRouteCalculating = false, isEditingRoute = true, selectedWaypointIndex = -1) }
+                _uiState.update { it.copy(route = result, isRouteCalculating = false, isEditingRoute = true, selectedWaypointIndex = -1, isFollowing = false) }
             } else {
                 _uiState.update { it.copy(isRouteCalculating = false, routeError = "Errore con $engine") }
             }

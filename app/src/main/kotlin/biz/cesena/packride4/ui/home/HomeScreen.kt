@@ -760,11 +760,18 @@ fun HomeScreen(
                     onBack = { viewModel.closeMenuSubScreen() },
                     onClose = { viewModel.closeMenuAll() },
                 )
+                "favorites" -> FavoritesScreen(
+                    favorites = uiState.favorites,
+                    onBack = { viewModel.closeMenuSubScreen() },
+                    onSave = { viewModel.saveFavorite(it) },
+                    onDelete = { viewModel.deleteFavorite(it) },
+                )
                 else -> MenuScreen(
                     onClose = { viewModel.closeMenuAll() },
                     onNavigateToMaps = { viewModel.openMenuSubScreen("maps") },
                     onNavigateToRoutes = { viewModel.openMenuSubScreen("routes") },
                     onNavigateToSettings = { viewModel.openMenuSubScreen("settings") },
+                    onNavigateToFavorites = { viewModel.openMenuSubScreen("favorites") },
                 )
             }
         }
@@ -787,6 +794,8 @@ fun HomeScreen(
                     onStartEditing = { viewModel.startEditingWaypoint(it) },
                     onSearchChange = { viewModel.onPlannerSearchChange(it) },
                     recentDestinations = uiState.recentDestinations,
+                    favorites = uiState.favorites,
+                    onSaveFavorite = { viewModel.saveFavorite(it) },
                     onSelectResult = { viewModel.selectPlannerResult(it) },
                     onResetOriginToGps = { viewModel.resetOriginToGps() },
                     onCalculate = { viewModel.computeRouteFromWaypoints() },

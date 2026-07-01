@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,6 +23,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import biz.cesena.packride4.data.prefs.FavoritePlace
 import biz.cesena.packride4.data.prefs.RecentDestination
 import biz.cesena.packride4.routing.GeocodingResult
 
@@ -34,6 +36,8 @@ fun RoutePlannerSheet(
     searchResults: List<GeocodingResult>,
     searchLoading: Boolean,
     recentDestinations: List<RecentDestination> = emptyList(),
+    favorites: List<FavoritePlace> = emptyList(),
+    onSaveFavorite: (FavoritePlace) -> Unit = {},
     onClose: () -> Unit,
     onAddWaypoint: () -> Unit,
     onRemoveWaypoint: (Int) -> Unit,
@@ -45,6 +49,7 @@ fun RoutePlannerSheet(
 ) {
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
+    var saveFavTarget by remember { mutableStateOf<RouteWaypoint?>(null) }
 
     LaunchedEffect(editingIndex) {
         if (editingIndex >= 0) {
@@ -194,6 +199,13 @@ fun RoutePlannerSheet(
                                     }
                                 }
                             }
+                            // Star: save set non-GPS waypoint as favorite
+                            if (wp.isSet && !wp.isGps) {
+                                IconButton(onClick = { saveFavTarget = wp }) {
+                                    Icon(Icons.Default.Star, "Salva come preferito",
+                                        tint = MaterialTheme.colorScheme.tertiary)
+                                }
+                            }
                             // Origin: reset-to-GPS button when a custom start is set
                             if (isOrigin && !wp.isGps) {
                                 IconButton(onClick = onResetOriginToGps) {
@@ -219,39 +231,52 @@ fun RoutePlannerSheet(
                 if (searchLoading) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 }
-                val showRecents = searchQuery.isBlank() && recentDestinations.isNotEmpty()
+                val showSuggestions = searchQuery.isBlank()
                 LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
-                    if (showRecents) {
-                        item {
-                            Text(
-                                "Recenti",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = androidx.compose.ui.Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-                            )
+                    if (showSuggestions) {
+                        if (favorites.isNotEmpty()) {
+                            item {
+                                Text("Preferiti",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = androidx.compose.ui.Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                            }
+                            items(favorites) { fav ->
+                                ListItem(
+                                    headlineContent = { Text("${fav.icon}  ${fav.name}", maxLines = 1) },
+                                    modifier = Modifier.clickable {
+                                        onSelectResult(GeocodingResult(
+                                            name = fav.name, address = "", lat = fav.lat, lon = fav.lon, distanceKm = 0.0))
+                                    }
+                                )
+                                HorizontalDivider()
+                            }
                         }
-                        items(recentDestinations) { recent ->
-                            ListItem(
-                                headlineContent = { Text(recent.name, maxLines = 1) },
-                                leadingContent = {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = androidx.compose.ui.Modifier
-                                            .size(20.dp)
-                                            .graphicsLayer(rotationZ = 225f))
-                                },
-                                modifier = Modifier.clickable {
-                                    onSelectResult(GeocodingResult(
-                                        name = recent.name,
-                                        address = "",
-                                        lat = recent.lat,
-                                        lon = recent.lon,
-                                        distanceKm = 0.0,
-                                    ))
-                                }
-                            )
-                            HorizontalDivider()
+                        if (recentDestinations.isNotEmpty()) {
+                            item {
+                                Text("Recenti",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = androidx.compose.ui.Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                            }
+                            items(recentDestinations) { recent ->
+                                ListItem(
+                                    headlineContent = { Text(recent.name, maxLines = 1) },
+                                    leadingContent = {
+                                        Icon(Icons.AutoMirrored.Filled.ArrowBack,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = androidx.compose.ui.Modifier
+                                                .size(20.dp)
+                                                .graphicsLayer(rotationZ = 225f))
+                                    },
+                                    modifier = Modifier.clickable {
+                                        onSelectResult(GeocodingResult(
+                                            name = recent.name, address = "", lat = recent.lat, lon = recent.lon, distanceKm = 0.0))
+                                    }
+                                )
+                                HorizontalDivider()
+                            }
                         }
                     } else {
                         items(searchResults) { result ->
@@ -285,5 +310,18 @@ fun RoutePlannerSheet(
                 }
             }
         }
+    }
+
+    saveFavTarget?.let { wp ->
+        SaveFavoriteDialog(
+            suggestedName = wp.label,
+            lat = wp.lat,
+            lon = wp.lon,
+            onDismiss = { saveFavTarget = null },
+            onSave = { fav ->
+                onSaveFavorite(fav)
+                saveFavTarget = null
+            }
+        )
     }
 }

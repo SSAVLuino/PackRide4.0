@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -25,6 +26,7 @@ fun MenuScreen(
     onNavigateToMaps: () -> Unit = {},
     onNavigateToRoutes: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
+    onNavigateToFavorites: () -> Unit = {},
     onNavigateToDebug: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -59,6 +61,7 @@ fun MenuScreen(
 
             MenuItem(Icons.Default.Map, "Gestione Mappe", "Scarica e gestisci mappe offline", onNavigateToMaps)
             MenuItem(Icons.Default.Route, "Rotte Salvate", "Visualizza le rotte salvate", onNavigateToRoutes)
+            MenuItem(Icons.Default.Star, "Preferiti", "Gestisci i tuoi luoghi preferiti", onNavigateToFavorites)
             MenuItem(Icons.Default.Settings, "Impostazioni", "Configura l'app", onNavigateToSettings)
             if (biz.cesena.packride4.BuildConfig.DEBUG) {
                 MenuItem(Icons.Default.BugReport, "Debug Log", "Visualizza log di debug", onNavigateToDebug)

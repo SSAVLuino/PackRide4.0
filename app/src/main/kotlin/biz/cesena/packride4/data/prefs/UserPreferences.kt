@@ -14,6 +14,9 @@ import javax.inject.Singleton
 @Serializable
 data class RecentDestination(val name: String, val lat: Double, val lon: Double)
 
+@Serializable
+data class FavoritePlace(val id: String, val name: String, val icon: String, val lat: Double, val lon: Double)
+
 @Singleton
 class UserPreferences @Inject constructor(
     @ApplicationContext context: Context
@@ -87,6 +90,24 @@ class UserPreferences @Inject constructor(
         prefs.edit().putString(KEY_RECENT_DESTINATIONS, Json.encodeToString(current.take(10))).apply()
     }
 
+    fun getFavorites(): List<FavoritePlace> {
+        val json = prefs.getString(KEY_FAVORITES, null) ?: return emptyList()
+        return try { Json.decodeFromString(json) } catch (_: Exception) { emptyList() }
+    }
+
+    fun saveFavorite(fav: FavoritePlace) {
+        val current = getFavorites().toMutableList()
+        current.removeAll { it.id == fav.id }
+        current.add(0, fav)
+        prefs.edit().putString(KEY_FAVORITES, Json.encodeToString(current)).apply()
+    }
+
+    fun deleteFavorite(id: String) {
+        val current = getFavorites().toMutableList()
+        current.removeAll { it.id == id }
+        prefs.edit().putString(KEY_FAVORITES, Json.encodeToString(current)).apply()
+    }
+
     companion object {
         private const val KEY_USE_OFFLINE_MAP = "use_offline_map"
         private const val KEY_LAST_LAT = "last_lat"
@@ -94,5 +115,6 @@ class UserPreferences @Inject constructor(
         private const val KEY_VOICE_MODE = "voice_announcement_mode"
         private const val KEY_SHOW_PROGRESS_BAR = "show_progress_bar"
         private const val KEY_RECENT_DESTINATIONS = "recent_destinations"
+        private const val KEY_FAVORITES = "favorites"
     }
 }
