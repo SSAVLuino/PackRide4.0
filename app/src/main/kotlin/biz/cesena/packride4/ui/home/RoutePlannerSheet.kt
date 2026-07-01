@@ -187,16 +187,6 @@ fun RoutePlannerSheet(
                                         maxLines = 1,
                                         modifier = Modifier.weight(1f)
                                     )
-                                    if (isIntermediate) {
-                                        IconButton(
-                                            onClick = { onRemoveWaypoint(index) },
-                                            modifier = Modifier.size(32.dp)
-                                        ) {
-                                            Icon(Icons.Default.Close, "Rimuovi",
-                                                modifier = Modifier.size(18.dp),
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        }
-                                    }
                                 }
                             }
                             // Star: save set non-GPS waypoint as favorite
@@ -204,6 +194,13 @@ fun RoutePlannerSheet(
                                 IconButton(onClick = { saveFavTarget = wp }) {
                                     Icon(Icons.Default.Star, "Salva come preferito",
                                         tint = MaterialTheme.colorScheme.tertiary)
+                                }
+                            }
+                            // Remove button for intermediate waypoints
+                            if (isIntermediate) {
+                                IconButton(onClick = { onRemoveWaypoint(index) }) {
+                                    Icon(Icons.Default.Close, "Rimuovi",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                             // Origin: reset-to-GPS button when a custom start is set
