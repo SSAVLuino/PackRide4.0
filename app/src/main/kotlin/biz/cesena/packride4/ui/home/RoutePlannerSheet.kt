@@ -73,7 +73,7 @@ fun RoutePlannerSheet(
                     Button(
                         onClick = onCalculate,
                         modifier = Modifier.weight(1f),
-                        enabled = waypoints.count { it.isSet } >= 2
+                        enabled = waypoints.count { it.isSet || it.isGps } >= 2
                     ) {
                         Icon(Icons.Default.Navigation, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))

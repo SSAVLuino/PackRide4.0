@@ -331,7 +331,7 @@ class HomeViewModel @Inject constructor(
 
     fun computeRouteFromWaypoints() {
         val state = _uiState.value
-        val setWaypoints = state.waypoints.filter { it.isSet }
+        val setWaypoints = state.waypoints.filter { it.isSet || it.isGps }
         if (setWaypoints.size < 2) {
             _uiState.update { it.copy(routeError = "Inserisci almeno partenza e destinazione") }
             return
