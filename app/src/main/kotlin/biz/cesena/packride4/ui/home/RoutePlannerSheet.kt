@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.*
@@ -35,6 +36,7 @@ fun RoutePlannerSheet(
     onStartEditing: (Int) -> Unit,
     onSearchChange: (String) -> Unit,
     onSelectResult: (GeocodingResult) -> Unit,
+    onResetOriginToGps: () -> Unit,
     onCalculate: () -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -88,7 +90,7 @@ fun RoutePlannerSheet(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // ── Waypoint list (skip index 0 = GPS start) ────────────────────
+            // ── Waypoint list ────────────────────────────────────────────────
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -96,12 +98,16 @@ fun RoutePlannerSheet(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 waypoints.forEachIndexed { index, wp ->
-                    if (index == 0) return@forEachIndexed
-
+                    val isOrigin = index == 0
                     val isLast = index == waypoints.size - 1
-                    val isIntermediate = !isLast
-                    val label = if (isLast) "Destinazione" else "Tappa $index"
+                    val isIntermediate = !isOrigin && !isLast
+                    val label = when {
+                        isOrigin -> "Partenza"
+                        isLast -> "Destinazione"
+                        else -> "Tappa $index"
+                    }
                     val iconTint = when {
+                        isOrigin -> MaterialTheme.colorScheme.primary
                         isLast -> MaterialTheme.colorScheme.error
                         else -> MaterialTheme.colorScheme.tertiary
                     }
@@ -116,7 +122,7 @@ fun RoutePlannerSheet(
                                 onValueChange = onSearchChange,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .focusRequester(focusRequester),
+                                    .focusRequester(if (index == editingIndex) focusRequester else FocusRequester.Default),
                                 placeholder = { Text("Cerca $label…") },
                                 leadingIcon = { Icon(Icons.Default.Place, null, tint = iconTint) },
                                 trailingIcon = {
@@ -142,7 +148,7 @@ fun RoutePlannerSheet(
                             Surface(
                                 modifier = Modifier.weight(1f),
                                 shape = MaterialTheme.shapes.medium,
-                                color = if (wp.isSet)
+                                color = if (wp.isSet || wp.isGps)
                                     MaterialTheme.colorScheme.surfaceVariant
                                 else
                                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -153,12 +159,19 @@ fun RoutePlannerSheet(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    Icon(Icons.Default.Place, null, tint = iconTint, modifier = Modifier.size(22.dp))
+                                    Icon(
+                                        if (isOrigin && wp.isGps) Icons.Default.GpsFixed else Icons.Default.Place,
+                                        null, tint = iconTint, modifier = Modifier.size(22.dp)
+                                    )
                                     Text(
-                                        text = if (wp.isSet) wp.label.ifBlank { label } else "Tocca per impostare $label",
+                                        text = when {
+                                            isOrigin && wp.isGps -> "Posizione GPS corrente"
+                                            wp.isSet -> wp.label.ifBlank { label }
+                                            else -> "Tocca per impostare $label"
+                                        },
                                         style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = if (wp.isSet) FontWeight.Medium else FontWeight.Normal,
-                                        color = if (wp.isSet)
+                                        fontWeight = if (wp.isSet || wp.isGps) FontWeight.Medium else FontWeight.Normal,
+                                        color = if (wp.isSet || wp.isGps)
                                             MaterialTheme.colorScheme.onSurface
                                         else
                                             MaterialTheme.colorScheme.onSurfaceVariant,
@@ -177,7 +190,15 @@ fun RoutePlannerSheet(
                                     }
                                 }
                             }
-                            if (isLast) {
+                            // Origin: reset-to-GPS button when a custom start is set
+                            if (isOrigin && !wp.isGps) {
+                                IconButton(onClick = onResetOriginToGps) {
+                                    Icon(Icons.Default.GpsFixed, "Usa posizione GPS",
+                                        tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                            // Last waypoint: add next destination button
+                            if (isLast && !isOrigin) {
                                 IconButton(onClick = onAddWaypoint) {
                                     Icon(Icons.Default.Add, "Aggiungi tappa",
                                         tint = MaterialTheme.colorScheme.primary)

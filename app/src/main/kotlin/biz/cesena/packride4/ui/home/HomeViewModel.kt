@@ -253,7 +253,20 @@ class HomeViewModel @Inject constructor(
     fun addWaypoint() {
         _uiState.update { state ->
             val wps = state.waypoints.toMutableList()
-            wps.add(wps.size - 1, RouteWaypoint())
+            wps.add(RouteWaypoint())
+            state.copy(waypoints = wps, plannerEditingIndex = wps.size - 1)
+        }
+    }
+
+    fun resetOriginToGps() {
+        val pos = _uiState.value.lastKnownPosition
+        val origin = if (pos != null)
+            RouteWaypoint("Posizione GPS", pos.latitude, pos.longitude, isGps = true, isSet = true)
+        else
+            RouteWaypoint("Posizione GPS", isGps = true, isSet = false)
+        _uiState.update { state ->
+            val wps = state.waypoints.toMutableList()
+            wps[0] = origin
             state.copy(waypoints = wps)
         }
     }
