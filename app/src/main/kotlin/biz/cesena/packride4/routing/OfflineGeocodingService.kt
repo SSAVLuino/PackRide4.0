@@ -107,7 +107,7 @@ class OfflineGeocodingService @Inject constructor(
                     """.trimIndent(),
                     allArgs
                 )
-                cursor.use { parseResults(it, results) }
+                cursor.use { parseResults(it, results, searchId) }
             } catch (e: Exception) {
                 DebugLog.log("offline-geocoding: query error on ${dbFile.name}: ${e.message}")
             }
@@ -126,8 +126,9 @@ class OfflineGeocodingService @Inject constructor(
         return results.take(limit)
     }
 
-    private fun parseResults(cursor: android.database.Cursor, results: MutableList<GeocodingResult>) {
+    private fun parseResults(cursor: android.database.Cursor, results: MutableList<GeocodingResult>, searchId: Long = -1L) {
         while (cursor.moveToNext()) {
+            if (searchId >= 0 && searchId != currentSearchId) return
             val name = cursor.getString(0)
             val type = cursor.getString(1) ?: ""
             val lat = cursor.getDouble(3)

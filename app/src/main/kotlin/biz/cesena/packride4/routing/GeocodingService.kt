@@ -33,8 +33,26 @@ class GeocodingService @Inject constructor(
         if (offlineGeocoding.isAvailable()) {
             offlineGeocoding.userLat = userLat
             offlineGeocoding.userLon = userLon
-            val offlineResults = offlineGeocoding.search(query)
+            val offlineResults = try {
+                kotlinx.coroutines.withTimeout(3_000) { offlineGeocoding.search(query) }
+            } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                DebugLog.log("offline-geocoding: timeout, falling back to TomTom")
+                emptyList()
+            }
             if (offlineResults.isNotEmpty()) return@withContext offlineResults
+
+            // If query had a comma (street, city) and returned nothing, retry without city filter
+            val commaIdx = query.indexOf(',')
+            if (commaIdx > 0) {
+                val streetOnly = query.substring(0, commaIdx).trim()
+                val retryResults = try {
+                    kotlinx.coroutines.withTimeout(3_000) { offlineGeocoding.search(streetOnly) }
+                } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                    DebugLog.log("offline-geocoding: retry timeout")
+                    emptyList()
+                }
+                if (retryResults.isNotEmpty()) return@withContext retryResults
+            }
         }
 
         if (apiKey.isEmpty()) return@withContext emptyList()
