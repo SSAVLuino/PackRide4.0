@@ -87,6 +87,7 @@ data class HomeUiState(
     val showInfoFullscreen: Boolean = false,
     val showMenu: Boolean = false,
     val menuSubScreen: String? = null,
+    val pendingLongPress: Pair<Double, Double>? = null,
     val departureTimeMillis: Long = 0L,
     val distanceTraveled: Double = 0.0,
     val widgetLeftIdle: String = "altitude",
@@ -556,27 +557,36 @@ class HomeViewModel @Inject constructor(
 
     fun handleMapLongPress(lat: Double, lon: Double, zoom: Double = 14.0): Boolean {
         val state = _uiState.value
-        if (!state.isEditingRoute || state.route == null) return false
 
-        // Check if long press is near the route polyline
-        val route = state.route ?: return false
-        val points = route.points
-        if (points.size < 2) return false
-
-        var minDist = Double.MAX_VALUE
-        for (i in 0 until points.size - 1) {
-            val (aLat, aLon) = points[i]
-            val (bLat, bLon) = points[i + 1]
-            val (dist, _) = pointToSegmentDistance(lat, lon, aLat, aLon, bLat, bLon)
-            if (dist < minDist) minDist = dist
+        // When editing a route, check if the press is near the polyline to insert a waypoint
+        if (state.isEditingRoute && state.route != null) {
+            val points = state.route.points
+            if (points.size >= 2) {
+                var minDist = Double.MAX_VALUE
+                for (i in 0 until points.size - 1) {
+                    val (aLat, aLon) = points[i]
+                    val (bLat, bLon) = points[i + 1]
+                    val (dist, _) = pointToSegmentDistance(lat, lon, aLat, aLon, bLat, bLon)
+                    if (dist < minDist) minDist = dist
+                }
+                val longPressRadius = 200.0 / Math.pow(2.0, (zoom - 10.0).coerceAtLeast(0.0))
+                if (minDist < longPressRadius) {
+                    addWaypointFromLongPress(lat, lon)
+                    return true
+                }
+            }
         }
 
-        val longPressRadius = 200.0 / Math.pow(2.0, (zoom - 10.0).coerceAtLeast(0.0))
-        if (minDist < longPressRadius) {
-            addWaypointFromLongPress(lat, lon)
+        // Outside route editing: show context menu for the tapped location
+        if (!state.isNavigating) {
+            _uiState.update { it.copy(pendingLongPress = lat to lon) }
             return true
         }
         return false
+    }
+
+    fun dismissLongPress() {
+        _uiState.update { it.copy(pendingLongPress = null) }
     }
 
     private fun recalculateRoute() {
