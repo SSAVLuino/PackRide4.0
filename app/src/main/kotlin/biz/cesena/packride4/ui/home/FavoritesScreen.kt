@@ -10,6 +10,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -158,6 +159,70 @@ fun FavoriteEditDialog(
     )
 }
 
+/**
+ * Small bottom sheet that appears after a long press on the map.
+ * Shows the coordinates and lets the user save the point as a favorite.
+ */
+@Composable
+fun LongPressSheet(
+    lat: Double,
+    lon: Double,
+    onDismiss: () -> Unit,
+    onSaveFavorite: (FavoritePlace) -> Unit,
+) {
+    var showSaveDialog by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable(onClick = onDismiss),
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = false, onClick = {}),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+            tonalElevation = 4.dp,
+            shadowElevation = 8.dp,
+        ) {
+            Column(
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    "%.5f, %.5f".format(lat, lon),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Button(
+                    onClick = { showSaveDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Default.Star, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Salva come preferito")
+                }
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Annulla") }
+            }
+        }
+    }
+
+    if (showSaveDialog) {
+        SaveFavoriteDialog(
+            suggestedName = "",
+            lat = lat,
+            lon = lon,
+            onDismiss = { showSaveDialog = false; onDismiss() },
+            onSave = onSaveFavorite,
+        )
+    }
+}
 /** Dialog shown when saving a search result as a favorite — name/icon pre-filled. */
 @Composable
 fun SaveFavoriteDialog(
