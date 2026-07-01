@@ -333,6 +333,8 @@ class OfflineGeocodingService @Inject constructor(
         try {
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_places_name ON places(name COLLATE NOCASE)")
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_places_type_name ON places(type, name COLLATE NOCASE)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_places_city ON places(city COLLATE NOCASE)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_places_type_city_name ON places(type, city COLLATE NOCASE, name COLLATE NOCASE)")
             indexedDbs.add(path)
             DebugLog.log("offline-geocoding: index created/verified for $path")
         } catch (e: Exception) {
