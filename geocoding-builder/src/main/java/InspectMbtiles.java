@@ -38,6 +38,16 @@ public class InspectMbtiles {
         }
 
         System.out.println();
+        System.out.println("=== zoom levels actually present in tiles table ===");
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(
+                 "SELECT zoom_level, COUNT(*) as cnt FROM tiles GROUP BY zoom_level ORDER BY zoom_level")) {
+            while (rs.next()) {
+                System.out.println("z=" + rs.getInt("zoom_level") + " -> " + rs.getInt("cnt") + " tiles in file");
+            }
+        }
+
+        System.out.println();
         System.out.println("=== tiles for lon=" + lon + " lat=" + lat + " ===");
         for (int z = minZoom; z <= maxZoom; z++) {
             long n = 1L << z;

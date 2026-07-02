@@ -46,21 +46,28 @@ class MBTilesServer(port: Int = 8787) : NanoHTTPD(port) {
         val y = parts[3].removeSuffix(".pbf").toIntOrNull() ?: return notFound()
         val tmsY = (1 shl z) - 1 - y
 
-        synchronized(databases) {
-            if (databases.isEmpty()) {
-                DebugLog.log("tile $z/$x/$y -> 404 (no mbtiles loaded)")
-            }
-            for (db in databases) {
-                val tile = queryTile(db, z, x, tmsY) ?: continue
-                val decompressed = decompressIfGzip(tile)
-                return newFixedLengthResponse(
-                    Response.Status.OK,
-                    "application/x-protobuf",
-                    decompressed.inputStream(),
-                    decompressed.size.toLong()
-                ).apply {
-                    addHeader("Access-Control-Allow-Origin", "*")
-                }
+        // Only the list reference needs the lock (loadMaps()/stop() mutate it); the
+        // actual SQLite queries and response writing must happen outside it, otherwise
+        // every concurrent tile request from MapLibre's multiple HTTP worker threads
+        // gets serialized behind a single global lock. Under a burst of requests (fast
+        // pan/zoom) that queuing delay is enough for the client to give up and close
+        // the socket before its turn comes, producing "Connection reset"/"Broken pipe"
+        // and a tile that never renders.
+        val dbs = synchronized(databases) { databases.toList() }
+        if (dbs.isEmpty()) {
+            DebugLog.log("tile $z/$x/$y -> 404 (no mbtiles loaded)")
+            return notFound()
+        }
+        for (db in dbs) {
+            val tile = queryTile(db, z, x, tmsY) ?: continue
+            val decompressed = decompressIfGzip(tile)
+            return newFixedLengthResponse(
+                Response.Status.OK,
+                "application/x-protobuf",
+                decompressed.inputStream(),
+                decompressed.size.toLong()
+            ).apply {
+                addHeader("Access-Control-Allow-Origin", "*")
             }
         }
         DebugLog.log("tile $z/$x/$y -> 404 (not in any loaded mbtiles)")
