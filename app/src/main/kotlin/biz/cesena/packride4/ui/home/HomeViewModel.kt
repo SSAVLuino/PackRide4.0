@@ -103,7 +103,7 @@ class HomeViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val db: AppDatabase,
     private val savedRouteDao: SavedRouteDao,
-    private val routingManager: RoutingManager,
+    val routingManager: RoutingManager,
     private val onlineRoutingService: OnlineRoutingService,
     private val geocodingService: GeocodingService,
     private val userPreferences: UserPreferences,

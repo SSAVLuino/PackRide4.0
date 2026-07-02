@@ -102,6 +102,7 @@ class RoutingManager @Inject constructor() {
      * loaded region — meaning GraphHopper can serve the route entirely offline.
      */
     fun loadedCount(): Int = hoppers.size
+    fun loadedRegionIds(): Set<String> = regionToPath.keys.toSet()
 
     fun canRouteLocally(
         fromLat: Double, fromLon: Double,

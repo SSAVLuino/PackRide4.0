@@ -768,12 +768,18 @@ fun HomeScreen(
                     onSave = { viewModel.saveFavorite(it) },
                     onDelete = { viewModel.deleteFavorite(it) },
                 )
+                "info" -> DiagnosticsScreen(
+                    routingManager = viewModel.routingManager,
+                    context = androidx.compose.ui.platform.LocalContext.current,
+                    onBack = { viewModel.closeMenuSubScreen() },
+                )
                 else -> MenuScreen(
                     onClose = { viewModel.closeMenuAll() },
                     onNavigateToMaps = { viewModel.openMenuSubScreen("maps") },
                     onNavigateToRoutes = { viewModel.openMenuSubScreen("routes") },
                     onNavigateToSettings = { viewModel.openMenuSubScreen("settings") },
                     onNavigateToFavorites = { viewModel.openMenuSubScreen("favorites") },
+                    onNavigateToInfo = { viewModel.openMenuSubScreen("info") },
                 )
             }
         }
