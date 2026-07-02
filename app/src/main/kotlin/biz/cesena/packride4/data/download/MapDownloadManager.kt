@@ -28,7 +28,8 @@ data class RegionCatalogEntry(
     val fileName: String,
     val estimatedSizeMb: Double,
     val bbox: String,         // "minLon,minLat,maxLon,maxLat"
-    val routingGraphUrl: String? = null
+    val routingGraphUrl: String? = null,
+    val geocodingCountryId: String? = null, // Supabase country id used for geocoding-{id}.db; defaults to region id
 ) {
     fun containsPoint(lat: Double, lon: Double): Boolean {
         val p = bbox.split(",").mapNotNull { it.trim().toDoubleOrNull() }
@@ -46,7 +47,8 @@ val AVAILABLE_REGIONS = listOf(
         fileName = "italia-nord-ovest.mbtiles",
         estimatedSizeMb = 300.0,
         bbox = "6.6,43.8,12.5,46.7",
-        routingGraphUrl = "https://github.com/SSAVLuino/PackRide4.0/releases/download/routing-graph-italia-nord-ovest-v3/graph-italia-nord-ovest.zip"
+        routingGraphUrl = "https://github.com/SSAVLuino/PackRide4.0/releases/download/routing-graph-italia-nord-ovest-v3/graph-italia-nord-ovest.zip",
+        geocodingCountryId = "italia",
     ),
     RegionCatalogEntry(
         id = "italia-nord-est",
@@ -55,7 +57,8 @@ val AVAILABLE_REGIONS = listOf(
         downloadUrl = "$GEOFABRIK/europe/italy/nord-est-shortbread-1.0.mbtiles",
         fileName = "italia-nord-est.mbtiles",
         estimatedSizeMb = 600.0,
-        bbox = "9.2,44.8,14.0,47.1"
+        bbox = "9.2,44.8,14.0,47.1",
+        geocodingCountryId = "italia",
     ),
     RegionCatalogEntry(
         id = "italia-centro",
@@ -64,7 +67,8 @@ val AVAILABLE_REGIONS = listOf(
         downloadUrl = "$GEOFABRIK/europe/italy/centro-shortbread-1.0.mbtiles",
         fileName = "italia-centro.mbtiles",
         estimatedSizeMb = 500.0,
-        bbox = "9.7,41.2,14.8,44.5"
+        bbox = "9.7,41.2,14.8,44.5",
+        geocodingCountryId = "italia",
     ),
     RegionCatalogEntry(
         id = "italia-sud",
@@ -73,7 +77,8 @@ val AVAILABLE_REGIONS = listOf(
         downloadUrl = "$GEOFABRIK/europe/italy/sud-shortbread-1.0.mbtiles",
         fileName = "italia-sud.mbtiles",
         estimatedSizeMb = 450.0,
-        bbox = "11.0,37.9,18.6,42.0"
+        bbox = "11.0,37.9,18.6,42.0",
+        geocodingCountryId = "italia",
     ),
     RegionCatalogEntry(
         id = "italia-isole",
@@ -82,7 +87,8 @@ val AVAILABLE_REGIONS = listOf(
         downloadUrl = "$GEOFABRIK/europe/italy/isole-shortbread-1.0.mbtiles",
         fileName = "italia-isole.mbtiles",
         estimatedSizeMb = 350.0,
-        bbox = "8.1,36.6,15.7,38.3"
+        bbox = "8.1,36.6,15.7,38.3",
+        geocodingCountryId = "italia",
     ),
     RegionCatalogEntry(
         id = "svizzera",

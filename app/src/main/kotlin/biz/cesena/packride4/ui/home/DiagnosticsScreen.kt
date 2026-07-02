@@ -67,9 +67,10 @@ suspend fun buildDiagnostics(
         val graphHasGraphHopper = File(graphDir, "properties").exists() ||
             graphDir.listFiles()?.any { it.name.endsWith(".properties") || it.name == "edges" } == true
 
-        // Geocoding DB: named after region id
-        val geocodingFile: File? = File(geocodingDir, "geocoding-${region.id}.db").takeIf { it.exists() }
-            ?: geocodingDir.listFiles()?.firstOrNull { it.name.endsWith(".db") && it.name.contains(region.id) }
+        // Geocoding DB: named after the country id (may differ from region id, e.g. "italia" covers all italian regions)
+        val geocodingId = region.geocodingCountryId ?: region.id
+        val geocodingFile: File? = File(geocodingDir, "geocoding-$geocodingId.db").takeIf { it.exists() }
+            ?: geocodingDir.listFiles()?.firstOrNull { it.name.endsWith(".db") && it.name.contains(geocodingId) }
         val geocodingExists = geocodingFile?.exists() == true && geocodingFile.length() > 0
         val geocodingSizeMb = geocodingFile?.length()?.div(1024 * 1024) ?: 0L
         val geocodingRecords = if (geocodingExists) {
@@ -216,7 +217,7 @@ private fun RegionCard(diag: RegionDiagnostics) {
                 else if (diag.geocodingDirFiles.isEmpty())
                     "NON TROVATO — cartella geocoding vuota"
                 else
-                    "NON TROVATO — file presenti: ${diag.geocodingDirFiles.joinToString(", ")}",
+                    "NON TROVATO (cercato: geocoding-${diag.region.geocodingCountryId ?: diag.region.id}.db) — presenti: ${diag.geocodingDirFiles.joinToString(", ")}",
             )
         }
     }
