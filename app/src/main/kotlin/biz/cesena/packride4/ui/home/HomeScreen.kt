@@ -171,12 +171,14 @@ fun HomeScreen(
         }
     }
 
-    // Fuel stations along route
-    LaunchedEffect(mapInstance, uiState.fuelStationsAlongRoute) {
+    // Fuel stations visible on map (queried from the current viewport, like any other POI —
+    // not tied to a calculated route; the route-specific list still feeds the maneuver panel
+    // sequence via uiState.fuelStationsAlongRoute)
+    LaunchedEffect(mapInstance, uiState.fuelStationsVisible) {
         val map = mapInstance ?: return@LaunchedEffect
         val style = map.style ?: return@LaunchedEffect
         val fuelSource = style.getSourceAs<GeoJsonSource>("fuel-stations")
-        val stations = uiState.fuelStationsAlongRoute
+        val stations = uiState.fuelStationsVisible
         if (stations.isEmpty()) {
             fuelSource?.setGeoJson(FeatureCollection.fromFeatures(emptyArray()))
         } else {
@@ -392,6 +394,18 @@ fun HomeScreen(
                             map.uiSettings.setCompassMargins(0, statusPx, 0, 0)
                             addMapLayers(style)
                             mapStyleReady = true
+                        }
+                        // Refresh fuel-station POIs for the current viewport, same minzoom
+                        // threshold (14) as the other vector-tile POI layers.
+                        map.addOnCameraIdleListener {
+                            if (map.cameraPosition.zoom < 14.0) {
+                                viewModel.clearVisibleFuelStations()
+                            } else {
+                                val bounds = map.projection.visibleRegion.latLngBounds
+                                viewModel.refreshVisibleFuelStations(
+                                    bounds.latitudeSouth, bounds.longitudeWest, bounds.latitudeNorth, bounds.longitudeEast
+                                )
+                            }
                         }
                         // Update arrow screen position on every camera change
                         map.addOnCameraMoveListener {
@@ -1599,7 +1613,7 @@ private fun addMapLayers(style: Style) {
         ))
     }
 
-    // ── Fuel stations layer ──
+    // ── Fuel stations layer (general map POI, same minzoom as the vector-tile POI layers) ──
     if (style.getLayer("fuel-stations") == null) {
         style.addLayer(org.maplibre.android.style.layers.SymbolLayer("fuel-stations", "fuel-stations").withProperties(
             PropertyFactory.iconImage("fuel-pin"),
@@ -1615,7 +1629,7 @@ private fun addMapLayers(style: Style) {
             PropertyFactory.textHaloColor("#ffffff"),
             PropertyFactory.textHaloWidth(1f),
             PropertyFactory.textOptional(true),
-        ))
+        ).apply { setMinZoom(14f) })
     }
 
     // User arrow is now drawn as a Compose overlay (not a MapLibre layer)

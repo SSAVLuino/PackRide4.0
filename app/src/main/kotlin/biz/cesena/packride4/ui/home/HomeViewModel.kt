@@ -75,6 +75,7 @@ data class HomeUiState(
     // Routing error feedback
     val routeError: String? = null,
     val fuelStationsAlongRoute: List<OfflineGeocodingService.PoiResult> = emptyList(),
+    val fuelStationsVisible: List<OfflineGeocodingService.PoiResult> = emptyList(),
     val debugPois: List<OfflineGeocodingService.PoiResult> = emptyList(),
     val isRouteCalculating: Boolean = false,
     val showManeuverPanel: Boolean = false,
@@ -749,6 +750,17 @@ class HomeViewModel @Inject constructor(
             DebugLog.log("debug POIs in view: ${pois.size}")
             _uiState.update { it.copy(debugPois = pois) }
         }
+    }
+
+    fun refreshVisibleFuelStations(minLat: Double, minLon: Double, maxLat: Double, maxLon: Double) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val stations = offlineGeocodingService.findFuelInBounds(minLat, minLon, maxLat, maxLon)
+            _uiState.update { it.copy(fuelStationsVisible = stations) }
+        }
+    }
+
+    fun clearVisibleFuelStations() {
+        _uiState.update { it.copy(fuelStationsVisible = emptyList()) }
     }
 
     fun clearRoute() {

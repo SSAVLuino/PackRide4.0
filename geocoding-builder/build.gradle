@@ -28,3 +28,26 @@ tasks.register('analyzePois', JavaExec) {
         args = [project.property('pbf'), project.property('out')]
     }
 }
+
+tasks.register('decodeMvt', JavaExec) {
+    group = 'application'
+    description = 'Decodes a single MVT tile and reports feature counts per layer'
+    mainClass = 'DecodeMvtLayers'
+    classpath = sourceSets.main.runtimeClasspath
+    if (project.hasProperty('mbtiles') && project.hasProperty('lon') && project.hasProperty('lat') && project.hasProperty('zoom')) {
+        args = [project.property('mbtiles'), project.property('lon'), project.property('lat'), project.property('zoom')]
+    }
+}
+
+tasks.register('inspectMbtiles', JavaExec) {
+    group = 'application'
+    description = 'Inspects an .mbtiles file: metadata + tile/layer presence at a lon/lat across zooms'
+    mainClass = 'InspectMbtiles'
+    classpath = sourceSets.main.runtimeClasspath
+    if (project.hasProperty('mbtiles') && project.hasProperty('lon') && project.hasProperty('lat')) {
+        def a = [project.property('mbtiles'), project.property('lon'), project.property('lat')]
+        if (project.hasProperty('minZoom')) a << project.property('minZoom')
+        if (project.hasProperty('maxZoom')) a << project.property('maxZoom')
+        args = a
+    }
+}
