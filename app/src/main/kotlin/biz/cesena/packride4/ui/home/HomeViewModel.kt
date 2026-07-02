@@ -228,15 +228,32 @@ class HomeViewModel @Inject constructor(
     // ── Route planner ──────────────────────────────────────────────────────
 
     fun openRoutePlanner() {
-        val pos = _uiState.value.lastKnownPosition
-        val origin = if (pos != null) {
-            RouteWaypoint("Posizione GPS", pos.latitude, pos.longitude, isGps = true, isSet = true)
+        val state = _uiState.value
+        val pos = state.lastKnownPosition
+
+        // If we already have a planned route with waypoints, preserve them so the
+        // user can add/remove stops without losing the existing plan.
+        val existingWaypoints = state.waypoints
+        val waypoints = if (existingWaypoints.size >= 2) {
+            // Update the GPS origin with current position if it's a GPS waypoint
+            if (existingWaypoints.first().isGps && pos != null) {
+                val updated = existingWaypoints.first().copy(
+                    lat = pos.latitude, lon = pos.longitude, isSet = true
+                )
+                listOf(updated) + existingWaypoints.drop(1)
+            } else existingWaypoints
         } else {
-            RouteWaypoint("Posizione GPS", isGps = true, isSet = false)
+            val origin = if (pos != null) {
+                RouteWaypoint("Posizione GPS", pos.latitude, pos.longitude, isGps = true, isSet = true)
+            } else {
+                RouteWaypoint("Posizione GPS", isGps = true, isSet = false)
+            }
+            listOf(origin, RouteWaypoint())
         }
+
         _uiState.update { it.copy(
             showRoutePlanner = true,
-            waypoints = listOf(origin, RouteWaypoint()),
+            waypoints = waypoints,
             plannerEditingIndex = -1,
             plannerSearchQuery = "",
             plannerSearchResults = emptyList(),

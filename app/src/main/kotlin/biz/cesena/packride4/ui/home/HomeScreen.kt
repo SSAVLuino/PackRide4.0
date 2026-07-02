@@ -1215,7 +1215,10 @@ private fun RouteProgressBar(
 // ── Navigation maneuver side panel ──────────────────────────────────────────
 
 sealed class ManeuverListItem {
-    data class Instruction(val instr: biz.cesena.packride4.routing.RouteInstruction) : ManeuverListItem()
+    data class Instruction(
+        val instr: biz.cesena.packride4.routing.RouteInstruction,
+        val nextInstr: biz.cesena.packride4.routing.RouteInstruction?,
+    ) : ManeuverListItem()
     data class FuelStation(
         val poi: biz.cesena.packride4.routing.OfflineGeocodingService.PoiResult,
         val distFromPrevManeuver: Double,
@@ -1255,7 +1258,7 @@ private fun NavigationManeuverPanel(
                     list.add(ManeuverListItem.FuelStation(fuel, distFromPrevManeuver = fuel.distanceAlongRoute - prevDist))
                 }
             }
-            list.add(ManeuverListItem.Instruction(instructions[i]))
+            list.add(ManeuverListItem.Instruction(instructions[i], instructions.getOrNull(i + 1)))
         }
         list
     }
@@ -1276,7 +1279,7 @@ private fun NavigationManeuverPanel(
             }
         }) { item ->
             when (item) {
-                is ManeuverListItem.Instruction -> ManeuverBanner(item.instr)
+                is ManeuverListItem.Instruction -> ManeuverBanner(item.instr, item.nextInstr)
                 is ManeuverListItem.FuelStation -> FuelBanner(item.poi, item.distFromPrevManeuver)
             }
         }
@@ -1284,7 +1287,10 @@ private fun NavigationManeuverPanel(
 }
 
 @Composable
-private fun ManeuverBanner(instr: biz.cesena.packride4.routing.RouteInstruction) {
+private fun ManeuverBanner(
+    instr: biz.cesena.packride4.routing.RouteInstruction,
+    nextInstr: biz.cesena.packride4.routing.RouteInstruction? = null,
+) {
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
@@ -1295,8 +1301,9 @@ private fun ManeuverBanner(instr: biz.cesena.packride4.routing.RouteInstruction)
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            val iconInstr = nextInstr ?: instr
             Icon(
-                painter = painterResource(maneuverIcon(instr.sign, instr.modifier, instr.exitNumber, instr.turnAngle)),
+                painter = painterResource(maneuverIcon(iconInstr.sign, iconInstr.modifier, iconInstr.exitNumber, iconInstr.turnAngle)),
                 contentDescription = null,
                 modifier = Modifier.size(32.dp),
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
