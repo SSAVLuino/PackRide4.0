@@ -29,7 +29,8 @@ data class RegionCatalogEntry(
     val estimatedSizeMb: Double,
     val bbox: String,         // "minLon,minLat,maxLon,maxLat"
     val routingGraphUrl: String? = null,
-    val geocodingCountryId: String? = null, // Supabase country id used for geocoding-{id}.db; defaults to region id
+    val geocodingCountryId: String? = null, // Supabase country id for geocoding-{id}.db; defaults to region id
+    val routingCountryId: String? = null,   // Supabase country id for graph-{id}/; defaults to region id
 ) {
     fun containsPoint(lat: Double, lon: Double): Boolean {
         val p = bbox.split(",").mapNotNull { it.trim().toDoubleOrNull() }
@@ -37,6 +38,8 @@ data class RegionCatalogEntry(
         return lon >= p[0] && lat >= p[1] && lon <= p[2] && lat <= p[3]
     }
 }
+
+private const val ITALIA_GRAPH_URL = "https://github.com/SSAVLuino/PackRide4.0/releases/download/routing-graph-italia-v1/graph-italia.zip"
 
 val AVAILABLE_REGIONS = listOf(
     RegionCatalogEntry(
@@ -47,8 +50,9 @@ val AVAILABLE_REGIONS = listOf(
         fileName = "italia-nord-ovest.mbtiles",
         estimatedSizeMb = 300.0,
         bbox = "6.6,43.8,12.5,46.7",
-        routingGraphUrl = "https://github.com/SSAVLuino/PackRide4.0/releases/download/routing-graph-italia-nord-ovest-v3/graph-italia-nord-ovest.zip",
+        routingGraphUrl = ITALIA_GRAPH_URL,
         geocodingCountryId = "italia",
+        routingCountryId = "italia",
     ),
     RegionCatalogEntry(
         id = "italia-nord-est",
@@ -58,7 +62,9 @@ val AVAILABLE_REGIONS = listOf(
         fileName = "italia-nord-est.mbtiles",
         estimatedSizeMb = 600.0,
         bbox = "9.2,44.8,14.0,47.1",
+        routingGraphUrl = ITALIA_GRAPH_URL,
         geocodingCountryId = "italia",
+        routingCountryId = "italia",
     ),
     RegionCatalogEntry(
         id = "italia-centro",
@@ -68,7 +74,9 @@ val AVAILABLE_REGIONS = listOf(
         fileName = "italia-centro.mbtiles",
         estimatedSizeMb = 500.0,
         bbox = "9.7,41.2,14.8,44.5",
+        routingGraphUrl = ITALIA_GRAPH_URL,
         geocodingCountryId = "italia",
+        routingCountryId = "italia",
     ),
     RegionCatalogEntry(
         id = "italia-sud",
@@ -78,7 +86,9 @@ val AVAILABLE_REGIONS = listOf(
         fileName = "italia-sud.mbtiles",
         estimatedSizeMb = 450.0,
         bbox = "11.0,37.9,18.6,42.0",
+        routingGraphUrl = ITALIA_GRAPH_URL,
         geocodingCountryId = "italia",
+        routingCountryId = "italia",
     ),
     RegionCatalogEntry(
         id = "italia-isole",
@@ -88,7 +98,9 @@ val AVAILABLE_REGIONS = listOf(
         fileName = "italia-isole.mbtiles",
         estimatedSizeMb = 350.0,
         bbox = "8.1,36.6,15.7,38.3",
+        routingGraphUrl = ITALIA_GRAPH_URL,
         geocodingCountryId = "italia",
+        routingCountryId = "italia",
     ),
     RegionCatalogEntry(
         id = "svizzera",
@@ -98,7 +110,8 @@ val AVAILABLE_REGIONS = listOf(
         fileName = "svizzera.mbtiles",
         estimatedSizeMb = 400.0,
         bbox = "5.9,45.8,10.5,47.8",
-        routingGraphUrl = "https://github.com/SSAVLuino/PackRide4.0/releases/download/routing-graph-svizzera-v3/graph-svizzera.zip"
+        routingGraphUrl = "https://github.com/SSAVLuino/PackRide4.0/releases/download/routing-graph-svizzera-v3/graph-svizzera.zip",
+        routingCountryId = "svizzera",
     ),
 )
 

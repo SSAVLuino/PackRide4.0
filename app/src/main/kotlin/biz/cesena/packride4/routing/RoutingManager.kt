@@ -109,11 +109,14 @@ class RoutingManager @Inject constructor() {
         toLat: Double, toLon: Double,
         regions: List<RegionCatalogEntry>
     ): Boolean {
-        val result = regions.any { region ->
-            val loaded = region.id in regionToPath
-            val fromIn = region.containsPoint(fromLat, fromLon)
-            val toIn = region.containsPoint(toLat, toLon)
-            if (loaded) DebugLog.log("routing: canRouteLocally ${region.id}: from=$fromIn to=$toIn")
+        // Group regions by their routing graph so that a single loaded graph (e.g. "italia")
+        // covering multiple catalog regions is treated as one unit.
+        val byRoutingId = regions.groupBy { it.routingCountryId ?: it.id }
+        val result = byRoutingId.any { (routingId, group) ->
+            val loaded = routingId in regionToPath
+            val fromIn = group.any { it.containsPoint(fromLat, fromLon) }
+            val toIn = group.any { it.containsPoint(toLat, toLon) }
+            if (loaded) DebugLog.log("routing: canRouteLocally $routingId: from=$fromIn to=$toIn")
             loaded && fromIn && toIn
         }
         DebugLog.log("routing: canRouteLocally result=$result (loaded regions: ${regionToPath.keys})")

@@ -60,9 +60,10 @@ suspend fun buildDiagnostics(
         val tileExists = tileFile.exists() && tileFile.length() > 0
         val tileSizeMb = tileFile.length() / 1024 / 1024
 
-        val graphDir = File(routingDir, "graph-${region.id}")
+        val routingId = region.routingCountryId ?: region.id
+        val graphDir = File(routingDir, "graph-$routingId")
         val graphExists = graphDir.exists() && graphDir.isDirectory && graphDir.listFiles()?.isNotEmpty() == true
-        val graphLoaded = region.id in loadedIds
+        val graphLoaded = routingId in loadedIds
         // Check that the GraphHopper-specific metadata file is present
         val graphHasGraphHopper = File(graphDir, "properties").exists() ||
             graphDir.listFiles()?.any { it.name.endsWith(".properties") || it.name == "edges" } == true
