@@ -39,6 +39,7 @@ data class RegionDiagnostics(
     val geocodingExists: Boolean,
     val geocodingSizeMb: Long,
     val geocodingRecords: Long,
+    val geocodingDirFiles: List<String>,  // all .db files found, for debugging
 )
 
 // ── ViewModel helper (suspend fn, called from LaunchedEffect) ─────────────────
@@ -51,6 +52,8 @@ suspend fun buildDiagnostics(
     val routingDir = File(context.filesDir, "routing")
     val geocodingDir = File(context.filesDir, "geocoding")
     val loadedIds = routingManager.loadedRegionIds()
+
+    val allDbFiles = geocodingDir.listFiles()?.filter { it.name.endsWith(".db") }?.map { it.name } ?: emptyList()
 
     AVAILABLE_REGIONS.map { region ->
         val tileFile = File(mapsDir, region.fileName)
@@ -82,6 +85,7 @@ suspend fun buildDiagnostics(
             region, tileFile, tileExists, tileSizeMb,
             graphDir, graphExists, graphLoaded, graphHasGraphHopper,
             geocodingFile, geocodingExists, geocodingSizeMb, geocodingRecords,
+            geocodingDirFiles = allDbFiles,
         )
     }
 }
@@ -209,8 +213,10 @@ private fun RegionCard(diag: RegionDiagnostics) {
                 ok = diag.geocodingExists,
                 detail = if (diag.geocodingExists)
                     "${diag.geocodingSizeMb} MB · ${diag.geocodingRecords.let { if (it >= 0) "$it record" else "errore lettura" }}  (${diag.geocodingFile?.name})"
+                else if (diag.geocodingDirFiles.isEmpty())
+                    "NON TROVATO — cartella geocoding vuota"
                 else
-                    "NON TROVATO  (cerca in: ${File(diag.geocodingFile?.parent ?: "geocoding/", "${diag.region.id}.db")})",
+                    "NON TROVATO — file presenti: ${diag.geocodingDirFiles.joinToString(", ")}",
             )
         }
     }
