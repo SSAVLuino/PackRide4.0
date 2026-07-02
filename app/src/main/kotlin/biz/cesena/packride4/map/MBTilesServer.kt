@@ -5,6 +5,7 @@ import biz.cesena.packride4.debug.DebugLog
 import fi.iki.elonen.NanoHTTPD
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.GZIPInputStream
 
 /**
@@ -16,23 +17,35 @@ import java.util.zip.GZIPInputStream
  */
 class MBTilesServer(port: Int = 8787) : NanoHTTPD(port) {
 
-    private val databases = mutableListOf<SQLiteDatabase>()
+    // A single SQLiteDatabase handle serializes all queries through one native connection
+    // (Android only pools connections in WAL journal mode, which a read-only distributed
+    // file isn't opened with here). MapLibre issues several tile requests concurrently, so
+    // one connection per file becomes a queue -- under a burst (fast pan/zoom) that's still
+    // enough delay for the client to cancel before its turn, even after removing the
+    // app-level lock. Opening several independent read-only connections to the same file
+    // lets genuinely concurrent reads happen (SQLite supports multiple readers with no
+    // writer), so we round-robin requests across a small per-file pool instead.
+    private val CONNECTIONS_PER_FILE = 4
+
+    private data class MapDb(val file: File, val connections: List<SQLiteDatabase>)
+
+    private val maps = mutableListOf<MapDb>()
+    private val nextConn = AtomicInteger(0)
 
     fun loadMaps(files: List<File>) {
         DebugLog.log("loadMaps: ${files.map { "${it.name} exists=${it.exists()} size=${it.length()}" }}")
-        synchronized(databases) {
-            databases.forEach { runCatching { it.close() } }
-            databases.clear()
+        synchronized(maps) {
+            maps.forEach { m -> m.connections.forEach { runCatching { it.close() } } }
+            maps.clear()
             files.filter { it.exists() }.forEach { file ->
                 runCatching {
-                    databases.add(
-                        SQLiteDatabase.openDatabase(
-                            file.absolutePath, null, SQLiteDatabase.OPEN_READONLY
-                        )
-                    )
+                    val connections = (1..CONNECTIONS_PER_FILE).map {
+                        SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
+                    }
+                    maps.add(MapDb(file, connections))
                 }.onFailure { DebugLog.log("loadMaps: failed to open ${file.name}: ${it.message}") }
             }
-            DebugLog.log("loadMaps: ${databases.size} db(s) open")
+            DebugLog.log("loadMaps: ${maps.size} file(s), $CONNECTIONS_PER_FILE connection(s) each")
         }
     }
 
@@ -49,17 +62,16 @@ class MBTilesServer(port: Int = 8787) : NanoHTTPD(port) {
         // Only the list reference needs the lock (loadMaps()/stop() mutate it); the
         // actual SQLite queries and response writing must happen outside it, otherwise
         // every concurrent tile request from MapLibre's multiple HTTP worker threads
-        // gets serialized behind a single global lock. Under a burst of requests (fast
-        // pan/zoom) that queuing delay is enough for the client to give up and close
-        // the socket before its turn comes, producing "Connection reset"/"Broken pipe"
-        // and a tile that never renders.
-        val dbs = synchronized(databases) { databases.toList() }
-        if (dbs.isEmpty()) {
+        // gets serialized behind a single global lock.
+        val snapshot = synchronized(maps) { maps.toList() }
+        if (snapshot.isEmpty()) {
             DebugLog.log("tile $z/$x/$y -> 404 (no mbtiles loaded)")
             return notFound()
         }
-        for (db in dbs) {
-            val tile = queryTile(db, z, x, tmsY) ?: continue
+        val connIndex = nextConn.getAndIncrement()
+        for (m in snapshot) {
+            val conn = m.connections[Math.floorMod(connIndex, m.connections.size)]
+            val tile = queryTile(conn, z, x, tmsY) ?: continue
             val decompressed = decompressIfGzip(tile)
             return newFixedLengthResponse(
                 Response.Status.OK,
@@ -98,9 +110,9 @@ class MBTilesServer(port: Int = 8787) : NanoHTTPD(port) {
 
     override fun stop() {
         super.stop()
-        synchronized(databases) {
-            databases.forEach { runCatching { it.close() } }
-            databases.clear()
+        synchronized(maps) {
+            maps.forEach { m -> m.connections.forEach { runCatching { it.close() } } }
+            maps.clear()
         }
     }
 }
