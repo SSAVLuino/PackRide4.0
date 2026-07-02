@@ -32,11 +32,28 @@ class MBTilesServer(port: Int = 8787) : NanoHTTPD(port) {
     private val maps = mutableListOf<MapDb>()
     private val nextConn = AtomicInteger(0)
 
+    // Small in-memory cache of decompressed tile bytes, keyed by "z/x/y". MapLibre
+    // routinely re-requests the same tile multiple times during a single pan/zoom
+    // gesture (prefetch at a coarser zoom, then the real tile, then again after a
+    // camera-idle refresh) -- serving repeats straight from memory means only the
+    // first request per tile ever touches SQLite/gzip, shrinking the window where a
+    // slow response races a client-side cancellation. Cache is safe for the whole
+    // process lifetime of a loaded file set since mbtiles content never changes at
+    // runtime; cleared on loadMaps() since the file set itself can change.
+    private val MAX_CACHE_ENTRIES = 1000
+    private val tileCache: MutableMap<String, ByteArray> = java.util.Collections.synchronizedMap(
+        object : LinkedHashMap<String, ByteArray>(64, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ByteArray>): Boolean =
+                size > MAX_CACHE_ENTRIES
+        }
+    )
+
     fun loadMaps(files: List<File>) {
         DebugLog.log("loadMaps: ${files.map { "${it.name} exists=${it.exists()} size=${it.length()}" }}")
         synchronized(maps) {
             maps.forEach { m -> m.connections.forEach { runCatching { it.close() } } }
             maps.clear()
+            tileCache.clear()
             files.filter { it.exists() }.forEach { file ->
                 runCatching {
                     val connections = (1..CONNECTIONS_PER_FILE).map {
@@ -58,6 +75,19 @@ class MBTilesServer(port: Int = 8787) : NanoHTTPD(port) {
         val x = parts[2].toIntOrNull() ?: return notFound()
         val y = parts[3].removeSuffix(".pbf").toIntOrNull() ?: return notFound()
         val tmsY = (1 shl z) - 1 - y
+        val cacheKey = "$z/$x/$y"
+
+        val cached = tileCache[cacheKey]
+        if (cached != null) {
+            return newFixedLengthResponse(
+                Response.Status.OK,
+                "application/x-protobuf",
+                cached.inputStream(),
+                cached.size.toLong()
+            ).apply {
+                addHeader("Access-Control-Allow-Origin", "*")
+            }
+        }
 
         // Only the list reference needs the lock (loadMaps()/stop() mutate it); the
         // actual SQLite queries and response writing must happen outside it, otherwise
@@ -73,6 +103,7 @@ class MBTilesServer(port: Int = 8787) : NanoHTTPD(port) {
             val conn = m.connections[Math.floorMod(connIndex, m.connections.size)]
             val tile = queryTile(conn, z, x, tmsY) ?: continue
             val decompressed = decompressIfGzip(tile)
+            tileCache[cacheKey] = decompressed
             return newFixedLengthResponse(
                 Response.Status.OK,
                 "application/x-protobuf",
