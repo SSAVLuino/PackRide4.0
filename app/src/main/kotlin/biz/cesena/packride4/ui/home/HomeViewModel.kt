@@ -266,6 +266,7 @@ class HomeViewModel @Inject constructor(
         searchJob?.cancel()
         _uiState.update { it.copy(
             showRoutePlanner = false,
+            waypoints = emptyList(),
             plannerEditingIndex = -1,
             plannerSearchQuery = "",
             plannerSearchResults = emptyList(),
@@ -733,6 +734,7 @@ class HomeViewModel @Inject constructor(
     fun clearRoute() {
         _uiState.update { it.copy(
             route = null,
+            waypoints = emptyList(),
             isNavigating = false,
             currentInstructionIndex = 0,
             savedRouteId = null,
@@ -753,7 +755,7 @@ class HomeViewModel @Inject constructor(
 
     fun stopNavigation() {
         voiceService.shutdown()
-        _uiState.update { it.copy(isNavigating = false, currentInstructionIndex = 0, route = null, mapOrientationNorthUp = true, showManeuverPanel = false) }
+        _uiState.update { it.copy(isNavigating = false, currentInstructionIndex = 0, route = null, waypoints = emptyList(), mapOrientationNorthUp = true, showManeuverPanel = false) }
     }
 
     // ── Navigation advancement ────────────────────────────────────────────
