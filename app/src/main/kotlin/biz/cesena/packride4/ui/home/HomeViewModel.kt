@@ -212,6 +212,23 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             val routingDir = File(context.filesDir, "routing")
             DebugLog.log("routing: scanning $routingDir for graphs")
+
+            // Valid graph dir names based on current catalog
+            val validRoutingIds = AVAILABLE_REGIONS
+                .map { it.routingCountryId ?: it.id }
+                .toSet()
+
+            // Delete obsolete graph dirs (e.g. graph-italia-nord-ovest after migrating to graph-italia)
+            routingDir.listFiles()
+                ?.filter { it.isDirectory && it.name.startsWith("graph-") }
+                ?.forEach { dir ->
+                    val id = dir.name.removePrefix("graph-")
+                    if (id !in validRoutingIds) {
+                        DebugLog.log("routing: deleting obsolete graph dir ${dir.name}")
+                        dir.deleteRecursively()
+                    }
+                }
+
             val seen = mutableSetOf<String>()
             for (entry in AVAILABLE_REGIONS) {
                 val routingId = entry.routingCountryId ?: entry.id
