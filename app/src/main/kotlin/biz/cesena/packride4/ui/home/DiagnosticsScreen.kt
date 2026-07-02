@@ -70,7 +70,7 @@ suspend fun buildDiagnostics(
             ?: File(geocodingDir, "${region.id}.db").takeIf { it.exists() }
         val geocodingExists = geocodingFile?.exists() == true && geocodingFile.length() > 0
         val geocodingSizeMb = geocodingFile?.length()?.div(1024 * 1024) ?: 0L
-        val geocodingRecords = if (geocodingExists && geocodingFile != null) {
+        val geocodingRecords = if (geocodingExists) {
             try {
                 val db = SQLiteDatabase.openDatabase(geocodingFile.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
                 val cursor = db.rawQuery("SELECT COUNT(*) FROM places", null)
