@@ -2,6 +2,7 @@ package biz.cesena.packride4.ui.home
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import android.os.StatFs
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.HourglassEmpty
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +28,16 @@ import java.io.File
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 
+data class StorageSummary(
+    val tilesMb: Long,
+    val graphsMb: Long,
+    val geocodingMb: Long,
+    val freeSpaceMb: Long,
+    val totalSpaceMb: Long,
+) {
+    val usedByAppMb get() = tilesMb + graphsMb + geocodingMb
+}
+
 data class RegionDiagnostics(
     val region: RegionCatalogEntry,
     val tileFile: File,
@@ -35,19 +47,23 @@ data class RegionDiagnostics(
     val graphExists: Boolean,
     val graphLoaded: Boolean,
     val graphHasGraphHopper: Boolean,
+    val graphSizeMb: Long,
     val geocodingFile: File?,
     val geocodingExists: Boolean,
     val geocodingSizeMb: Long,
     val geocodingRecords: Long,
-    val geocodingDirFiles: List<String>,  // all .db files found, for debugging
+    val geocodingDirFiles: List<String>,
 )
 
-// ── ViewModel helper (suspend fn, called from LaunchedEffect) ─────────────────
+// ── ViewModel helper ──────────────────────────────────────────────────────────
+
+private fun dirSizeMb(dir: File): Long =
+    dir.walkTopDown().filter { it.isFile }.sumOf { it.length() } / 1024 / 1024
 
 suspend fun buildDiagnostics(
     context: Context,
     routingManager: RoutingManager,
-): List<RegionDiagnostics> = withContext(Dispatchers.IO) {
+): Pair<StorageSummary, List<RegionDiagnostics>> = withContext(Dispatchers.IO) {
     val mapsDir = File(context.filesDir, "maps")
     val routingDir = File(context.filesDir, "routing")
     val geocodingDir = File(context.filesDir, "geocoding")
@@ -55,7 +71,11 @@ suspend fun buildDiagnostics(
 
     val allDbFiles = geocodingDir.listFiles()?.filter { it.name.endsWith(".db") }?.map { it.name } ?: emptyList()
 
-    AVAILABLE_REGIONS.map { region ->
+    // Deduplicate shared graph dirs so we don't double-count
+    val seenRoutingIds = mutableSetOf<String>()
+    val seenGeocodingIds = mutableSetOf<String>()
+
+    val regions = AVAILABLE_REGIONS.map { region ->
         val tileFile = File(mapsDir, region.fileName)
         val tileExists = tileFile.exists() && tileFile.length() > 0
         val tileSizeMb = tileFile.length() / 1024 / 1024
@@ -64,19 +84,19 @@ suspend fun buildDiagnostics(
         val graphDir = File(routingDir, "graph-$routingId")
         val graphExists = graphDir.exists() && graphDir.isDirectory && graphDir.listFiles()?.isNotEmpty() == true
         val graphLoaded = routingId in loadedIds
-        // Check that the GraphHopper-specific metadata file is present
         val graphHasGraphHopper = File(graphDir, "properties").exists() ||
             graphDir.listFiles()?.any { it.name.endsWith(".properties") || it.name == "edges" } == true
+        val graphSizeMb = if (graphExists && seenRoutingIds.add(routingId)) dirSizeMb(graphDir) else 0L
 
-        // Geocoding DB: named after the country id (may differ from region id, e.g. "italia" covers all italian regions)
         val geocodingId = region.geocodingCountryId ?: region.id
         val geocodingFile: File? = File(geocodingDir, "geocoding-$geocodingId.db").takeIf { it.exists() }
             ?: geocodingDir.listFiles()?.firstOrNull { it.name.endsWith(".db") && it.name.contains(geocodingId) }
         val geocodingExists = geocodingFile?.exists() == true && geocodingFile.length() > 0
-        val geocodingSizeMb = geocodingFile?.length()?.div(1024 * 1024) ?: 0L
+        val geocodingSizeMb = if (geocodingExists && seenGeocodingIds.add(geocodingId))
+            (geocodingFile!!.length() / 1024 / 1024) else 0L
         val geocodingRecords = if (geocodingExists) {
             try {
-                val db = SQLiteDatabase.openDatabase(geocodingFile.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
+                val db = SQLiteDatabase.openDatabase(geocodingFile!!.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
                 val cursor = db.rawQuery("SELECT COUNT(*) FROM places", null)
                 val count = if (cursor.moveToFirst()) cursor.getLong(0) else 0L
                 cursor.close(); db.close(); count
@@ -85,11 +105,24 @@ suspend fun buildDiagnostics(
 
         RegionDiagnostics(
             region, tileFile, tileExists, tileSizeMb,
-            graphDir, graphExists, graphLoaded, graphHasGraphHopper,
+            graphDir, graphExists, graphLoaded, graphHasGraphHopper, graphSizeMb,
             geocodingFile, geocodingExists, geocodingSizeMb, geocodingRecords,
             geocodingDirFiles = allDbFiles,
         )
     }
+
+    // Storage summary
+    val tilesMb = regions.sumOf { it.tileSizeMb }
+    val graphsMb = regions.sumOf { it.graphSizeMb }
+    val geocodingMb = regions.sumOf { it.geocodingSizeMb }
+    val stat = StatFs(context.filesDir.absolutePath)
+    val freeSpaceMb = stat.availableBytes / 1024 / 1024
+    val totalSpaceMb = stat.totalBytes / 1024 / 1024
+
+    Pair(
+        StorageSummary(tilesMb, graphsMb, geocodingMb, freeSpaceMb, totalSpaceMb),
+        regions,
+    )
 }
 
 // ── UI ────────────────────────────────────────────────────────────────────────
@@ -101,12 +134,12 @@ fun DiagnosticsScreen(
     context: Context,
     onBack: () -> Unit,
 ) {
-    var diagnostics by remember { mutableStateOf<List<RegionDiagnostics>?>(null) }
+    var result by remember { mutableStateOf<Pair<StorageSummary, List<RegionDiagnostics>>?>(null) }
     var loading by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
         loading = true
-        diagnostics = buildDiagnostics(context, routingManager)
+        result = buildDiagnostics(context, routingManager)
         loading = false
     }
 
@@ -123,7 +156,7 @@ fun DiagnosticsScreen(
                     if (!loading) {
                         TextButton(onClick = {
                             loading = true
-                            diagnostics = null
+                            result = null
                         }) { Text("Aggiorna") }
                     }
                 }
@@ -137,26 +170,74 @@ fun DiagnosticsScreen(
                     Text("Verifica in corso…", style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            // Re-trigger after diagnostics cleared
             LaunchedEffect(loading) {
-                if (loading && diagnostics == null) {
-                    diagnostics = buildDiagnostics(context, routingManager)
+                if (loading && result == null) {
+                    result = buildDiagnostics(context, routingManager)
                     loading = false
                 }
             }
         } else {
+            val (storage, diagnostics) = result ?: return@Scaffold
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                items(diagnostics ?: emptyList()) { diag ->
-                    RegionCard(diag)
-                }
+                item { StorageCard(storage) }
+                items(diagnostics) { diag -> RegionCard(diag) }
             }
         }
     }
 }
+
+// ── Storage summary card ──────────────────────────────────────────────────────
+
+@Composable
+private fun StorageCard(s: StorageSummary) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.Storage, null, modifier = Modifier.size(20.dp))
+                Text("Spazio su disco", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            }
+            HorizontalDivider(thickness = 0.5.dp)
+
+            val usedPct = if (s.totalSpaceMb > 0) s.usedByAppMb * 100 / s.totalSpaceMb else 0L
+            LinearProgressIndicator(
+                progress = { if (s.totalSpaceMb > 0) s.usedByAppMb.toFloat() / s.totalSpaceMb else 0f },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("App: ${formatMb(s.usedByAppMb)} ($usedPct%)",
+                    style = MaterialTheme.typography.bodySmall)
+                Text("Libero: ${formatMb(s.freeSpaceMb)} / ${formatMb(s.totalSpaceMb)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (s.freeSpaceMb < 500) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            HorizontalDivider(thickness = 0.5.dp)
+            StorageRow("Mappe tiles", s.tilesMb)
+            StorageRow("Grafi routing", s.graphsMb)
+            StorageRow("DB geocoding", s.geocodingMb)
+        }
+    }
+}
+
+@Composable
+private fun StorageRow(label: String, mb: Long) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, style = MaterialTheme.typography.bodySmall)
+        Text(formatMb(mb), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+    }
+}
+
+private fun formatMb(mb: Long): String = when {
+    mb >= 1024 -> "${"%.1f".format(mb / 1024.0)} GB"
+    else -> "$mb MB"
+}
+
+// ── Region card ───────────────────────────────────────────────────────────────
 
 @Composable
 private fun RegionCard(diag: RegionDiagnostics) {
@@ -186,15 +267,13 @@ private fun RegionCard(diag: RegionDiagnostics) {
 
             HorizontalDivider(thickness = 0.5.dp)
 
-            // Tiles
             DiagRow(
                 label = "Mappa tiles",
                 ok = diag.tileExists,
-                detail = if (diag.tileExists) "${diag.tileSizeMb} MB  (${diag.tileFile.name})"
+                detail = if (diag.tileExists) "${formatMb(diag.tileSizeMb)}  (${diag.tileFile.name})"
                          else "NON TROVATA  (${diag.tileFile.absolutePath})",
             )
 
-            // Routing graph (only if available for this region)
             if (diag.region.routingGraphUrl != null) {
                 DiagRow(
                     label = "Grafo routing",
@@ -203,18 +282,18 @@ private fun RegionCard(diag: RegionDiagnostics) {
                         !diag.graphExists -> "NON TROVATO  (${diag.graphDir.absolutePath})"
                         !diag.graphHasGraphHopper -> "CARTELLA VUOTA o CORROTTA"
                         !diag.graphLoaded -> "Trovato ma NON CARICATO in memoria"
+                        diag.graphSizeMb > 0 -> "Caricato · ${formatMb(diag.graphSizeMb)}  (${diag.graphDir.name})"
                         else -> "Caricato  (${diag.graphDir.name})"
                     },
                     warning = diag.graphExists && diag.graphHasGraphHopper && !diag.graphLoaded,
                 )
             }
 
-            // Geocoding DB
             DiagRow(
                 label = "DB geocoding",
                 ok = diag.geocodingExists,
                 detail = if (diag.geocodingExists)
-                    "${diag.geocodingSizeMb} MB · ${diag.geocodingRecords.let { if (it >= 0) "$it record" else "errore lettura" }}  (${diag.geocodingFile?.name})"
+                    "${formatMb(diag.geocodingSizeMb)} · ${diag.geocodingRecords.let { if (it >= 0) "$it record" else "errore lettura" }}  (${diag.geocodingFile?.name})"
                 else if (diag.geocodingDirFiles.isEmpty())
                     "NON TROVATO — cartella geocoding vuota"
                 else
