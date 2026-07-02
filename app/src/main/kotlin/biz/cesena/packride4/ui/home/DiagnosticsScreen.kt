@@ -65,9 +65,8 @@ suspend fun buildDiagnostics(
             graphDir.listFiles()?.any { it.name.endsWith(".properties") || it.name == "edges" } == true
 
         // Geocoding DB: named after region id
-        val geocodingFile: File? = geocodingDir.listFiles()
-            ?.firstOrNull { it.name.startsWith(region.id) && it.name.endsWith(".db") }
-            ?: File(geocodingDir, "${region.id}.db").takeIf { it.exists() }
+        val geocodingFile: File? = File(geocodingDir, "geocoding-${region.id}.db").takeIf { it.exists() }
+            ?: geocodingDir.listFiles()?.firstOrNull { it.name.endsWith(".db") && it.name.contains(region.id) }
         val geocodingExists = geocodingFile?.exists() == true && geocodingFile.length() > 0
         val geocodingSizeMb = geocodingFile?.length()?.div(1024 * 1024) ?: 0L
         val geocodingRecords = if (geocodingExists) {
