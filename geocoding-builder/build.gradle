@@ -17,3 +17,14 @@ application {
     mainClass = 'BuildGeocodingDb'
     applicationDefaultJvmArgs = ['-Xmx5g']
 }
+
+tasks.register('analyzePois', JavaExec) {
+    group = 'application'
+    description = 'Scans an .osm.pbf and reports amenity/shop/tourism/leisure tag frequencies'
+    mainClass = 'AnalyzePois'
+    classpath = sourceSets.main.runtimeClasspath
+    jvmArgs = ['-Xmx5g']
+    if (project.hasProperty('pbf') && project.hasProperty('out')) {
+        args = [project.property('pbf'), project.property('out')]
+    }
+}
